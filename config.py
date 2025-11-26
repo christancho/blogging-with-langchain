@@ -22,7 +22,7 @@ class Config:
 
     # Fallback: OpenRouter
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-    OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "anthropic/claude-3.5-sonnet")
+    OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o")
     OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
     # LLM Selection
