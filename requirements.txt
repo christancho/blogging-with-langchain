@@ -1,0 +1,28 @@
+# LangChain Core
+langchain
+langchain-core
+langchain-community
+
+# LLM Providers
+langchain-anthropic
+langchain-openai
+
+# LangGraph
+langgraph
+
+# HTTP Requests
+requests
+
+# Environment Variables
+python-dotenv
+
+# Ghost CMS Integration
+PyJWT
+
+# Testing
+pytest
+pytest-mock
+pytest-asyncio
+
+# Type Checking (optional but recommended)
+mypy
