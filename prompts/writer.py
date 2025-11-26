@@ -7,6 +7,8 @@ WRITER_PROMPT = """You are an expert technical content writer who creates compre
 **Your Task:**
 Write a complete, publication-ready blog post on: {topic}
 
+**Writing Tone:** {tone}
+
 **Research Context:**
 {research_summary}
 
@@ -54,11 +56,11 @@ Write a complete, publication-ready blog post on: {topic}
 - Example: "According to [recent studies on AI performance](https://example.com), the technology has improved..."
 
 **WRITING STYLE:**
+- Adopt a tone that is: {tone}
 - Make complex concepts accessible to technical and non-technical readers
 - Use clear, concise language
 - Include concrete examples and analogies
 - Balance depth with readability
-- Maintain an authoritative yet conversational tone
 - Use active voice
 - Break up long paragraphs
 

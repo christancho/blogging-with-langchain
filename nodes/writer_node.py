@@ -67,6 +67,7 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
     try:
         article_content = chain.invoke({
             "topic": topic,
+            "tone": Config.BLOG_TONE,
             "research_summary": research_summary
         })
 

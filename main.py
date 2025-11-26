@@ -34,6 +34,12 @@ def main():
         action="store_true",
         help="Enable debug mode with verbose output"
     )
+    parser.add_argument(
+        "--tone",
+        type=str,
+        default=None,
+        help='Override the blog tone (e.g., "conversational and engaging", "technical and detailed")'
+    )
 
     args = parser.parse_args()
 
@@ -55,9 +61,14 @@ def main():
         print("\nOptions:")
         print("  --visualize    Generate a visualization of the workflow graph")
         print("  --debug        Enable debug mode")
+        print('  --tone         Override blog tone (e.g., "conversational and engaging")')
         sys.exit(1)
 
     topic = args.topic
+
+    # Override tone if provided via CLI
+    if args.tone:
+        Config.BLOG_TONE = args.tone
 
     # Print configuration info
     print("\n" + "="*80)
@@ -67,6 +78,7 @@ def main():
     print(f"Model: {Config.get_llm_config()['model']}")
     print(f"Target Word Count: {Config.WORD_COUNT_TARGET}")
     print(f"Min Inline Links: {Config.MIN_INLINE_LINKS}")
+    print(f"Blog Tone: {Config.BLOG_TONE}")
     print(f"Publish as Draft: {Config.PUBLISH_AS_DRAFT}")
 
     # Show LangSmith status

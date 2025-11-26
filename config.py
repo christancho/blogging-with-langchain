@@ -64,6 +64,9 @@ class Config:
     INCLUDE_INTRO = True
     INCLUDE_CONCLUSION = True
 
+    # Writing style and tone
+    BLOG_TONE = os.getenv("BLOG_TONE", "informative and insightful")
+
     # Links and references
     MIN_INLINE_LINKS = int(os.getenv("MIN_INLINE_LINKS", "10"))
     MAX_INLINE_LINKS = int(os.getenv("MAX_INLINE_LINKS", "15"))

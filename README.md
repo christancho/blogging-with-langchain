@@ -109,6 +109,29 @@ python main.py --visualize
 python main.py "Your topic" --debug
 ```
 
+### Customize Blog Tone
+
+Override the default tone for a specific blog post:
+
+```bash
+python main.py "Your topic" --tone "conversational and engaging"
+python main.py "Advanced Python Patterns" --tone "technical and detailed"
+python main.py "Getting Started with AI" --tone "educational and accessible"
+```
+
+**Available tone options:**
+- `informative and insightful` (default)
+- `conversational and engaging`
+- `authoritative and professional`
+- `technical and detailed`
+- `educational and accessible`
+- Or create your own custom tone description
+
+You can also set the default tone in your `.env` file:
+```env
+BLOG_TONE=conversational and engaging
+```
+
 ## Project Structure
 
 ```
@@ -205,6 +228,7 @@ All settings can be customized in `.env`:
 |----------|---------|-------------|
 | `WORD_COUNT_TARGET` | 3500 | Target word count for articles |
 | `NUM_SECTIONS` | 4 | Number of main content sections |
+| `BLOG_TONE` | informative and insightful | Writing tone and style |
 | `MIN_INLINE_LINKS` | 10 | Minimum inline citations required |
 | `TARGET_KEYWORD_DENSITY` | 1.5 | Target keyword density (%) |
 | `PUBLISH_AS_DRAFT` | true | Publish as draft or published |
