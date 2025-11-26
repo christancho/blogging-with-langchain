@@ -5,8 +5,8 @@ import json
 from typing import Dict, Any
 from langchain_anthropic import ChatAnthropic
 from langchain_openai import ChatOpenAI
-from langchain.agents import create_tool_calling_agent, AgentExecutor
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
 
 from state import BlogState
 from config import Config
@@ -54,30 +54,39 @@ def research_node(state: BlogState) -> Dict[str, Any]:
     llm = get_llm()
     search_tool = BraveSearchTool()
 
-    # Create agent
+    # Create research prompt
     prompt = ChatPromptTemplate.from_messages([
         ("system", RESEARCH_PROMPT),
-        ("human", "{input}"),
-        ("placeholder", "{agent_scratchpad}"),
+        ("human", "Research this topic: {topic}")
     ])
 
-    agent = create_tool_calling_agent(llm, [search_tool], prompt)
-    agent_executor = AgentExecutor(
-        agent=agent,
-        tools=[search_tool],
-        verbose=True,
-        max_iterations=10,
-        handle_parsing_errors=True
-    )
+    # Create chain
+    chain = prompt | llm | StrOutputParser()
 
     # Execute research
     try:
-        result = agent_executor.invoke({
-            "input": f"Research this topic: {topic}",
-            "topic": topic
-        })
+        # Get LLM to plan research queries
+        research_plan = chain.invoke({"topic": topic})
 
-        research_output = result.get("output", "")
+        # Execute searches based on the research plan
+        # For simplicity, we'll perform a few targeted searches
+        search_queries = [
+            topic,
+            f"{topic} latest developments",
+            f"{topic} best practices",
+            f"{topic} use cases"
+        ]
+
+        search_results = []
+        for query in search_queries[:5]:  # Limit to 5 searches
+            try:
+                result = search_tool._run(query)
+                search_results.append(result)
+            except Exception as e:
+                print(f"Search failed for '{query}': {e}")
+
+        # Combine search results with LLM research plan
+        research_output = research_plan + "\n\n" + "\n".join(search_results)
 
         # Extract sources from the output
         sources = extract_sources_from_text(research_output)
