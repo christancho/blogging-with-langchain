@@ -77,7 +77,7 @@ class GhostCMSTool(BaseTool):
                 "Content-Type": "application/json"
             }
 
-            api_endpoint = f"{self.api_url.rstrip('/')}/ghost/api/admin/posts/"
+            api_endpoint = f"{self.api_url.rstrip('/')}/ghost/api/admin/posts/?source=html"
 
             print(f"\n[Ghost CMS] Publishing to: {api_endpoint}")
             print(f"[Ghost CMS] Title: {title}")
