@@ -56,17 +56,18 @@ pip install -r requirements.txt
 Create a `.env` file in the project root:
 
 ```env
-# Primary LLM (Claude via Anthropic)
+# LLM Configuration (with automatic fallback)
+# The system tries Anthropic first, falls back to OpenRouter if it fails
+# At least one API key is required
+
+# Primary: Anthropic Claude (recommended)
 ANTHROPIC_API_KEY=your_anthropic_api_key
 CLAUDE_MODEL=claude-3-5-sonnet-20241022
 CLAUDE_TEMPERATURE=0.7
 
-# Fallback LLM (OpenRouter)
+# Fallback: OpenRouter (used if Anthropic fails)
 OPENROUTER_API_KEY=your_openrouter_api_key
-OPENROUTER_MODEL=anthropic/claude-3.5-sonnet
-
-# LLM Selection (true = Anthropic, false = OpenRouter)
-USE_PRIMARY_LLM=true
+OPENROUTER_MODEL=openai/gpt-4o
 
 # Brave Search API
 BRAVE_SEARCH_API_KEY=your_brave_search_api_key
@@ -318,10 +319,10 @@ Or simply remove/comment out the LangSmith variables.
 If you see configuration validation errors:
 ```
 Configuration validation failed:
-  - ANTHROPIC_API_KEY is required when using primary LLM
+  - At least one LLM API key is required (ANTHROPIC_API_KEY or OPENROUTER_API_KEY)
 ```
 
-Ensure your `.env` file has all required API keys.
+Ensure your `.env` file has at least one LLM API key configured.
 
 ### API Rate Limits
 

@@ -74,8 +74,14 @@ def main():
     print("\n" + "="*80)
     print("BLOG GENERATION SYSTEM")
     print("="*80)
-    print(f"LLM Provider: {Config.get_llm_config()['provider'].upper()}")
-    print(f"Model: {Config.get_llm_config()['model']}")
+
+    # Display LLM configuration
+    llm_info = Config.get_llm_info()
+    if "primary" in llm_info:
+        print(f"Primary LLM: {llm_info['primary']['provider']} ({llm_info['primary']['model']})")
+    if "fallback" in llm_info:
+        print(f"Fallback LLM: {llm_info['fallback']['provider']} ({llm_info['fallback']['model']})")
+
     print(f"Target Word Count: {Config.WORD_COUNT_TARGET}")
     print(f"Min Inline Links: {Config.MIN_INLINE_LINKS}")
     print(f"Blog Tone: {Config.BLOG_TONE}")

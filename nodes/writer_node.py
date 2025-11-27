@@ -2,33 +2,12 @@
 Writer node for creating blog content
 """
 from typing import Dict, Any
-from langchain_anthropic import ChatAnthropic
-from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
 from state import BlogState
 from config import Config
 from prompts import WRITER_PROMPT
-
-
-def get_llm():
-    """Get the configured LLM"""
-    llm_config = Config.get_llm_config()
-
-    if llm_config["provider"] == "anthropic":
-        return ChatAnthropic(
-            api_key=llm_config["api_key"],
-            model=llm_config["model"],
-            temperature=llm_config["temperature"],
-        )
-    else:  # openrouter
-        return ChatOpenAI(
-            api_key=llm_config["api_key"],
-            model=llm_config["model"],
-            base_url=llm_config["base_url"],
-            temperature=llm_config["temperature"],
-        )
 
 
 def writer_node(state: BlogState) -> Dict[str, Any]:
@@ -52,7 +31,7 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
     print(f"Research summary length: {len(research_summary)} characters")
 
     # Initialize LLM
-    llm = get_llm()
+    llm = Config.get_llm()
 
     # Create prompt
     prompt = ChatPromptTemplate.from_messages([

@@ -32,35 +32,58 @@ class TestConfig:
     @patch.dict(os.environ, {
         "ANTHROPIC_API_KEY": "test_key",
         "CLAUDE_MODEL": "claude-3-5-sonnet-20241022",
-        "USE_PRIMARY_LLM": "true"
     })
-    def test_get_llm_config_anthropic(self):
-        """Test LLM config for Anthropic"""
-        # Reload config to pick up env vars
+    def test_get_llm_info_anthropic_only(self):
+        """Test LLM info when only Anthropic is configured"""
         from importlib import reload
         import config
         reload(config)
 
-        llm_config = config.Config.get_llm_config()
+        llm_info = config.Config.get_llm_info()
 
-        assert llm_config["provider"] == "anthropic"
-        assert llm_config["model"] == "claude-3-5-sonnet-20241022"
+        assert "primary" in llm_info
+        assert llm_info["primary"]["provider"] == "Anthropic"
+        assert llm_info["primary"]["model"] == "claude-3-5-sonnet-20241022"
+        assert "fallback" not in llm_info
+
+    @patch.dict(os.environ, {
+        "ANTHROPIC_API_KEY": "test_anthropic_key",
+        "OPENROUTER_API_KEY": "test_openrouter_key",
+        "CLAUDE_MODEL": "claude-3-5-sonnet-20241022",
+        "OPENROUTER_MODEL": "openai/gpt-4o"
+    })
+    def test_get_llm_info_both_providers(self):
+        """Test LLM info when both providers are configured"""
+        from importlib import reload
+        import config
+        reload(config)
+
+        llm_info = config.Config.get_llm_info()
+
+        assert "primary" in llm_info
+        assert llm_info["primary"]["provider"] == "Anthropic"
+        assert llm_info["primary"]["model"] == "claude-3-5-sonnet-20241022"
+
+        assert "fallback" in llm_info
+        assert llm_info["fallback"]["provider"] == "OpenRouter"
+        assert llm_info["fallback"]["model"] == "openai/gpt-4o"
 
     @patch.dict(os.environ, {
         "OPENROUTER_API_KEY": "test_key",
-        "OPENROUTER_MODEL": "anthropic/claude-3.5-sonnet",
-        "USE_PRIMARY_LLM": "false"
+        "OPENROUTER_MODEL": "openai/gpt-4o",
     })
-    def test_get_llm_config_openrouter(self):
-        """Test LLM config for OpenRouter"""
+    def test_get_llm_info_openrouter_only(self):
+        """Test LLM info when only OpenRouter is configured"""
         from importlib import reload
         import config
         reload(config)
 
-        llm_config = config.Config.get_llm_config()
+        llm_info = config.Config.get_llm_info()
 
-        assert llm_config["provider"] == "openrouter"
-        assert llm_config["base_url"] == "https://openrouter.ai/api/v1"
+        assert "primary" in llm_info
+        assert llm_info["primary"]["provider"] == "OpenRouter"
+        assert llm_info["primary"]["model"] == "openai/gpt-4o"
+        assert "fallback" not in llm_info
 
     def test_default_tags(self):
         """Test default tags configuration"""
