@@ -61,9 +61,20 @@ def publisher_node(state: BlogState) -> Dict[str, Any]:
     # Publish to Ghost CMS
     ghost_tool = GhostCMSTool()
 
+    # Remove H1 title from content to avoid duplication in Ghost CMS
+    # (title is sent separately, content shouldn't include it)
+    import re
+    content_without_title = re.sub(
+        r'^#\s+.+?(?:\n\n|\n(?=#))',
+        '',
+        final_content,
+        count=1,
+        flags=re.MULTILINE
+    ).strip()
+
     post_data = {
         "title": seo_title,
-        "content": final_content,
+        "content": content_without_title,
         "meta_description": meta_description,
         "excerpt": excerpt,
         "tags": tags
