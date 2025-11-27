@@ -7,6 +7,9 @@ EDITOR_PROMPT = """You are a senior editorial supervisor with extensive experien
 **Your Task:**
 Review and edit the following article for writing quality, clarity, engagement, and publication readiness. Return the final, polished article.
 
+**Custom Instructions:**
+{instructions}
+
 **Article Content:**
 {article_content}
 

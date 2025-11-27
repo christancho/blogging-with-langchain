@@ -52,12 +52,13 @@ def create_blog_graph():
 blog_graph = create_blog_graph()
 
 
-def generate_blog_post(topic: str) -> dict:
+def generate_blog_post(topic: str, instructions: str = None) -> dict:
     """
     Generate a complete blog post on the given topic
 
     Args:
         topic: The blog topic to write about
+        instructions: Optional custom instructions for the article (e.g., style, audience, focus areas)
 
     Returns:
         Final state dictionary with all results
@@ -65,11 +66,14 @@ def generate_blog_post(topic: str) -> dict:
     print("\n" + "="*80)
     print(f"STARTING BLOG GENERATION WORKFLOW")
     print(f"Topic: {topic}")
+    if instructions:
+        print(f"Instructions: {instructions[:100]}..." if len(instructions) > 100 else f"Instructions: {instructions}")
     print("="*80)
 
     # Initialize state
     initial_state = {
         "topic": topic,
+        "instructions": instructions,
         "errors": [],
         "warnings": [],
         "workflow_version": "1.0.0"

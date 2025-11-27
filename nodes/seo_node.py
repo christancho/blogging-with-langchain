@@ -28,8 +28,10 @@ def seo_node(state: BlogState) -> Dict[str, Any]:
 
     article_title = state.get("article_title", "")
     article_content = state.get("article_content", "")
+    instructions = state.get("instructions", "") or "No specific instructions provided."
 
     print(f"Optimizing article: {article_title}")
+    print(f"Instructions: {instructions[:80]}..." if len(instructions) > 80 else f"Instructions: {instructions}")
 
     # Initialize LLM
     llm = Config.get_llm()
@@ -47,7 +49,8 @@ def seo_node(state: BlogState) -> Dict[str, Any]:
     try:
         seo_output = chain.invoke({
             "article_title": article_title,
-            "article_content": article_content
+            "article_content": article_content,
+            "instructions": instructions
         })
 
         # Parse SEO output

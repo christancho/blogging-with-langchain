@@ -7,6 +7,9 @@ SEO_PROMPT = """You are an SEO optimization specialist who enhances content for 
 **Your Task:**
 Optimize the following article for SEO:
 
+**Custom Instructions:**
+{instructions}
+
 **Article Title:** {article_title}
 
 **Article Content:**

@@ -16,6 +16,7 @@ class BlogState(TypedDict, total=False):
     # Input
     # ============================================================================
     topic: str  # The blog topic to write about
+    instructions: Optional[str]  # Custom instructions for this article (optional)
 
     # ============================================================================
     # Research Node Outputs
@@ -38,6 +39,7 @@ class BlogState(TypedDict, total=False):
     seo_metadata: Dict[str, Any]  # All SEO metadata
     seo_title: str  # Optimized title (50-60 chars)
     meta_description: str  # Meta description (150-160 chars)
+    excerpt: str  # Article excerpt for listing pages (200-250 chars)
     tags: List[str]  # SEO tags (5-8 tags)
     keywords: List[str]  # Primary keywords
     keyword_density: float  # Calculated keyword density

@@ -25,9 +25,11 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
     print("="*80)
 
     topic = state["topic"]
+    instructions = state.get("instructions", "") or "No specific instructions provided."
     research_summary = state.get("research_summary", "")
 
     print(f"Topic: {topic}")
+    print(f"Instructions: {instructions[:80]}..." if len(instructions) > 80 else f"Instructions: {instructions}")
     print(f"Research summary length: {len(research_summary)} characters")
 
     # Initialize LLM
@@ -47,6 +49,7 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
         article_content = chain.invoke({
             "topic": topic,
             "tone": Config.BLOG_TONE,
+            "instructions": instructions,
             "research_summary": research_summary
         })
 

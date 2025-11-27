@@ -9,6 +9,9 @@ Write a complete, publication-ready blog post on: {topic}
 
 **Writing Tone:** {tone}
 
+**Custom Instructions:**
+{instructions}
+
 **Research Context:**
 {research_summary}
 

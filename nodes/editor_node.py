@@ -27,8 +27,10 @@ def editor_node(state: BlogState) -> Dict[str, Any]:
     print("="*80)
 
     formatted_content = state.get("formatted_content", "")
+    instructions = state.get("instructions", "") or "No specific instructions provided."
 
     print(f"Reviewing and editing article for publication quality")
+    print(f"Instructions: {instructions[:80]}..." if len(instructions) > 80 else f"Instructions: {instructions}")
 
     # Analyze content with ContentAnalysisTool
     content_analyzer = ContentAnalysisTool()
@@ -73,7 +75,8 @@ def editor_node(state: BlogState) -> Dict[str, Any]:
 
         # Get LLM editorial review (which should return the edited article)
         edited_content = chain.invoke({
-            "article_content": formatted_content
+            "article_content": formatted_content,
+            "instructions": instructions
         })
 
         # Verify we got back actual content
