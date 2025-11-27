@@ -40,6 +40,13 @@ def main():
         default=None,
         help='Override the blog tone (e.g., "conversational and engaging", "technical and detailed")'
     )
+    parser.add_argument(
+        "--instructions",
+        "-i",
+        type=str,
+        default=None,
+        help='Custom instructions for the article (e.g., "Focus on examples for beginners", "Target C-level executives")'
+    )
 
     args = parser.parse_args()
 
@@ -62,6 +69,7 @@ def main():
         print("  --visualize    Generate a visualization of the workflow graph")
         print("  --debug        Enable debug mode")
         print('  --tone         Override blog tone (e.g., "conversational and engaging")')
+        print('  --instructions Custom instructions for the article (e.g., "Focus on practical examples")')
         sys.exit(1)
 
     topic = args.topic
@@ -104,11 +112,14 @@ def main():
         print("\nPlease check your .env file and ensure all required API keys are set.")
         sys.exit(1)
 
+    # Get instructions if provided
+    instructions = args.instructions
+
     # Generate the blog post
     start_time = datetime.now()
 
     try:
-        final_state = generate_blog_post(topic)
+        final_state = generate_blog_post(topic, instructions)
 
         end_time = datetime.now()
         duration = (end_time - start_time).total_seconds()

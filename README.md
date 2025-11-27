@@ -5,22 +5,31 @@ An automated blog post generation system built with LangGraph, LangChain, and Cl
 ## Features
 
 - **Automated Research**: Uses Brave Search API to gather current information
-- **AI-Powered Writing**: Generates comprehensive 3,500+ word articles
-- **SEO Optimization**: Automatically optimizes content for search engines
-- **Ghost CMS Integration**: Publishes directly to Ghost CMS as drafts
-- **Quality Assurance**: Built-in content quality checks and validation
+- **AI-Powered Writing**: Generates comprehensive 3,500+ word articles with compelling hooks and reader engagement techniques
+- **Custom Instructions**: Provide per-article instructions to guide the content direction
+- **SEO Optimization**: Automatically optimizes content for search engines with excerpt support
+- **Ghost CMS Integration**: Publishes directly to Ghost CMS with full metadata (title, excerpt, meta description, tags)
+- **Editorial Review**: Combined editor node performs both editorial refinement and quality validation
+- **Quality Assurance**: Built-in content quality checks, word count validation, and inline link verification
 - **Modular Architecture**: Clean, maintainable codebase using LangGraph
-- **LangSmith Tracing**: Optional integration for debugging and monitoring (optional)
+- **LangSmith Tracing**: Optional integration for debugging and monitoring
 
 ## Architecture
 
 The system uses a LangGraph state graph with 6 sequential nodes:
 
 ```
-Research → Writer → SEO → Formatter → Reviewer → Publisher
+Research → Writer → SEO → Formatter → Editor → Publisher
 ```
 
-Each node performs a specific task and updates the shared state.
+Each node performs a specific task and updates the shared state:
+
+- **Research**: Gathers information via web search
+- **Writer**: Generates comprehensive article with hooks and engagement techniques
+- **SEO**: Optimizes for search engines (title, description, excerpt, keywords, tags)
+- **Formatter**: Formats content for publication
+- **Editor**: Performs editorial refinement and quality validation
+- **Publisher**: Publishes to Ghost CMS with complete metadata
 
 ## Prerequisites
 
@@ -98,18 +107,6 @@ python main.py "Introduction to LangGraph and LangChain"
 python main.py "Best Practices for Python Web Development"
 ```
 
-### Visualize the Workflow
-
-```bash
-python main.py --visualize
-```
-
-### Enable Debug Mode
-
-```bash
-python main.py "Your topic" --debug
-```
-
 ### Customize Blog Tone
 
 Override the default tone for a specific blog post:
@@ -128,10 +125,41 @@ python main.py "Getting Started with AI" --tone "educational and accessible"
 - `educational and accessible`
 - Or create your own custom tone description
 
-You can also set the default tone in your `.env` file:
+Set the default tone in your `.env` file:
 ```env
 BLOG_TONE=conversational and engaging
 ```
+
+### Add Custom Instructions
+
+Provide additional guidance for the article generation:
+
+```bash
+python main.py "Machine Learning Basics" --instructions "Focus on practical Python examples for beginners"
+python main.py "Advanced Python" -i "Target experienced developers, include performance considerations"
+python main.py "Web Development" --instructions "Emphasize security best practices throughout"
+```
+
+Custom instructions are passed to multiple nodes:
+- **Writer**: Influences article structure, focus, and tone
+- **SEO**: Guides keyword selection and optimization strategy
+- **Editor**: Informs editorial feedback and quality checks
+
+### Visualize the Workflow
+
+```bash
+python main.py --visualize
+```
+
+This generates a visualization of the workflow graph showing all nodes and their connections.
+
+### Enable Debug Mode
+
+```bash
+python main.py "Your topic" --debug
+```
+
+Displays detailed error traces and debugging information during execution.
 
 ## Project Structure
 
@@ -153,14 +181,16 @@ blogging-with-langchain/
 │   ├── writer.py
 │   ├── seo.py
 │   ├── formatter.py
-│   └── reviewer.py
+│   ├── editor.py          # Editorial supervisor prompt
+│   └── __init__.py
 ├── nodes/                 # LangGraph node functions
 │   ├── research_node.py
 │   ├── writer_node.py
 │   ├── seo_node.py
 │   ├── formatter_node.py
-│   ├── reviewer_node.py
-│   └── publisher_node.py
+│   ├── editor_node.py     # Combined editorial review
+│   ├── publisher_node.py
+│   └── __init__.py
 ├── tests/                 # Unit tests
 │   ├── test_tools.py
 │   └── test_config.py
@@ -175,34 +205,67 @@ blogging-with-langchain/
 ### 1. Research Node
 - Performs 5-7 web searches using Brave Search API
 - Collects 5-10 credible sources
-- Generates research summary
+- Generates research summary with source information
 
 ### 2. Writer Node
 - Creates comprehensive 3,500+ word article
-- Structured with intro, 4 main sections, conclusion
-- Includes 10-15 inline citations from research
+- **Structured with:** Introduction, 4 main sections, Conclusion
+- **Hook techniques included:**
+  - Surprising statistics or facts
+  - Thought-provoking questions
+  - Relatable problems
+  - Bold statements
+  - Real-world scenarios
+- **Engagement strategies:**
+  - Strategic bolding of key insights
+  - Mini-stories and real-world examples
+  - Metaphors and analogies
+  - Rhetorical questions
+  - Short, scannable paragraphs (2-4 sentences max)
+- **Features:** 10-15 inline citations from research
+- **Custom instructions:** Applied to influence article direction and focus
 
 ### 3. SEO Node
 - Generates SEO-optimized title (50-60 chars)
 - Creates meta description (150-160 chars)
+- **Generates article excerpt** (200-250 chars for listing pages)
 - Extracts 5-8 relevant tags
-- Identifies primary keywords
+- Identifies 3-5 primary keywords
+- Calculates keyword density (targets 1.5-2%)
+- **Custom instructions:** Guides keyword selection and optimization strategy
 
 ### 4. Formatter Node
 - Formats content for Ghost CMS
 - Ensures proper Markdown syntax
 - Fixes heading hierarchy
-- Normalizes spacing
+- Normalizes spacing and line breaks
 
-### 5. Reviewer Node
-- Validates content quality
-- Checks word count, links, structure
-- Calculates quality score
-- Returns final approved content
+### 5. Editor Node (Combined Role)
+**Part 1 - Editorial Refinement:**
+- Improves clarity and flow
+- Enhances readability and engagement
+- Validates writing style consistency
+- Optimizes paragraph structure
+- Verifies technical accuracy
+
+**Part 2 - Quality Validation:**
+- Checks word count compliance
+- Validates inline link count
+- Verifies article structure
+- Assesses content completeness
+- Validates SEO elements
+- **Custom instructions:** Informs editorial feedback and quality standards
 
 ### 6. Publisher Node
-- Saves article to local `output/` directory
-- Publishes to Ghost CMS as draft (or published)
+- Saves article to local `output/` directory with timestamp
+- Removes H1 title from content (sent separately to avoid duplication)
+- Publishes to Ghost CMS with complete metadata:
+  - Title (SEO-optimized)
+  - Content (formatted)
+  - Meta description
+  - **Excerpt** (for listing pages)
+  - Tags
+- Publishes as draft or published based on `PUBLISH_AS_DRAFT` setting
 - Returns post ID and URL
 
 ## Running Tests
@@ -278,29 +341,29 @@ Each blog generation run will show:
 
 - **Research Node**: All web searches and sources gathered
 - **Writer Node**: LLM prompt and full article generation
-- **SEO Node**: SEO analysis and optimization
+- **SEO Node**: SEO analysis, optimization, and excerpt generation
 - **Formatter Node**: Content formatting transformations
-- **Reviewer Node**: Quality checks and final approval
+- **Editor Node**: Editorial refinement and quality validation (combined role)
 - **Publisher Node**: Ghost CMS API calls
 
 ### Example Trace View
 
 ```
-Blog Generation Run (3m 42s)
+Blog Generation Run (3m 45s)
 ├── research_node (45s)
 │   ├── BraveSearchTool: "AI trends" (3s)
 │   ├── BraveSearchTool: "machine learning 2024" (2s)
 │   └── LLM Call: Research summary (40s)
 ├── writer_node (2m 15s)
 │   └── LLM Call: Generate 3500 word article (2m 15s)
-├── seo_node (18s)
-│   └── LLM Call: SEO optimization (18s)
+├── seo_node (20s)
+│   └── LLM Call: SEO optimization + excerpt generation (20s)
 ├── formatter_node (5s)
 │   └── LLM Call: Format for Ghost CMS (5s)
-├── reviewer_node (12s)
-│   └── ContentAnalysisTool + LLM Call (12s)
+├── editor_node (15s)
+│   └── LLM Call: Editorial refinement + quality validation (15s)
 └── publisher_node (7s)
-    └── GhostCMSTool: Publish to CMS (7s)
+    └── GhostCMSTool: Publish with excerpt to CMS (7s)
 ```
 
 ### Disable LangSmith
