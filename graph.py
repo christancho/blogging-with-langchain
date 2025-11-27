@@ -8,7 +8,7 @@ from nodes import (
     writer_node,
     seo_node,
     formatter_node,
-    reviewer_node,
+    editor_node,
     publisher_node
 )
 
@@ -28,15 +28,15 @@ def create_blog_graph():
     workflow.add_node("writer", writer_node)
     workflow.add_node("seo", seo_node)
     workflow.add_node("formatter", formatter_node)
-    workflow.add_node("reviewer", reviewer_node)
+    workflow.add_node("editor", editor_node)
     workflow.add_node("publisher", publisher_node)
 
     # Define the workflow edges (sequential for now)
     workflow.add_edge("research", "writer")
     workflow.add_edge("writer", "seo")
     workflow.add_edge("seo", "formatter")
-    workflow.add_edge("formatter", "reviewer")
-    workflow.add_edge("reviewer", "publisher")
+    workflow.add_edge("formatter", "editor")
+    workflow.add_edge("editor", "publisher")
     workflow.add_edge("publisher", END)
 
     # Set the entry point
