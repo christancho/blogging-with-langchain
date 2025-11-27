@@ -26,19 +26,26 @@ Optimize the following article for SEO:
    - Describes the value readers will get
    - 150-160 characters (optimal for search results)
 
-3. **Keywords**
+3. **Excerpt** (200-250 characters)
+   - Preview text displayed on article listing pages
+   - Engaging and compelling (encourages readers to click through)
+   - Summarizes the main topic or key benefit
+   - 200-250 characters (slightly longer than meta description for richer preview)
+   - Should intrigue readers about the article content
+
+4. **Keywords**
    - Identify 3-5 primary keywords/phrases
    - Ensure natural integration in content
    - Target keyword density: 1.5-2%
    - Include long-tail keyword variations
 
-4. **Tags** (5-8 tags)
+5. **Tags** (5-8 tags)
    - Relevant, searchable tags
    - Mix of broad and specific tags
    - Lowercase, hyphen-separated format
    - Examples: "artificial-intelligence", "machine-learning", "python"
 
-5. **Content Enhancements**
+6. **Content Enhancements**
    - Verify keyword placement in:
      * Title
      * First paragraph
@@ -54,6 +61,8 @@ Optimize the following article for SEO:
 SEO_TITLE: [Your optimized title here]
 
 META_DESCRIPTION: [Your meta description here]
+
+EXCERPT: [Your article excerpt for listing pages here]
 
 PRIMARY_KEYWORDS:
 - keyword 1

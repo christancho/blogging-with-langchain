@@ -56,6 +56,7 @@ def seo_node(state: BlogState) -> Dict[str, Any]:
         print(f"\n✓ SEO optimization completed")
         print(f"  - SEO Title: {seo_data['seo_title']}")
         print(f"  - Meta description length: {len(seo_data['meta_description'])} chars")
+        print(f"  - Excerpt length: {len(seo_data['excerpt'])} chars")
         print(f"  - Tags: {len(seo_data['tags'])}")
         print(f"  - Keywords: {len(seo_data['keywords'])}")
 
@@ -63,6 +64,7 @@ def seo_node(state: BlogState) -> Dict[str, Any]:
             "seo_metadata": seo_data,
             "seo_title": seo_data["seo_title"],
             "meta_description": seo_data["meta_description"],
+            "excerpt": seo_data["excerpt"],
             "tags": seo_data["tags"],
             "keywords": seo_data["keywords"],
             "keyword_density": seo_data.get("keyword_density", 0.0)
@@ -71,10 +73,12 @@ def seo_node(state: BlogState) -> Dict[str, Any]:
     except Exception as e:
         print(f"\n✗ SEO optimization failed: {str(e)}")
         # Provide fallback SEO data
+        fallback_excerpt = article_content[:250] if len(article_content) > 250 else article_content
         return {
             "seo_metadata": {},
             "seo_title": article_title[:60],
             "meta_description": article_content[:160],
+            "excerpt": fallback_excerpt,
             "tags": Config.DEFAULT_TAGS,
             "keywords": [],
             "keyword_density": 0.0,
@@ -95,6 +99,7 @@ def parse_seo_output(seo_output: str) -> Dict[str, Any]:
     seo_data = {
         "seo_title": "",
         "meta_description": "",
+        "excerpt": "",
         "keywords": [],
         "tags": [],
         "keyword_density": 0.0,
@@ -107,9 +112,14 @@ def parse_seo_output(seo_output: str) -> Dict[str, Any]:
         seo_data["seo_title"] = title_match.group(1).strip()
 
     # Extract meta description
-    desc_match = re.search(r'META_DESCRIPTION:\s*(.+?)(?:\n\n|$)', seo_output, re.IGNORECASE | re.DOTALL)
+    desc_match = re.search(r'META_DESCRIPTION:\s*(.+?)(?:\n\n|\nEXCERPT|$)', seo_output, re.IGNORECASE | re.DOTALL)
     if desc_match:
         seo_data["meta_description"] = desc_match.group(1).strip()
+
+    # Extract excerpt
+    excerpt_match = re.search(r'EXCERPT:\s*(.+?)(?:\n\n|PRIMARY_KEYWORDS|$)', seo_output, re.IGNORECASE | re.DOTALL)
+    if excerpt_match:
+        seo_data["excerpt"] = excerpt_match.group(1).strip()
 
     # Extract keywords
     keywords_section = re.search(

@@ -22,6 +22,7 @@ class GhostCMSTool(BaseTool):
     - title: Post title
     - content: Full post content (Markdown or HTML)
     - meta_description: SEO meta description
+    - excerpt: Article excerpt for listing pages (optional)
     - tags: List of tags
     Returns the published post ID and URL.
     """
@@ -48,6 +49,7 @@ class GhostCMSTool(BaseTool):
             title = data.get("title", "Untitled Post")
             content = data.get("content", "")
             meta_description = data.get("meta_description", "")
+            excerpt = data.get("excerpt", "")
             tags = data.get("tags", Config.DEFAULT_TAGS)
 
             # Convert Markdown to HTML if needed
@@ -62,6 +64,7 @@ class GhostCMSTool(BaseTool):
                     "title": title,
                     "html": html_content,
                     "meta_description": meta_description,
+                    "excerpt": excerpt,
                     "tags": [{"name": tag} for tag in tags],
                     "status": "draft" if Config.PUBLISH_AS_DRAFT else "published"
                 }]

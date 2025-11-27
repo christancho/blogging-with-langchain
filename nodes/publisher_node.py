@@ -27,10 +27,12 @@ def publisher_node(state: BlogState) -> Dict[str, Any]:
     final_content = state.get("final_content", "")
     seo_title = state.get("seo_title", state.get("article_title", ""))
     meta_description = state.get("meta_description", "")
+    excerpt = state.get("excerpt", "")
     tags = state.get("tags", Config.DEFAULT_TAGS)
 
     print(f"Publishing to Ghost CMS")
     print(f"  - Title: {seo_title}")
+    print(f"  - Excerpt: {excerpt[:80]}..." if excerpt else "  - Excerpt: (empty)")
     print(f"  - Tags: {tags}")
     print(f"  - Status: {'draft' if Config.PUBLISH_AS_DRAFT else 'published'}")
 
@@ -63,6 +65,7 @@ def publisher_node(state: BlogState) -> Dict[str, Any]:
         "title": seo_title,
         "content": final_content,
         "meta_description": meta_description,
+        "excerpt": excerpt,
         "tags": tags
     }
 
