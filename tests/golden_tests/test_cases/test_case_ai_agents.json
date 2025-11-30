@@ -1,0 +1,137 @@
+{
+  "id": "ai_agents_expert",
+  "topic": "Building Reliable AI Agents with LangChain in Production",
+  "audience": "Senior/Expert developers",
+  "difficulty": "high",
+  "custom_instructions": "Include enterprise considerations, error handling patterns, and real-world challenges. Discuss tradeoffs and limitations. Reference LangChain documentation and LangGraph.",
+  "expected_metrics": {
+    "word_count": {
+      "minimum": 3500,
+      "target": 3900,
+      "tolerance": 200
+    },
+    "h1_count": {
+      "expected": 1
+    },
+    "h2_sections": {
+      "minimum": 4,
+      "target": 4
+    },
+    "links": {
+      "minimum": 10,
+      "target": 13,
+      "tolerance": 3
+    },
+    "quality_score": {
+      "minimum": 0.75,
+      "target": 0.85
+    }
+  },
+  "expected_structure": {
+    "introduction": {
+      "title": "Introduction to Production AI Agents",
+      "word_count_range": [350, 400],
+      "must_include": [
+        "challenge of production AI systems",
+        "why LangChain matters",
+        "architectural overview"
+      ]
+    },
+    "section_1": {
+      "title": "LangChain Architecture and Components",
+      "word_count_range": [750, 850],
+      "must_include": [
+        "LLM chains overview",
+        "tools and agent concepts",
+        "LangGraph orchestration",
+        "component interactions",
+        "at least 3 links to LangChain/LangGraph documentation"
+      ]
+    },
+    "section_2": {
+      "title": "Building and Testing Agents in Production",
+      "word_count_range": [750, 850],
+      "must_include": [
+        "error handling patterns",
+        "retry strategies",
+        "testing agent behavior",
+        "monitoring and observability",
+        "LangSmith reference",
+        "at least 3 links to tools and examples"
+      ]
+    },
+    "section_3": {
+      "title": "Real-World Patterns and Pitfalls",
+      "word_count_range": [750, 850],
+      "must_include": [
+        "common failure modes",
+        "token limits and context management",
+        "cost optimization strategies",
+        "performance considerations",
+        "at least 2 links to real-world examples or papers"
+      ]
+    },
+    "section_4": {
+      "title": "Future Directions and Scaling",
+      "word_count_range": [750, 850],
+      "must_include": [
+        "multi-agent systems",
+        "tool use evolution",
+        "framework landscape analysis",
+        "emerging patterns",
+        "at least 2 links to emerging tools or research"
+      ]
+    },
+    "conclusion": {
+      "title": "Conclusion",
+      "word_count_range": [300, 400],
+      "must_include": [
+        "production readiness checklist",
+        "key lessons learned",
+        "resources for deeper learning"
+      ]
+    }
+  },
+  "validation_criteria": {
+    "tone": "Expert-level, technical depth, acknowledges tradeoffs and limitations",
+    "technical_depth": {
+      "required": true,
+      "should_discuss": [
+        "error handling",
+        "cost implications",
+        "latency considerations",
+        "token management",
+        "scaling challenges"
+      ]
+    },
+    "code_examples": {
+      "required": true,
+      "minimum_count": 4,
+      "should_include": [
+        "agent setup",
+        "error handling pattern",
+        "tool definition",
+        "monitoring setup"
+      ]
+    },
+    "links": {
+      "minimum": 12,
+      "expected_sources": [
+        "LangChain documentation",
+        "LangGraph documentation",
+        "LangSmith observability tool",
+        "Technical papers or research",
+        "GitHub repositories",
+        "Enterprise AI patterns",
+        "Tool integrations"
+      ]
+    },
+    "readability": {
+      "target_sentence_length": "15-20 words",
+      "allow_technical_complexity": true,
+      "should_explain": "complex concepts with examples"
+    }
+  },
+  "notes": "This is an advanced/emerging topic. The agent should find relevant LangChain documentation, GitHub examples, and industry resources. Expect discussions of tradeoffs and limitations. This tests whether the generator can handle sophisticated technical content.",
+  "created_date": "2024-11-27"
+}

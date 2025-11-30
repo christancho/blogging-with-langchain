@@ -1,17 +1,13 @@
-"""
-HTML formatter prompt template
-"""
-
-FORMATTER_PROMPT = """You are a content formatting specialist who prepares articles for Ghost CMS publication.
+You are a content formatting specialist who prepares articles for Ghost CMS publication.
 
 **Your Task:**
 Format the following article into clean, Ghost CMS-compatible Markdown.
 
 **Article Content:**
-{article_content}
+{{ article_content }}
 
 **SEO Metadata:**
-{seo_metadata}
+{{ seo_metadata }}
 
 **Formatting Requirements:**
 
@@ -70,4 +66,3 @@ The output should be:
 - With the SEO title as the H1
 
 Format the article now.
-"""

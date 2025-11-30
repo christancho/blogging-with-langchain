@@ -1,0 +1,115 @@
+{
+  "id": "rest_apis_intermediate",
+  "topic": "Understanding REST APIs: A Comprehensive Guide",
+  "audience": "Intermediate developers",
+  "difficulty": "medium",
+  "custom_instructions": "Focus on practical examples and real-world use cases. Include references to popular REST APIs and tools like Postman.",
+  "expected_metrics": {
+    "word_count": {
+      "minimum": 3500,
+      "target": 3700,
+      "tolerance": 200
+    },
+    "h1_count": {
+      "expected": 1
+    },
+    "h2_sections": {
+      "minimum": 4,
+      "target": 4
+    },
+    "links": {
+      "minimum": 10,
+      "target": 12,
+      "tolerance": 3
+    },
+    "quality_score": {
+      "minimum": 0.70,
+      "target": 0.80
+    }
+  },
+  "expected_structure": {
+    "introduction": {
+      "title": "Introduction to REST APIs",
+      "word_count_range": [350, 400],
+      "must_include": [
+        "importance of REST in modern development",
+        "what you'll learn"
+      ]
+    },
+    "section_1": {
+      "title": "REST Fundamentals and HTTP Methods",
+      "word_count_range": [700, 800],
+      "must_include": [
+        "HTTP methods (GET, POST, PUT, DELETE)",
+        "status codes",
+        "example requests",
+        "at least 2 links to API documentation"
+      ]
+    },
+    "section_2": {
+      "title": "Designing Scalable APIs",
+      "word_count_range": [700, 800],
+      "must_include": [
+        "request/response patterns",
+        "pagination and filtering",
+        "best practices",
+        "at least 2 links to examples"
+      ]
+    },
+    "section_3": {
+      "title": "Authentication and Security",
+      "word_count_range": [700, 800],
+      "must_include": [
+        "API keys",
+        "OAuth overview",
+        "rate limiting",
+        "security headers",
+        "at least 2 links to security guides"
+      ]
+    },
+    "section_4": {
+      "title": "Testing and Documentation",
+      "word_count_range": [700, 800],
+      "must_include": [
+        "testing strategies",
+        "OpenAPI/Swagger",
+        "documentation tools",
+        "at least 2 links to tools (Postman, Swagger, etc.)"
+      ]
+    },
+    "conclusion": {
+      "title": "Conclusion",
+      "word_count_range": [300, 400],
+      "must_include": [
+        "key takeaways",
+        "next steps",
+        "call-to-action"
+      ]
+    }
+  },
+  "validation_criteria": {
+    "tone": "Professional, practical, accessible to intermediate level",
+    "code_examples": {
+      "required": true,
+      "minimum_count": 3,
+      "should_include": ["HTTP methods", "request/response", "authentication"]
+    },
+    "links": {
+      "minimum": 10,
+      "expected_sources": [
+        "API documentation",
+        "Postman/Swagger tools",
+        "HTTP reference guides",
+        "OAuth resources",
+        "REST best practices guides"
+      ]
+    },
+    "readability": {
+      "target_sentence_length": "15-20 words",
+      "target_word_length": "5-6 characters average",
+      "avoid": "overly technical jargon without explanation"
+    }
+  },
+  "notes": "This is a foundational technical topic with well-documented resources. The agent should easily find 12+ quality links. Focus on practical examples that developers can apply immediately.",
+  "created_date": "2024-11-27"
+}

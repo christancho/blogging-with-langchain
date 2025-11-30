@@ -7,11 +7,10 @@ Usage:
 """
 import sys
 import argparse
-from datetime import datetime
 
+from datetime import datetime
 from graph import generate_blog_post, visualize_graph
 from config import Config
-
 
 def main():
     """Main entry point"""

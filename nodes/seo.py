@@ -8,7 +8,7 @@ from langchain_core.output_parsers import StrOutputParser
 
 from state import BlogState
 from config import Config
-from prompts import SEO_PROMPT
+from nodes.prompt_loader import PromptLoader
 from tools import TagExtractionTool
 
 
@@ -37,8 +37,15 @@ def seo_node(state: BlogState) -> Dict[str, Any]:
     llm = Config.get_llm()
 
     # Create prompt
+    seo_template = PromptLoader.load("seo")
+    seo_prompt = seo_template.render(
+        article_title=article_title,
+        article_content=article_content,
+        instructions=instructions
+    )
+
     prompt = ChatPromptTemplate.from_messages([
-        ("system", SEO_PROMPT),
+        ("system", seo_prompt),
         ("human", "Perform SEO optimization now.")
     ])
 
@@ -47,11 +54,7 @@ def seo_node(state: BlogState) -> Dict[str, Any]:
 
     # Generate SEO metadata
     try:
-        seo_output = chain.invoke({
-            "article_title": article_title,
-            "article_content": article_content,
-            "instructions": instructions
-        })
+        seo_output = chain.invoke({})
 
         # Parse SEO output
         seo_data = parse_seo_output(seo_output)

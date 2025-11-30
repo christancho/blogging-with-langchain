@@ -9,7 +9,7 @@ from langchain_core.output_parsers import StrOutputParser
 from state import BlogState
 from config import Config
 from tools import BraveSearchTool
-from prompts import RESEARCH_PROMPT
+from nodes.prompt_loader import PromptLoader
 
 
 def research_node(state: BlogState) -> Dict[str, Any]:
@@ -34,8 +34,11 @@ def research_node(state: BlogState) -> Dict[str, Any]:
     search_tool = BraveSearchTool()
 
     # Create research prompt
+    research_template = PromptLoader.load("research")
+    research_prompt = research_template.render(topic=topic)
+
     prompt = ChatPromptTemplate.from_messages([
-        ("system", RESEARCH_PROMPT),
+        ("system", research_prompt),
         ("human", "Research this topic: {topic}")
     ])
 

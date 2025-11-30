@@ -3,14 +3,7 @@ LangGraph state graph for blog generation workflow
 """
 from langgraph.graph import StateGraph, END
 from state import BlogState
-from nodes import (
-    research_node,
-    writer_node,
-    seo_node,
-    formatter_node,
-    editor_node,
-    publisher_node
-)
+from nodes import research_node, writer_node, seo_node, formatter_node, editor_node, publisher_node
 
 
 def create_blog_graph():

@@ -7,7 +7,7 @@ from langchain_core.output_parsers import StrOutputParser
 
 from state import BlogState
 from config import Config
-from prompts import WRITER_PROMPT
+from nodes.prompt_loader import PromptLoader
 
 
 def writer_node(state: BlogState) -> Dict[str, Any]:
@@ -36,8 +36,16 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
     llm = Config.get_llm()
 
     # Create prompt
+    writer_template = PromptLoader.load("writer")
+    writer_prompt = writer_template.render(
+        topic=topic,
+        tone=Config.BLOG_TONE,
+        instructions=instructions,
+        research_summary=research_summary
+    )
+
     prompt = ChatPromptTemplate.from_messages([
-        ("system", WRITER_PROMPT),
+        ("system", writer_prompt),
         ("human", "Write the article now.")
     ])
 
@@ -46,12 +54,7 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
 
     # Generate article
     try:
-        article_content = chain.invoke({
-            "topic": topic,
-            "tone": Config.BLOG_TONE,
-            "instructions": instructions,
-            "research_summary": research_summary
-        })
+        article_content = chain.invoke({})
 
         # Extract inline links
         import re

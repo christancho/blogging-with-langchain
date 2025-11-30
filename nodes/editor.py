@@ -8,7 +8,7 @@ from langchain_core.output_parsers import StrOutputParser
 
 from state import BlogState
 from config import Config
-from prompts import EDITOR_PROMPT
+from nodes.prompt_loader import PromptLoader
 from tools import ContentAnalysisTool
 
 
@@ -63,8 +63,14 @@ def editor_node(state: BlogState) -> Dict[str, Any]:
     # Use LLM for editorial refinement and quality review
     llm = Config.get_llm()
 
+    editor_template = PromptLoader.load("editor")
+    editor_prompt = editor_template.render(
+        article_content=formatted_content,
+        instructions=instructions
+    )
+
     prompt = ChatPromptTemplate.from_messages([
-        ("system", EDITOR_PROMPT),
+        ("system", editor_prompt),
         ("human", "Review, edit, and refine this article for publication.")
     ])
 
@@ -74,10 +80,7 @@ def editor_node(state: BlogState) -> Dict[str, Any]:
         print(f"\n🔄 Performing editorial review and refinement...")
 
         # Get LLM editorial review (which should return the edited article)
-        edited_content = chain.invoke({
-            "article_content": formatted_content,
-            "instructions": instructions
-        })
+        edited_content = chain.invoke({})
 
         # Verify we got back actual content
         word_count_edited = len(edited_content.split())

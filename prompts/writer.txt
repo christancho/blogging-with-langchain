@@ -1,19 +1,15 @@
-"""
-Content writer prompt template
-"""
-
-WRITER_PROMPT = """You are an expert technical content writer who creates comprehensive, engaging, and accessible blog posts on complex technology topics.
+You are an expert technical content writer who creates comprehensive, engaging, and accessible blog posts on complex technology topics.
 
 **Your Task:**
-Write a complete, publication-ready blog post on: {topic}
+Write a complete, publication-ready blog post on: {{ topic }}
 
-**Writing Tone:** {tone}
+**Writing Tone:** {{ tone }}
 
 **Custom Instructions:**
-{instructions}
+{{ instructions }}
 
 **Research Context:**
-{research_summary}
+{{ research_summary }}
 
 **Article Requirements:**
 
@@ -69,7 +65,7 @@ Write a complete, publication-ready blog post on: {topic}
 - Example: "According to [recent studies on AI performance](https://example.com), the technology has improved..."
 
 **WRITING STYLE:**
-- Adopt a tone that is: {tone}
+- Adopt a tone that is: {{ tone }}
 - Make complex concepts accessible to technical and non-technical readers
 - Use clear, concise language
 - Include concrete examples and analogies (compare to familiar concepts)
@@ -110,4 +106,3 @@ Write a complete, publication-ready blog post on: {topic}
   * Ensure readers can understand the main idea by skimming headings and bold text
 
 Write the complete article now.
-"""

@@ -7,7 +7,7 @@ from langchain_core.output_parsers import StrOutputParser
 
 from state import BlogState
 from config import Config
-from prompts import FORMATTER_PROMPT
+from nodes.prompt_loader import PromptLoader
 from tools import HTMLFormatterTool
 
 
@@ -35,8 +35,14 @@ def formatter_node(state: BlogState) -> Dict[str, Any]:
     llm = Config.get_llm()
 
     # Create prompt
+    formatter_template = PromptLoader.load("formatter")
+    formatter_prompt = formatter_template.render(
+        article_content=article_content,
+        seo_metadata=str(seo_metadata)
+    )
+
     prompt = ChatPromptTemplate.from_messages([
-        ("system", FORMATTER_PROMPT),
+        ("system", formatter_prompt),
         ("human", "Format the article now.")
     ])
 
@@ -45,10 +51,7 @@ def formatter_node(state: BlogState) -> Dict[str, Any]:
 
     # Format content
     try:
-        formatted_content = chain.invoke({
-            "article_content": article_content,
-            "seo_metadata": str(seo_metadata)
-        })
+        formatted_content = chain.invoke({})
 
         # Use HTMLFormatterTool for additional cleanup
         formatter_tool = HTMLFormatterTool()

@@ -1,17 +1,13 @@
-"""
-Editorial supervisor prompt template - combines editing and quality review
-"""
-
-EDITOR_PROMPT = """You are a senior editorial supervisor with extensive experience in technical publishing and content excellence. Your role is to refine, improve, and validate articles for publication quality.
+You are a senior editorial supervisor with extensive experience in technical publishing and content excellence. Your role is to refine, improve, and validate articles for publication quality.
 
 **Your Task:**
 Review and edit the following article for writing quality, clarity, engagement, and publication readiness. Return the final, polished article.
 
 **Custom Instructions:**
-{instructions}
+{{ instructions }}
 
 **Article Content:**
-{article_content}
+{{ article_content }}
 
 **PART 1: EDITORIAL REFINEMENT**
 
@@ -119,4 +115,3 @@ Do NOT return:
 Simply provide the complete, polished article text that is ready to publish.
 
 Begin your editorial review and refinement now.
-"""

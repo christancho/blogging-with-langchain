@@ -1,0 +1,139 @@
+{
+  "id": "python_venv_beginner",
+  "topic": "Getting Started with Python Virtual Environments: A Beginner's Guide",
+  "audience": "Beginner Python developers",
+  "difficulty": "low",
+  "custom_instructions": "Use simple language and step-by-step format. Include common beginner mistakes and how to avoid them. Avoid advanced concepts or explain them clearly. Use analogies to help understanding.",
+  "expected_metrics": {
+    "word_count": {
+      "minimum": 3500,
+      "target": 3700,
+      "tolerance": 200
+    },
+    "h1_count": {
+      "expected": 1
+    },
+    "h2_sections": {
+      "minimum": 4,
+      "target": 4
+    },
+    "links": {
+      "minimum": 10,
+      "target": 11,
+      "tolerance": 2
+    },
+    "quality_score": {
+      "minimum": 0.70,
+      "target": 0.78
+    }
+  },
+  "expected_structure": {
+    "introduction": {
+      "title": "Introduction to Virtual Environments",
+      "word_count_range": [300, 400],
+      "must_include": [
+        "relatable problem (broken dependencies)",
+        "simple explanation of virtual environments",
+        "analogy to make it understandable",
+        "what the guide covers"
+      ]
+    },
+    "section_1": {
+      "title": "Why Virtual Environments Matter",
+      "word_count_range": [700, 800],
+      "must_include": [
+        "library conflicts explained simply",
+        "global vs. local dependencies analogy",
+        "real beginner problems",
+        "benefits of virtual environments",
+        "at least 2 links to documentation or tutorials"
+      ]
+    },
+    "section_2": {
+      "title": "Creating Your First Virtual Environment",
+      "word_count_range": [700, 800],
+      "must_include": [
+        "step-by-step instructions for macOS",
+        "step-by-step instructions for Windows",
+        "step-by-step instructions for Linux",
+        "activating the environment",
+        "common mistakes and fixes",
+        "at least 2 links to setup guides"
+      ]
+    },
+    "section_3": {
+      "title": "Managing Dependencies with pip",
+      "word_count_range": [700, 800],
+      "must_include": [
+        "installing packages explanation",
+        "requirements.txt creation",
+        "sharing projects with others",
+        "best practices made simple",
+        "at least 2 links to pip documentation"
+      ]
+    },
+    "section_4": {
+      "title": "Tools and Best Practices",
+      "word_count_range": [700, 800],
+      "must_include": [
+        "introduction to different tools (venv, virtualenv, Poetry)",
+        "which to choose as a beginner",
+        "IDE integration basics",
+        "troubleshooting tips",
+        "at least 2 links to tool documentation"
+      ]
+    },
+    "conclusion": {
+      "title": "Conclusion",
+      "word_count_range": [300, 400],
+      "must_include": [
+        "recap of what was learned",
+        "next steps for building projects",
+        "encouragement and resources"
+      ]
+    }
+  },
+  "validation_criteria": {
+    "tone": "Simple, encouraging, patient, assumes no prior knowledge",
+    "language_level": {
+      "avoid": "advanced concepts without explanation",
+      "use": "analogies and real-world examples",
+      "explain": "any technical terms clearly"
+    },
+    "code_examples": {
+      "required": true,
+      "minimum_count": 4,
+      "should_include": [
+        "creation commands for each OS",
+        "activation commands",
+        "pip install example",
+        "requirements.txt example"
+      ],
+      "format": "Show actual terminal commands"
+    },
+    "links": {
+      "minimum": 10,
+      "expected_sources": [
+        "Official Python documentation",
+        "Setup guides for each OS",
+        "pip documentation",
+        "Poetry or other tool docs",
+        "Stack Overflow or tutorial sites"
+      ]
+    },
+    "tone_indicators": [
+      "encouraging language",
+      "acknowledgment of beginner struggles",
+      "clear step-by-step format",
+      "common mistakes highlighted",
+      "practical next steps"
+    ],
+    "readability": {
+      "target_sentence_length": "12-18 words (slightly shorter for beginners)",
+      "paragraph_length": "3-4 sentences max",
+      "avoid": "jargon or explain thoroughly"
+    }
+  },
+  "notes": "This is a well-documented foundational topic. The agent should easily find 10+ quality links from official Python docs, setup guides, and tutorials. Focus on clarity and step-by-step instructions. This tests whether the generator can simplify complex topics for beginners.",
+  "created_date": "2024-11-27"
+}

@@ -1,13 +1,13 @@
 """
 LangGraph node functions
 """
-from .research_node import research_node
-from .writer_node import writer_node
-from .seo_node import seo_node
-from .formatter_node import formatter_node
-from .editor_node import editor_node
-from .reviewer_node import reviewer_node
-from .publisher_node import publisher_node
+from .research import research_node
+from .writer import writer_node
+from .seo import seo_node
+from .formatter import formatter_node
+from .editor import editor_node
+from .reviewer import reviewer_node
+from .publisher import publisher_node
 
 __all__ = [
     "research_node",
