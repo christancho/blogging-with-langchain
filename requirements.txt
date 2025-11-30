@@ -27,5 +27,9 @@ pytest
 pytest-mock
 pytest-asyncio
 
+# Graph Visualization (for workflow diagrams)
+graphviz
+ipython
+
 # Type Checking (optional but recommended)
 mypy

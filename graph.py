@@ -154,7 +154,16 @@ def visualize_graph(output_file: str = "blog_graph.png"):
         except:
             pass
 
-    except ImportError:
-        print("Visualization requires IPython and graphviz dependencies")
+    except ImportError as e:
+        print("\n❌ Visualization requires additional dependencies:")
+        print("   - graphviz (Python package)")
+        print("   - IPython (for notebook display)")
+        print("\nInstall with:")
+        print("   pip install graphviz")
+        print("\nYou may also need the system graphviz package:")
+        print("   macOS:  brew install graphviz")
+        print("   Ubuntu: sudo apt-get install graphviz")
+        print("   CentOS: sudo yum install graphviz")
+        print(f"\nError details: {e}")
     except Exception as e:
-        print(f"Could not generate visualization: {e}")
+        print(f"❌ Could not generate visualization: {e}")
