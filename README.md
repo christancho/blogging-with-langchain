@@ -9,26 +9,38 @@ An automated blog post generation system built with LangGraph, LangChain, and Cl
 - **Custom Instructions**: Provide per-article instructions to guide the content direction
 - **SEO Optimization**: Automatically optimizes content for search engines with excerpt support
 - **Ghost CMS Integration**: Publishes directly to Ghost CMS with full metadata (title, excerpt, meta description, tags)
-- **Editorial Review**: Combined editor node performs both editorial refinement and quality validation
-- **Quality Assurance**: Built-in content quality checks, word count validation, and inline link verification
+- **Editor Approval Gate**: Articles go through quality review before formatting and publication
+- **Revision Loop**: Failed articles automatically route back to writer with specific, actionable feedback (max 3 attempts)
+- **Forced Publishing**: Articles exceeding max revisions force-publish with editor's note explaining unresolved issues
+- **Quality Assurance**: Built-in content quality checks (word count, inline links, structure, headings, sections)
 - **Modular Architecture**: Clean, maintainable codebase using LangGraph
 - **LangSmith Tracing**: Optional integration for debugging and monitoring
 
 ## Architecture
 
-The system uses a LangGraph state graph with 6 sequential nodes:
+The system uses a LangGraph state graph with 6 nodes and an approval gate workflow:
 
 ```
-Research → Writer → SEO → Formatter → Editor → Publisher
+Research → Writer → SEO → Editor (Approval Gate)
+                           ├─→ Approved → Formatter → Publisher
+                           └─→ Rejected ↻ Writer (Revision Loop, max 3 attempts)
 ```
+
+### Workflow Diagram
+
+![Blog Generation Workflow](media/blog_graph.png)
 
 Each node performs a specific task and updates the shared state:
 
 - **Research**: Gathers information via web search
-- **Writer**: Generates comprehensive article with hooks and engagement techniques
+- **Writer**: Generates comprehensive article with hooks and engagement techniques (or revises based on editor feedback)
 - **SEO**: Optimizes for search engines (title, description, excerpt, keywords, tags)
-- **Formatter**: Formats content for publication
-- **Editor**: Performs editorial refinement and quality validation
+- **Editor**: Quality approval gate with rejection and revision loop
+  - Rejects on ANY quality check failure (word count, links, structure, H1, sections)
+  - Provides specific, actionable feedback for revisions
+  - Allows max 3 revision attempts before forced publishing
+  - Sets approval status for conditional routing
+- **Formatter**: Formats approved content only for Ghost CMS publication
 - **Publisher**: Publishes to Ghost CMS with complete metadata
 
 ## Prerequisites
@@ -166,8 +178,8 @@ Displays detailed error traces and debugging information during execution.
 ```
 blogging-with-langchain/
 ├── config.py              # Configuration settings
-├── state.py               # BlogState TypedDict
-├── graph.py               # LangGraph state graph definition
+├── state.py               # BlogState TypedDict (defines approval_status, revision_count, etc.)
+├── graph.py               # LangGraph state graph definition with conditional routing
 ├── main.py                # Entry point
 ├── tools/                 # Custom tools
 │   ├── brave_search.py    # Web search tool
@@ -176,24 +188,27 @@ blogging-with-langchain/
 │   ├── ghost_cms.py       # Ghost CMS publishing
 │   ├── tag_extractor.py   # Tag extraction
 │   └── content_analyzer.py # Content quality analysis
-├── prompts/               # Prompt templates
-│   ├── research.py
-│   ├── writer.py
-│   ├── seo.py
-│   ├── formatter.py
-│   ├── editor.py          # Editorial supervisor prompt
-│   └── __init__.py
+├── prompts/               # Jinja2 prompt templates
+│   ├── research.txt       # Research planning prompt
+│   ├── writer.txt         # Initial article writing prompt
+│   ├── revision.txt       # Article revision prompt (with editor feedback)
+│   ├── seo.txt            # SEO optimization prompt
+│   ├── formatter.txt      # Content formatting prompt
+│   └── editor.txt         # Editor review prompt
 ├── nodes/                 # LangGraph node functions
-│   ├── research_node.py
-│   ├── writer_node.py
-│   ├── seo_node.py
-│   ├── formatter_node.py
-│   ├── editor_node.py     # Combined editorial review
-│   ├── publisher_node.py
+│   ├── prompt_loader.py   # Jinja2 prompt loading and caching utility
+│   ├── research.py        # Research node
+│   ├── writer.py          # Writer node (handles initial write and revisions)
+│   ├── seo.py             # SEO optimization node
+│   ├── formatter.py       # Content formatting node
+│   ├── editor.py          # Editor approval gate with revision routing
+│   ├── publisher.py       # Publisher node with forced publish support
 │   └── __init__.py
 ├── tests/                 # Unit tests
 │   ├── test_tools.py
 │   └── test_config.py
+├── media/                 # Generated visualizations
+│   └── blog_graph.png     # Workflow diagram
 ├── output/                # Generated blog posts
 ├── requirements.txt       # Python dependencies
 ├── .env                   # Environment variables (create this)
@@ -240,33 +255,50 @@ blogging-with-langchain/
 - Fixes heading hierarchy
 - Normalizes spacing and line breaks
 
-### 5. Editor Node (Combined Role)
-**Part 1 - Editorial Refinement:**
-- Improves clarity and flow
-- Enhances readability and engagement
-- Validates writing style consistency
-- Optimizes paragraph structure
-- Verifies technical accuracy
+### 5. Editor Node (Approval Gate)
+**Quality Checks (Reject on ANY failure):**
+- ✓ Word count ≥ 3,500 words
+- ✓ Minimum 10 inline links
+- ✓ Well-structured content
+- ✓ Exactly 1 H1 heading
+- ✓ At least 4 H2 sections
 
-**Part 2 - Quality Validation:**
-- Checks word count compliance
-- Validates inline link count
-- Verifies article structure
-- Assesses content completeness
-- Validates SEO elements
-- **Custom instructions:** Informs editorial feedback and quality standards
+**Approval Paths:**
+1. **✅ APPROVED**: All checks pass
+   - Sets `approval_status: "approved"`
+   - Routes to Formatter node
+
+2. **❌ REJECTED + Revisions Available**: Checks fail, attempts < 3
+   - Sets `approval_status: "rejected"`
+   - Provides specific feedback for each failed check:
+     - "Word count is X, but target is 3500"
+     - "Only X links found, X required"
+     - "Article structure is unclear..."
+     - "Article has X H1 headings, should have 1"
+     - "Article has X sections (H2), Y required"
+   - Increments `revision_count`
+   - Routes back to Writer node with editor feedback
+   - Writer uses `revision.txt` prompt for targeted improvements
+
+3. **⚠️ FORCE PUBLISH**: Checks fail, revisions exhausted (≥ 3 attempts)
+   - Sets `approval_status: "force_publish"`
+   - Prepends editor's note explaining unresolved issues
+   - Routes to Publisher node with forced note
+   - Marks article with warning in logs
 
 ### 6. Publisher Node
+- Checks for forced publish note and prepends if present
 - Saves article to local `output/` directory with timestamp
 - Removes H1 title from content (sent separately to avoid duplication)
 - Publishes to Ghost CMS with complete metadata:
   - Title (SEO-optimized)
-  - Content (formatted)
+  - Content (formatted, with forced publish note if applicable)
   - Meta description
   - **Excerpt** (for listing pages)
   - Tags
 - Publishes as draft or published based on `PUBLISH_AS_DRAFT` setting
 - Returns post ID and URL
+- Logs warnings if article was force-published
 
 ## Running Tests
 
