@@ -16,6 +16,9 @@ requests
 # Environment Variables
 python-dotenv
 
+# Templating
+jinja2
+
 # Ghost CMS Integration
 PyJWT
 
