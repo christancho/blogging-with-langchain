@@ -26,7 +26,8 @@ def editor_node(state: BlogState) -> Dict[str, Any]:
     print("EDITOR NODE - APPROVAL GATE")
     print("="*80)
 
-    formatted_content = state.get("formatted_content", "")
+    # Read article content from writer (before formatting)
+    article_content = state.get("article_content", "")
     instructions = state.get("instructions", "") or "No specific instructions provided."
     revision_count = state.get("revision_count", 0)
     max_revisions = state.get("max_revisions", 3)
@@ -36,7 +37,7 @@ def editor_node(state: BlogState) -> Dict[str, Any]:
 
     # Analyze content with ContentAnalysisTool
     content_analyzer = ContentAnalysisTool()
-    analysis_result = content_analyzer._run(formatted_content)
+    analysis_result = content_analyzer._run(article_content)
     analysis = json.loads(analysis_result)
 
     print(f"\n📊 Content Analysis:")
@@ -73,7 +74,7 @@ def editor_node(state: BlogState) -> Dict[str, Any]:
             "quality_score": analysis["quality_score"],
             "quality_checks": quality_checks,
             "review_notes": f"Approved on revision {revision_count + 1}. All checks passed.",
-            "final_content": formatted_content
+            "final_content": article_content
         }
     else:
         # Checks failed - build specific feedback
@@ -129,7 +130,7 @@ Please review and consider further editing in a follow-up post.
                 "quality_score": analysis["quality_score"],
                 "quality_checks": quality_checks,
                 "review_notes": f"Forced publish after {revision_count} revisions (max: {max_revisions}). Issues remain: {', '.join(failed_checks)}",
-                "final_content": formatted_content,
+                "final_content": article_content,
                 "forced_publish_note": forced_note,
                 "warnings": state.get("warnings", []) + [f"Article published with unresolved quality issues: {', '.join(failed_checks)}"]
             }
