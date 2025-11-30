@@ -67,8 +67,7 @@ coverage.xml
 dmypy.json
 
 # Generated media and visualizations
-media/
-*.png
 *.svg
+!media/**/*.png
 !docs/**/*.png
 !docs/**/*.svg
