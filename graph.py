@@ -129,15 +129,26 @@ def print_summary(state: dict):
 
 
 # For debugging: visualize the graph
-def visualize_graph(output_file: str = "blog_graph.png"):
+def visualize_graph(output_file: str = None):
     """
     Generate a visual representation of the graph
 
     Args:
-        output_file: Output filename for the graph image
+        output_file: Output filename for the graph image (default: media/blog_graph.png)
     """
+    import os
+
+    # Default to media/blog_graph.png
+    if output_file is None:
+        output_file = "media/blog_graph.png"
+
     try:
         from IPython.display import Image, display
+
+        # Create media directory if it doesn't exist
+        output_dir = os.path.dirname(output_file)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
 
         # Get the graph visualization
         graph_image = blog_graph.get_graph().draw_mermaid_png()
@@ -146,7 +157,7 @@ def visualize_graph(output_file: str = "blog_graph.png"):
         with open(output_file, 'wb') as f:
             f.write(graph_image)
 
-        print(f"Graph visualization saved to {output_file}")
+        print(f"✅ Graph visualization saved to {output_file}")
 
         # Try to display in notebook
         try:
