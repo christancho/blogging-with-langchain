@@ -8,7 +8,7 @@ from langchain_core.output_parsers import StrOutputParser
 
 from state import BlogState
 from config import Config
-from prompts import REVIEWER_PROMPT
+from nodes.prompt_loader import PromptLoader
 from tools import ContentAnalysisTool
 
 
@@ -62,8 +62,11 @@ def reviewer_node(state: BlogState) -> Dict[str, Any]:
     # Use LLM for final review and approval
     llm = Config.get_llm()
 
+    reviewer_template = PromptLoader.load("reviewer")
+    reviewer_prompt = reviewer_template.render(formatted_content=formatted_content)
+
     prompt = ChatPromptTemplate.from_messages([
-        ("system", REVIEWER_PROMPT),
+        ("system", reviewer_prompt),
         ("human", "Review and return the final article.")
     ])
 
@@ -71,9 +74,7 @@ def reviewer_node(state: BlogState) -> Dict[str, Any]:
 
     try:
         # Get LLM review (which should return the full article)
-        final_content = chain.invoke({
-            "formatted_content": formatted_content
-        })
+        final_content = chain.invoke({})
 
         # If the LLM returned the full article, use it
         # Otherwise, use the formatted content
