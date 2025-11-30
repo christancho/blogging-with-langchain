@@ -14,35 +14,37 @@ from tools import ContentAnalysisTool
 
 def editor_node(state: BlogState) -> Dict[str, Any]:
     """
-    Editor node: Refine and validate article quality before publication
+    Editor node: Quality approval gate with rejection and revision loop
 
     Args:
         state: Current blog state
 
     Returns:
-        Partial state update with edited content and quality assessment
+        Partial state update with approval decision and feedback
     """
     print("\n" + "="*80)
-    print("EDITORIAL SUPERVISOR NODE")
+    print("EDITOR NODE - APPROVAL GATE")
     print("="*80)
 
     formatted_content = state.get("formatted_content", "")
     instructions = state.get("instructions", "") or "No specific instructions provided."
+    revision_count = state.get("revision_count", 0)
+    max_revisions = state.get("max_revisions", 3)
 
-    print(f"Reviewing and editing article for publication quality")
-    print(f"Instructions: {instructions[:80]}..." if len(instructions) > 80 else f"Instructions: {instructions}")
+    print(f"Reviewing article for publication quality")
+    print(f"Revision: {revision_count + 1}/{max_revisions + 1}")
 
     # Analyze content with ContentAnalysisTool
     content_analyzer = ContentAnalysisTool()
     analysis_result = content_analyzer._run(formatted_content)
     analysis = json.loads(analysis_result)
 
-    print(f"\n📊 Content Analysis (Pre-Edit):")
+    print(f"\n📊 Content Analysis:")
     print(f"  - Word count: {analysis['word_count']}")
     print(f"  - Links: {analysis['links']['total_links']}")
     print(f"  - Quality score: {analysis['quality_score']}")
 
-    # Perform quality checks
+    # Perform quality checks - REJECT ON ANY FAILURE
     quality_checks = {
         "word_count": analysis["word_count"] >= Config.WORD_COUNT_TARGET,
         "min_links": analysis["links"]["total_links"] >= Config.MIN_INLINE_LINKS,
@@ -51,87 +53,95 @@ def editor_node(state: BlogState) -> Dict[str, Any]:
         "has_sections": analysis["structure"]["h2_count"] >= Config.NUM_SECTIONS
     }
 
-    # Calculate initial pass/fail
     checks_passed = sum(quality_checks.values())
     total_checks = len(quality_checks)
 
-    print(f"\n✓ Quality Checks (Pre-Edit): {checks_passed}/{total_checks} passed")
+    print(f"\n✓ Quality Checks: {checks_passed}/{total_checks} passed")
     for check, passed in quality_checks.items():
         status = "✓" if passed else "✗"
         print(f"  {status} {check}: {passed}")
 
-    # Use LLM for editorial refinement and quality review
-    llm = Config.get_llm()
+    # Build specific feedback for failed checks
+    failed_checks = [check for check, passed in quality_checks.items() if not passed]
 
-    editor_template = PromptLoader.load("editor")
-    editor_prompt = editor_template.render(
-        article_content=formatted_content,
-        instructions=instructions
-    )
-
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", editor_prompt),
-        ("human", "Review, edit, and refine this article for publication.")
-    ])
-
-    chain = prompt | llm | StrOutputParser()
-
-    try:
-        print(f"\n🔄 Performing editorial review and refinement...")
-
-        # Get LLM editorial review (which should return the edited article)
-        edited_content = chain.invoke({})
-
-        # Verify we got back actual content
-        word_count_edited = len(edited_content.split())
-
-        if word_count_edited < 1000:
-            # LLM probably returned a review instead of the article
-            print("\n⚠ Warning: LLM returned review instead of article, using formatted content")
-            final_content = formatted_content
-        else:
-            final_content = edited_content
-            print(f"✓ Editorial review completed")
-
-        # Analyze edited content
-        analysis_result_edited = content_analyzer._run(final_content)
-        analysis_edited = json.loads(analysis_result_edited)
-
-        print(f"\n📊 Content Analysis (Post-Edit):")
-        print(f"  - Word count: {analysis_edited['word_count']}")
-        print(f"  - Links: {analysis_edited['links']['total_links']}")
-        print(f"  - Quality score: {analysis_edited['quality_score']}")
-
-        # Re-check quality after editing
-        quality_checks_final = {
-            "word_count": analysis_edited["word_count"] >= Config.WORD_COUNT_TARGET,
-            "min_links": analysis_edited["links"]["total_links"] >= Config.MIN_INLINE_LINKS,
-            "well_structured": analysis_edited["structure"]["well_structured"],
-            "has_h1": analysis_edited["structure"]["h1_count"] == 1,
-            "has_sections": analysis_edited["structure"]["h2_count"] >= Config.NUM_SECTIONS
-        }
-
-        checks_passed_final = sum(quality_checks_final.values())
-
-        print(f"\n✓ Quality Checks (Post-Edit): {checks_passed_final}/{total_checks} passed")
-        for check, passed in quality_checks_final.items():
-            status = "✓" if passed else "✗"
-            print(f"  {status} {check}: {passed}")
-
+    if not failed_checks:
+        # All checks passed - APPROVE
+        print(f"\n✅ APPROVED - All quality checks passed")
         return {
-            "quality_score": analysis_edited["quality_score"],
-            "quality_checks": quality_checks_final,
-            "editorial_notes": f"Quality improvement: {analysis['quality_score']} → {analysis_edited['quality_score']} | Checks passed: {checks_passed_final}/{total_checks}",
-            "final_content": final_content
-        }
-
-    except Exception as e:
-        print(f"\n✗ Editorial review failed: {str(e)}")
-        # Return formatted content as fallback
-        return {
+            "approval_status": "approved",
+            "approval_feedback": "",
             "quality_score": analysis["quality_score"],
             "quality_checks": quality_checks,
-            "editorial_notes": f"Editorial error: {str(e)}",
-            "final_content": formatted_content,
-            "errors": state.get("errors", []) + [f"Editorial error: {str(e)}"]
+            "review_notes": f"Approved on revision {revision_count + 1}. All checks passed.",
+            "final_content": formatted_content
         }
+    else:
+        # Checks failed - build specific feedback
+        feedback_parts = []
+
+        for check in failed_checks:
+            if check == "word_count":
+                current = analysis["word_count"]
+                target = Config.WORD_COUNT_TARGET
+                feedback_parts.append(
+                    f"Word count is {current}, but target is {target}. Please expand the article with more detailed content."
+                )
+            elif check == "min_links":
+                current = analysis["links"]["total_links"]
+                target = Config.MIN_INLINE_LINKS
+                feedback_parts.append(
+                    f"Only {current} inline links found, but {target} are required. Add more citations and references to support claims."
+                )
+            elif check == "well_structured":
+                feedback_parts.append(
+                    "Article structure is unclear. Ensure proper heading hierarchy, logical flow between sections, and clear topic development."
+                )
+            elif check == "has_h1":
+                h1_count = analysis["structure"]["h1_count"]
+                feedback_parts.append(
+                    f"Article has {h1_count} H1 headings, but should have exactly 1. Add or remove H1 headings as needed."
+                )
+            elif check == "has_sections":
+                current = analysis["structure"]["h2_count"]
+                target = Config.NUM_SECTIONS
+                feedback_parts.append(
+                    f"Article has {current} sections (H2), but {target} are required. Add more major sections to improve article depth."
+                )
+
+        approval_feedback = "\n".join(feedback_parts)
+
+        if revision_count >= max_revisions:
+            # Max revisions exceeded - force publish with note
+            print(f"\n⚠️  MAX REVISIONS EXCEEDED ({max_revisions}) - FORCING PUBLICATION WITH NOTE")
+            forced_note = f"""**Editor's Note (Publication Override):**
+This article was published after exceeding the maximum revision limit ({max_revisions} revisions).
+The following quality issues remain unresolved:
+- {chr(10).join('- ' + part for part in feedback_parts)}
+
+Please review and consider further editing in a follow-up post.
+
+---
+
+"""
+            return {
+                "approval_status": "force_publish",
+                "approval_feedback": approval_feedback,
+                "quality_score": analysis["quality_score"],
+                "quality_checks": quality_checks,
+                "review_notes": f"Forced publish after {revision_count} revisions (max: {max_revisions}). Issues remain: {', '.join(failed_checks)}",
+                "final_content": formatted_content,
+                "forced_publish_note": forced_note,
+                "warnings": state.get("warnings", []) + [f"Article published with unresolved quality issues: {', '.join(failed_checks)}"]
+            }
+        else:
+            # Send back for revision
+            print(f"\n❌ REJECTED - Requesting revisions (attempt {revision_count + 1}/{max_revisions})")
+            print(f"Feedback:\n{approval_feedback}")
+            return {
+                "approval_status": "rejected",
+                "approval_feedback": approval_feedback,
+                "quality_score": analysis["quality_score"],
+                "quality_checks": quality_checks,
+                "review_notes": f"Rejected on revision {revision_count + 1}. Issues: {', '.join(failed_checks)}",
+                "revision_count": revision_count + 1
+            }

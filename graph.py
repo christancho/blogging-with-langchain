@@ -6,9 +6,35 @@ from state import BlogState
 from nodes import research_node, writer_node, seo_node, formatter_node, editor_node, publisher_node
 
 
+def route_editor_decision(state: BlogState) -> str:
+    """
+    Route the workflow based on editor approval decision
+
+    Args:
+        state: Current blog state
+
+    Returns:
+        Route key: "formatter" (approved/force_publish->publisher) or "writer" (rejected for revision)
+    """
+    approval_status = state.get("approval_status", "pending")
+    revision_count = state.get("revision_count", 0)
+    max_revisions = state.get("max_revisions", 3)
+
+    # If approved or forced publish - route key is "formatter" which goes to publisher
+    if approval_status in ["approved", "force_publish"]:
+        return "formatter"
+
+    # If rejected and revisions available - route key is "writer" which goes back to writer
+    if approval_status == "rejected" and revision_count < max_revisions:
+        return "writer"
+
+    # Default: if we somehow get here, approve (shouldn't happen)
+    return "formatter"
+
+
 def create_blog_graph():
     """
-    Create and compile the blog generation state graph
+    Create and compile the blog generation state graph with approval gate and revision loop
 
     Returns:
         Compiled StateGraph application
@@ -24,12 +50,25 @@ def create_blog_graph():
     workflow.add_node("editor", editor_node)
     workflow.add_node("publisher", publisher_node)
 
-    # Define the workflow edges (sequential for now)
+    # Define the workflow edges with approval gate
     workflow.add_edge("research", "writer")
     workflow.add_edge("writer", "seo")
     workflow.add_edge("seo", "formatter")
     workflow.add_edge("formatter", "editor")
-    workflow.add_edge("editor", "publisher")
+
+    # Conditional edge based on editor decision
+    # If approved or force_publish -> publisher (skip formatter, already formatted)
+    # If rejected with revisions available -> writer (for revision, flows back through seo -> formatter -> editor)
+    workflow.add_conditional_edges(
+        "editor",
+        route_editor_decision,
+        {
+            "formatter": "publisher",  # Approved/force_publish -> go to publisher
+            "writer": "writer"          # Rejected -> go back to writer for revision
+        }
+    )
+
+    # Publisher end
     workflow.add_edge("publisher", END)
 
     # Set the entry point
@@ -69,7 +108,10 @@ def generate_blog_post(topic: str, instructions: str = None) -> dict:
         "instructions": instructions,
         "errors": [],
         "warnings": [],
-        "workflow_version": "1.0.0"
+        "workflow_version": "1.0.0",
+        "approval_status": "pending",
+        "revision_count": 0,
+        "max_revisions": 3
     }
 
     # Run the graph

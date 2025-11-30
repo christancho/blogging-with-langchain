@@ -51,12 +51,17 @@ class BlogState(TypedDict, total=False):
     formatted_html: str  # Pure HTML if needed
 
     # ============================================================================
-    # Quality Reviewer Node Outputs
+    # Editor Node Outputs (Approval Gate)
     # ============================================================================
+    approval_status: str  # "approved", "rejected", or "pending"
+    approval_feedback: str  # Specific feedback if rejected (for writer revision)
     quality_score: float  # Overall quality score (0-1)
     quality_checks: Dict[str, bool]  # Individual quality checks
     review_notes: str  # Reviewer feedback
+    revision_count: int  # Number of times article was revised (starts at 0)
+    max_revisions: int  # Maximum allowed revisions (default: 3)
     final_content: str  # Approved content ready for publishing
+    forced_publish_note: Optional[str]  # Note prepended if max revisions exceeded
 
     # ============================================================================
     # Ghost Publisher Node Outputs

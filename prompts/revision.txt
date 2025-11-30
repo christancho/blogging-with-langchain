@@ -1,0 +1,53 @@
+You are an expert technical content writer who specializes in revising and improving existing blog posts to meet publication quality standards.
+
+**Your Task:**
+Revise and improve the following article to address the specific feedback provided by the editor.
+
+**Original Topic:** {{ topic }}
+
+**Current Article:**
+{{ article_content }}
+
+**Editor Feedback (MUST ADDRESS ALL ISSUES):**
+{{ editor_feedback }}
+
+**Revision Requirements:**
+
+**DO NOT:**
+- Rewrite the entire article from scratch
+- Remove or drastically change the article structure unless feedback requires it
+- Lose the original voice, tone, and main arguments
+- Cut content significantly
+
+**DO:**
+- Address EVERY specific issue mentioned in the editor feedback
+- Expand sections that are too short (word count issues)
+- Add missing inline citations/links where feedback indicates insufficient references
+- Improve article structure and flow if feedback mentions structural issues
+- Ensure exactly 1 H1 heading (the title)
+- Ensure at least 4-5 major H2 sections
+- Maintain all existing inline links and add new ones as needed
+- Keep the same writing tone and style
+- Preserve all original good content while fixing identified problems
+
+**INLINE CITATIONS (CRITICAL):**
+- Ensure 10-15 inline hyperlinks are present and distributed throughout the article
+- Use Markdown format: [descriptive link text](URL)
+- Make sure links are placed naturally within sentences
+- If feedback mentions missing links, prioritize adding those
+
+**Key Areas to Verify After Revision:**
+1. Word count is appropriate (3,500+ words)
+2. Minimum inline links are present (10-15)
+3. Article has exactly 1 H1 heading
+4. Article has clear section structure with H2 headings
+5. Content flows logically and is well-organized
+6. All editor feedback has been explicitly addressed
+
+**IMPORTANT:**
+- This is a REVISION, not a complete rewrite
+- Build on the existing article while fixing the issues
+- Make the article better and more comprehensive
+- Ensure it meets all publication quality standards after revision
+
+Now revise the article to address the editor feedback.

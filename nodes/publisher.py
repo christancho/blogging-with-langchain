@@ -29,12 +29,20 @@ def publisher_node(state: BlogState) -> Dict[str, Any]:
     meta_description = state.get("meta_description", "")
     excerpt = state.get("excerpt", "")
     tags = state.get("tags", Config.DEFAULT_TAGS)
+    forced_publish_note = state.get("forced_publish_note", "")
 
     print(f"Publishing to Ghost CMS")
     print(f"  - Title: {seo_title}")
     print(f"  - Excerpt: {excerpt[:80]}..." if excerpt else "  - Excerpt: (empty)")
     print(f"  - Tags: {tags}")
     print(f"  - Status: {'draft' if Config.PUBLISH_AS_DRAFT else 'published'}")
+    if forced_publish_note:
+        print(f"  - ⚠️  FORCED PUBLISH (max revisions exceeded)")
+
+    # Prepend forced publish note if max revisions exceeded
+    content_to_publish = final_content
+    if forced_publish_note:
+        content_to_publish = forced_publish_note + content_to_publish
 
     # Save to local file first
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -51,7 +59,7 @@ def publisher_node(state: BlogState) -> Dict[str, Any]:
             f.write(f"**Meta Description:** {meta_description}\n\n")
             f.write(f"**Tags:** {', '.join(tags)}\n\n")
             f.write("---\n\n")
-            f.write(final_content)
+            f.write(content_to_publish)
 
         print(f"\n✓ Saved locally: {output_filename}")
 
@@ -67,7 +75,7 @@ def publisher_node(state: BlogState) -> Dict[str, Any]:
     content_without_title = re.sub(
         r'^#\s+.+?(?:\n\n|\n(?=#))',
         '',
-        final_content,
+        content_to_publish,
         count=1,
         flags=re.MULTILINE
     ).strip()
