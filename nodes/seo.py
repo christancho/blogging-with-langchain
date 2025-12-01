@@ -27,7 +27,8 @@ def seo_node(state: BlogState) -> Dict[str, Any]:
     print("="*80)
 
     article_title = state.get("article_title", "")
-    article_content = state.get("article_content", "")
+    # Read from formatted_content (formatter runs before SEO now)
+    article_content = state.get("formatted_content", "") or state.get("article_content", "")
     instructions = state.get("instructions", "") or "No specific instructions provided."
 
     print(f"Optimizing article: {article_title}")

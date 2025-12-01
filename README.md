@@ -21,9 +21,9 @@ An automated blog post generation system built with LangGraph, LangChain, and Cl
 The system uses a LangGraph state graph with 6 nodes and an approval gate workflow:
 
 ```
-Research → Writer → SEO → Editor (Approval Gate)
-                           ├─→ Approved → Formatter → Publisher
-                           └─→ Rejected ↻ Writer (Revision Loop, max 3 attempts)
+Research → Writer → Formatter → SEO → Editor (Approval Gate)
+                                          ├─→ Approved → Publisher
+                                          └─→ Rejected ↻ Writer (Revision Loop, max 3 attempts)
 ```
 
 ### Workflow Diagram
@@ -34,13 +34,16 @@ Each node performs a specific task and updates the shared state:
 
 - **Research**: Gathers information via web search
 - **Writer**: Generates comprehensive article with hooks and engagement techniques (or revises based on editor feedback)
+- **Formatter**: Normalizes and formats content for readability
+  - Fixes heading hierarchy (ensures exactly 1 H1)
+  - Cleans up Markdown formatting and spacing
+  - Prepares content for SEO and editorial review
 - **SEO**: Optimizes for search engines (title, description, excerpt, keywords, tags)
 - **Editor**: Quality approval gate with rejection and revision loop
   - Rejects on ANY quality check failure (word count, links, structure, H1, sections)
   - Provides specific, actionable feedback for revisions
   - Allows max 3 revision attempts before forced publishing
   - Sets approval status for conditional routing
-- **Formatter**: Formats approved content only for Ghost CMS publication
 - **Publisher**: Publishes to Ghost CMS with complete metadata
 
 ## Prerequisites

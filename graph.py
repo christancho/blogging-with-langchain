@@ -14,22 +14,22 @@ def route_editor_decision(state: BlogState) -> str:
         state: Current blog state
 
     Returns:
-        Route key: "formatter" (approved content -> formatting) or "writer" (rejected -> revision)
+        Route key: "publisher" (approved content -> publishing) or "writer" (rejected -> revision)
     """
     approval_status = state.get("approval_status", "pending")
     revision_count = state.get("revision_count", 0)
     max_revisions = state.get("max_revisions", 3)
 
-    # If approved or forced publish - route to formatter for formatting approved content
+    # If approved or forced publish - route to publisher
     if approval_status in ["approved", "force_publish"]:
-        return "formatter"
+        return "publisher"
 
     # If rejected and revisions available - route back to writer for revision
     if approval_status == "rejected" and revision_count < max_revisions:
         return "writer"
 
-    # Default: if we somehow get here, approve and format (shouldn't happen)
-    return "formatter"
+    # Default: if we somehow get here, approve and publish (shouldn't happen)
+    return "publisher"
 
 
 def create_blog_graph():
@@ -50,25 +50,25 @@ def create_blog_graph():
     workflow.add_node("editor", editor_node)
     workflow.add_node("publisher", publisher_node)
 
-    # Define the workflow edges with approval gate
+    # Define the workflow edges
+    # New order: research -> writer -> formatter -> seo -> editor -> publisher
     workflow.add_edge("research", "writer")
-    workflow.add_edge("writer", "seo")
+    workflow.add_edge("writer", "formatter")
+    workflow.add_edge("formatter", "seo")
     workflow.add_edge("seo", "editor")
 
     # Conditional edge based on editor decision
-    # If approved or force_publish -> formatter (format approved content only)
+    # If approved or force_publish -> publisher
     # If rejected with revisions available -> writer (for revision loop)
     workflow.add_conditional_edges(
         "editor",
         route_editor_decision,
         {
-            "formatter": "formatter",  # Approved/force_publish -> go to formatter
+            "publisher": "publisher",  # Approved/force_publish -> go to publisher
             "writer": "writer"         # Rejected -> go back to writer for revision
         }
     )
 
-    # Formatter -> Publisher
-    workflow.add_edge("formatter", "publisher")
     workflow.add_edge("publisher", END)
 
     # Set the entry point

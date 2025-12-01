@@ -26,8 +26,8 @@ def editor_node(state: BlogState) -> Dict[str, Any]:
     print("EDITOR NODE - APPROVAL GATE")
     print("="*80)
 
-    # Read article content from writer (before formatting)
-    article_content = state.get("article_content", "")
+    # Read formatted article content (formatter runs before editor now)
+    article_content = state.get("formatted_content", "") or state.get("article_content", "")
     instructions = state.get("instructions", "") or "No specific instructions provided."
     revision_count = state.get("revision_count", 0)
     max_revisions = state.get("max_revisions", 3)
