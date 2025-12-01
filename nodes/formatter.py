@@ -34,11 +34,16 @@ def formatter_node(state: BlogState) -> Dict[str, Any]:
     # Initialize LLM
     llm = Config.get_llm()
 
+    # Escape curly braces in article content and metadata to prevent ChatPromptTemplate
+    # from interpreting them as template variables
+    article_content_escaped = article_content.replace("{", "{{").replace("}", "}}")
+    seo_metadata_escaped = str(seo_metadata).replace("{", "{{").replace("}", "}}")
+
     # Create prompt
     formatter_template = PromptLoader.load("formatter")
     formatter_prompt = formatter_template.render(
-        article_content=article_content,
-        seo_metadata=str(seo_metadata)
+        article_content=article_content_escaped,
+        seo_metadata=seo_metadata_escaped
     )
 
     prompt = ChatPromptTemplate.from_messages([

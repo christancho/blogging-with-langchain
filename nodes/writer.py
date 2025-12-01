@@ -42,24 +42,29 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
         print(f"Topic: {topic}")
         print(f"Revising based on editor feedback...")
 
-        # Get the formatted content to revise (output of formatter node)
-        article_content = state.get("formatted_content", "")
+        # Get the article content to revise (the rejected article_content)
+        article_content_to_revise = state.get("article_content", "")
 
-        if not article_content:
+        if not article_content_to_revise:
             print(f"\n✗ No content to revise")
             return {
                 "article_content": "",
                 "article_title": topic,
                 "inline_links": [],
-                "errors": state.get("errors", []) + ["No formatted content available for revision"]
+                "errors": state.get("errors", []) + ["No article content available for revision"]
             }
+
+        # Escape curly braces in article content and feedback to prevent ChatPromptTemplate from
+        # interpreting them as template variables
+        article_content_escaped = article_content_to_revise.replace("{", "{{").replace("}", "}}")
+        feedback_escaped = approval_feedback.replace("{", "{{").replace("}", "}}")
 
         # Use revision prompt
         revision_template = PromptLoader.load("revision")
         revision_prompt = revision_template.render(
             topic=topic,
-            article_content=article_content,
-            editor_feedback=approval_feedback
+            article_content=article_content_escaped,
+            editor_feedback=feedback_escaped
         )
 
         prompt = ChatPromptTemplate.from_messages([

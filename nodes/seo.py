@@ -36,11 +36,15 @@ def seo_node(state: BlogState) -> Dict[str, Any]:
     # Initialize LLM
     llm = Config.get_llm()
 
+    # Escape curly braces in article content to prevent ChatPromptTemplate from
+    # interpreting them as template variables
+    article_content_escaped = article_content.replace("{", "{{").replace("}", "}}")
+
     # Create prompt
     seo_template = PromptLoader.load("seo")
     seo_prompt = seo_template.render(
         article_title=article_title,
-        article_content=article_content,
+        article_content=article_content_escaped,
         instructions=instructions
     )
 

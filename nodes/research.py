@@ -73,11 +73,15 @@ def research_node(state: BlogState) -> Dict[str, Any]:
         # Extract sources from the output
         sources = extract_sources_from_text(research_output)
 
+        # Escape curly braces in research output to prevent ChatPromptTemplate from
+        # interpreting them as template variables when embedded in other prompts
+        research_output_escaped = research_output.replace("{", "{{").replace("}", "}}")
+
         print(f"\n✓ Research completed")
         print(f"  - Found {len(sources)} sources")
 
         return {
-            "research_summary": research_output,
+            "research_summary": research_output_escaped,
             "research_sources": sources,
             "research_results": {
                 "raw_output": research_output,
