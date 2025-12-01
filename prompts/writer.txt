@@ -85,8 +85,14 @@ Write a complete, publication-ready blog post on: {{ topic }}
 
 **FORMATTING:**
 - Use Markdown formatting
-- Use ## for main section headings (H2)
-- Use ### for subsections if needed (H3)
+
+**HEADING HIERARCHY (CRITICAL):**
+- # (H1) - Use ONLY ONCE for the article title at the very beginning
+- ## (H2) - Use for all main section headings (Introduction, Section 1, Section 2, etc.)
+- ### (H3) - Use for subsections within H2 sections if needed
+- **DO NOT create multiple H1 headings** - The editor will reject articles with more than one H1
+
+**Other formatting:**
 - Use **bold** for emphasis on key terms
 - Use bullet points for lists
 - Use code blocks (```) for code examples if relevant

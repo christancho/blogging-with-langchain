@@ -24,8 +24,16 @@ Revise and improve the following article to address the specific feedback provid
 - Expand sections that are too short (word count issues)
 - Add missing inline citations/links where feedback indicates insufficient references
 - Improve article structure and flow if feedback mentions structural issues
-- Ensure exactly 1 H1 heading (the title)
+
+**HEADING HIERARCHY (CRITICAL - THIS IS LIKELY WHY REVISION FAILED):**
+- # (H1) - Use ONLY ONCE for the article title at the very beginning
+- ## (H2) - Use for all main sections (Introduction, Section 1, Section 2, Section 3, Section 4, Conclusion)
+- ### (H3) - Use for subsections within H2 sections if needed
+- **CRITICAL: If feedback says "multiple H1 headings" or "H1 count" - this means you have extra H1s. Convert ALL extra H1s to H2s (## instead of #)**
+- Ensure exactly 1 H1 heading (the title ONLY)
 - Ensure at least 4-5 major H2 sections
+
+**Content:**
 - Maintain all existing inline links and add new ones as needed
 - Keep the same writing tone and style
 - Preserve all original good content while fixing identified problems
