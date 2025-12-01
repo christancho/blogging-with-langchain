@@ -45,7 +45,7 @@ Revise and improve the following article to address the specific feedback provid
 - If feedback mentions missing links, prioritize adding those
 
 **Key Areas to Verify After Revision:**
-1. Word count is appropriate (3,500+ words)
+1. Word count is appropriate (3,150-3,850 words, with 3,500 as target ±10%)
 2. Minimum inline links are present (10-15)
 3. Article has exactly 1 H1 heading
 4. Article has clear section structure with H2 headings

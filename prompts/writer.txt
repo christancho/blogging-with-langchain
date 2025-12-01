@@ -13,7 +13,7 @@ Write a complete, publication-ready blog post on: {{ topic }}
 
 **Article Requirements:**
 
-**LENGTH:** Approximately 3,500 words
+**LENGTH:** Approximately 3,500 words (acceptable range: 3,150-3,850 words, ±10% tolerance)
 
 **STRUCTURE:**
 1. **Introduction** (300-400 words)
