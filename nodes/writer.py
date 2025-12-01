@@ -59,12 +59,20 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
         article_content_escaped = article_content_to_revise.replace("{", "{{").replace("}", "}}")
         feedback_escaped = approval_feedback.replace("{", "{{").replace("}", "}}")
 
+        # Calculate word count tolerance (±10%)
+        word_count_target = Config.WORD_COUNT_TARGET
+        min_word_count = int(word_count_target * 0.9)
+        max_word_count = int(word_count_target * 1.1)
+
         # Use revision prompt
         revision_template = PromptLoader.load("revision")
         revision_prompt = revision_template.render(
             topic=topic,
             article_content=article_content_escaped,
-            editor_feedback=feedback_escaped
+            editor_feedback=feedback_escaped,
+            word_count_target=word_count_target,
+            min_word_count=min_word_count,
+            max_word_count=max_word_count
         )
 
         prompt = ChatPromptTemplate.from_messages([
@@ -82,13 +90,21 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
         print(f"Instructions: {instructions[:80]}..." if len(instructions) > 80 else f"Instructions: {instructions}")
         print(f"Research summary length: {len(research_summary)} characters")
 
+        # Calculate word count tolerance (±10%)
+        word_count_target = Config.WORD_COUNT_TARGET
+        min_word_count = int(word_count_target * 0.9)
+        max_word_count = int(word_count_target * 1.1)
+
         # Use standard writer prompt
         writer_template = PromptLoader.load("writer")
         writer_prompt = writer_template.render(
             topic=topic,
             tone=Config.BLOG_TONE,
             instructions=instructions,
-            research_summary=research_summary
+            research_summary=research_summary,
+            word_count_target=word_count_target,
+            min_word_count=min_word_count,
+            max_word_count=max_word_count
         )
 
         prompt = ChatPromptTemplate.from_messages([
