@@ -78,7 +78,13 @@ def editor_node(state: BlogState) -> Dict[str, Any]:
             "quality_score": analysis["quality_score"],
             "quality_checks": quality_checks,
             "review_notes": f"Approved on revision {revision_count + 1}. All checks passed.",
-            "final_content": article_content
+            "final_content": article_content,
+            # Preserve SEO metadata for publisher
+            "excerpt": state.get("excerpt", ""),
+            "meta_description": state.get("meta_description", ""),
+            "tags": state.get("tags", []),
+            "keywords": state.get("keywords", []),
+            "seo_title": state.get("seo_title", "")
         }
     else:
         # Checks failed - build specific feedback
@@ -137,7 +143,13 @@ Please review and consider further editing in a follow-up post.
                 "review_notes": f"Forced publish after {revision_count} revisions (max: {max_revisions}). Issues remain: {', '.join(failed_checks)}",
                 "final_content": article_content,
                 "forced_publish_note": forced_note,
-                "warnings": state.get("warnings", []) + [f"Article published with unresolved quality issues: {', '.join(failed_checks)}"]
+                "warnings": state.get("warnings", []) + [f"Article published with unresolved quality issues: {', '.join(failed_checks)}"],
+                # Preserve SEO metadata for publisher
+                "excerpt": state.get("excerpt", ""),
+                "meta_description": state.get("meta_description", ""),
+                "tags": state.get("tags", []),
+                "keywords": state.get("keywords", []),
+                "seo_title": state.get("seo_title", "")
             }
         else:
             # Send back for revision
@@ -149,5 +161,11 @@ Please review and consider further editing in a follow-up post.
                 "quality_score": analysis["quality_score"],
                 "quality_checks": quality_checks,
                 "review_notes": f"Rejected on revision {revision_count + 1}. Issues: {', '.join(failed_checks)}",
-                "revision_count": revision_count + 1
+                "revision_count": revision_count + 1,
+                # Preserve SEO metadata for next revision cycle
+                "excerpt": state.get("excerpt", ""),
+                "meta_description": state.get("meta_description", ""),
+                "tags": state.get("tags", []),
+                "keywords": state.get("keywords", []),
+                "seo_title": state.get("seo_title", "")
             }
