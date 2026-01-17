@@ -74,6 +74,8 @@ Validate that the article meets all publication standards:
 
 ✓ **Structure & Formatting**
   - Only one H1 heading (the title)
+  - Table of contents is present after the title
+  - Table of contents links are properly formatted with anchors
   - Proper heading hierarchy (H2 for sections, H3 for subsections)
   - Consistent Markdown formatting
   - Good paragraph spacing and readability

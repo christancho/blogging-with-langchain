@@ -121,9 +121,10 @@ def main():
         final_state = generate_blog_post(topic, instructions)
 
         end_time = datetime.now()
-        duration = (end_time - start_time).total_seconds()
+        duration_seconds = (end_time - start_time).total_seconds()
+        duration_minutes = duration_seconds / 60
 
-        print(f"\n⏱️  Total execution time: {duration:.1f} seconds")
+        print(f"\n⏱️  Total execution time: {duration_minutes:.1f} minutes ({duration_seconds:.0f} seconds)")
 
         # Check for errors
         errors = final_state.get('errors', [])

@@ -49,6 +49,7 @@ class BlogState(TypedDict, total=False):
     # ============================================================================
     formatted_content: str  # Ghost CMS-compatible Markdown/HTML
     formatted_html: str  # Pure HTML if needed
+    table_of_contents: Optional[str]  # Generated table of contents markdown
 
     # ============================================================================
     # Editor Node Outputs (Approval Gate)

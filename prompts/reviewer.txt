@@ -24,6 +24,9 @@ Review the following formatted article for quality, accuracy, and completeness.
 
 3. **Structure and Formatting**
    - [ ] Only one H1 heading (title)
+   - [ ] Table of contents is present after the title
+   - [ ] Table of contents includes all major sections (H2 headings)
+   - [ ] TOC anchor links are properly formatted
    - [ ] Proper heading hierarchy (H2 for sections, H3 for subsections)
    - [ ] Consistent Markdown formatting
    - [ ] Good paragraph spacing and readability

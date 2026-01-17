@@ -24,34 +24,39 @@ Format the following article into clean, Ghost CMS-compatible Markdown.
    - Blank line between paragraphs
    - Consistent list formatting (use -)
 
-3. **Links**
+3. **Table of Contents**
+   - Note: A table of contents will be automatically generated and inserted after the title
+   - This requires proper heading hierarchy (only H2 for sections, H3 for subsections)
+   - Ensure all major sections use H2 headings for the TOC to work correctly
+
+4. **Links**
    - Ensure all links use proper Markdown: [text](url)
    - Verify link URLs are complete and valid
    - Maintain all inline citations from the original
 
-4. **Emphasis**
+5. **Emphasis**
    - Use **bold** for key terms and important concepts
    - Use *italic* sparingly for emphasis
    - Use `code` for technical terms, commands, or code snippets
 
-5. **Code Blocks**
+6. **Code Blocks**
    - If code examples exist, use proper fenced code blocks:
      ```language
      code here
      ```
 
-6. **Lists**
+7. **Lists**
    - Use `-` for unordered lists
    - Use `1.` for ordered lists
    - Maintain consistent indentation
 
-7. **Spacing and Readability**
+8. **Spacing and Readability**
    - No more than 2-3 sentences per paragraph for online readability
    - Break up long paragraphs
    - Use blank lines for visual separation
    - Remove any unnecessary whitespace
 
-8. **Ghost CMS Compatibility**
+9. **Ghost CMS Compatibility**
    - No HTML tags (use pure Markdown)
    - No special characters that might cause rendering issues
    - Ensure compatibility with Ghost's Markdown renderer

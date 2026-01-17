@@ -86,6 +86,14 @@ class Config:
     MAX_TAGS = int(os.getenv("MAX_TAGS", "8"))
 
     # ============================================================================
+    # Table of Contents Settings
+    # ============================================================================
+
+    INCLUDE_TABLE_OF_CONTENTS = os.getenv("INCLUDE_TABLE_OF_CONTENTS", "true").lower() == "true"
+    TOC_INCLUDE_H3 = os.getenv("TOC_INCLUDE_H3", "false").lower() == "true"
+    TOC_MIN_SECTIONS = int(os.getenv("TOC_MIN_SECTIONS", "3"))
+
+    # ============================================================================
     # Output Settings
     # ============================================================================
 
