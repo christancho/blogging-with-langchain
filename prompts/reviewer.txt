@@ -31,6 +31,7 @@ Review the following formatted article for quality, accuracy, and completeness.
    - [ ] Consistent Markdown formatting
    - [ ] Good paragraph spacing and readability
    - [ ] Proper list formatting
+   - [ ] All code blocks include language identifiers (```python, ```javascript, etc.)
 
 4. **Content Quality**
    - [ ] Technically accurate information

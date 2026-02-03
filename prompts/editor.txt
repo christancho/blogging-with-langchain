@@ -80,7 +80,8 @@ Validate that the article meets all publication standards:
   - Consistent Markdown formatting
   - Good paragraph spacing and readability
   - Proper list formatting
-  - Code blocks properly formatted if present
+  - Code blocks properly formatted with language identifiers (e.g., ```python, ```javascript)
+  - All code blocks include language specification for syntax highlighting
 
 ✓ **Writing Quality**
   - Clear, accessible language

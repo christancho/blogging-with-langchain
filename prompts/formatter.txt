@@ -40,10 +40,13 @@ Format the following article into clean, Ghost CMS-compatible Markdown.
    - Use `code` for technical terms, commands, or code snippets
 
 6. **Code Blocks**
-   - If code examples exist, use proper fenced code blocks:
-     ```language
+   - Use proper fenced code blocks with language identifiers for syntax highlighting:
+     ```python
      code here
      ```
+   - ALWAYS include the language identifier (python, javascript, bash, sql, json, yaml, etc.)
+   - Code blocks WITHOUT language identifiers will appear as plain grey text
+   - Verify all code blocks have a language specified
 
 7. **Lists**
    - Use `-` for unordered lists

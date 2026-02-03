@@ -44,6 +44,12 @@ Revise and improve the following article to address the specific feedback provid
 - Make sure links are placed naturally within sentences
 - If feedback mentions missing links, prioritize adding those
 
+**CODE BLOCKS:**
+- All code blocks must include language identifiers for syntax highlighting
+- Format: ```python (not just ```)
+- Examples: python, javascript, bash, sql, json, yaml, etc.
+- Code blocks without language identifiers will appear as plain grey text with no highlighting
+
 **Key Areas to Verify After Revision:**
 1. Word count is appropriate ({{ min_word_count }}-{{ max_word_count }} words, with {{ word_count_target }} as target ±10%)
 2. Minimum inline links are present (10-15)

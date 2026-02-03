@@ -95,7 +95,12 @@ Write a complete, publication-ready blog post on: {{ topic }}
 **Other formatting:**
 - Use **bold** for emphasis on key terms
 - Use bullet points for lists
-- Use code blocks (```) for code examples if relevant
+- Use code blocks with language identifiers for syntax highlighting:
+  ```language
+  code here
+  ```
+  Examples: python, javascript, bash, sql, json, yaml, etc.
+- Always specify the language in code fence (e.g., ```python, ```javascript)
 
 **IMPORTANT:**
 - Write ALL sections in full - do not summarize or skip sections
