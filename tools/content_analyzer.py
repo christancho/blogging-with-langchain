@@ -56,10 +56,17 @@ class ContentAnalysisTool(BaseTool):
         return self._run(content)
 
     def _count_words(self, content: str) -> int:
-        """Count words in content"""
+        """Count words in content, excluding code blocks and inline code"""
+        # Remove code blocks (```)
+        text = re.sub(r'```[\w]*\n.+?\n```', '', content, flags=re.DOTALL)
+
+        # Remove inline code (`)
+        text = re.sub(r'`[^`]+`', '', text)
+
         # Remove HTML/Markdown tags
-        text = re.sub(r'<[^>]+>', '', content)
+        text = re.sub(r'<[^>]+>', '', text)
         text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)
+
         words = text.split()
         return len(words)
 
@@ -91,8 +98,12 @@ class ContentAnalysisTool(BaseTool):
 
     def _analyze_readability(self, content: str) -> Dict[str, Any]:
         """Calculate readability metrics"""
+        # Remove code blocks and inline code
+        text = re.sub(r'```[\w]*\n.+?\n```', '', content, flags=re.DOTALL)
+        text = re.sub(r'`[^`]+`', '', text)
+
         # Remove HTML/Markdown
-        text = re.sub(r'<[^>]+>', '', content)
+        text = re.sub(r'<[^>]+>', '', text)
         text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)
 
         words = text.split()

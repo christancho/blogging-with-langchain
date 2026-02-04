@@ -62,10 +62,17 @@ class SEOAnalysisTool(BaseTool):
         return self._run(content)
 
     def _count_words(self, content: str) -> int:
-        """Count words in content"""
+        """Count words in content, excluding code blocks and inline code"""
+        # Remove code blocks (```)
+        text = re.sub(r'```[\w]*\n.+?\n```', '', content, flags=re.DOTALL)
+
+        # Remove inline code (`)
+        text = re.sub(r'`[^`]+`', '', text)
+
         # Remove HTML/Markdown tags for accurate count
-        text = re.sub(r'<[^>]+>', '', content)
+        text = re.sub(r'<[^>]+>', '', text)
         text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)
+
         words = text.split()
         return len(words)
 
@@ -87,8 +94,12 @@ class SEOAnalysisTool(BaseTool):
 
     def _analyze_keyword_density(self, content: str) -> Dict[str, Any]:
         """Analyze keyword density and distribution"""
+        # Remove code blocks and inline code
+        text = re.sub(r'```[\w]*\n.+?\n```', '', content, flags=re.DOTALL)
+        text = re.sub(r'`[^`]+`', '', text)
+
         # Remove HTML/Markdown
-        text = re.sub(r'<[^>]+>', '', content)
+        text = re.sub(r'<[^>]+>', '', text)
         text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)
 
         # Convert to lowercase for analysis
@@ -134,8 +145,12 @@ class SEOAnalysisTool(BaseTool):
 
     def _calculate_readability(self, content: str) -> Dict[str, Any]:
         """Calculate basic readability metrics"""
+        # Remove code blocks and inline code
+        text = re.sub(r'```[\w]*\n.+?\n```', '', content, flags=re.DOTALL)
+        text = re.sub(r'`[^`]+`', '', text)
+
         # Remove HTML/Markdown
-        text = re.sub(r'<[^>]+>', '', content)
+        text = re.sub(r'<[^>]+>', '', text)
         text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)
 
         # Split into sentences

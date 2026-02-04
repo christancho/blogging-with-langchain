@@ -171,7 +171,28 @@ class TestContentAnalysisTool:
         result = tool._run(content)
         data = json.loads(result)
 
-        assert data["word_count"] == 8
+        assert data["word_count"] == 9  # "This is a test article with exactly eight words" = 9 words
+
+    def test_word_count_excludes_code(self):
+        """Test that code blocks and inline code are excluded from word count"""
+        tool = ContentAnalysisTool()
+        content = """
+This article has five words.
+
+```python
+if condition:
+    do_something()
+    print("hello world")
+```
+
+And here is some `inline_code` that should be excluded.
+"""
+        result = tool._run(content)
+        data = json.loads(result)
+
+        # Should only count: "This article has five words And here is some that should be excluded"
+        # = 13 words (code blocks and inline code excluded)
+        assert data["word_count"] == 13
 
     def test_link_analysis(self):
         """Test link analysis"""
