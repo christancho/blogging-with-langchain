@@ -4,6 +4,7 @@ Ghost CMS Tool for publishing blog posts
 import json
 import jwt
 import requests
+import markdown
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 from langchain.tools import BaseTool
@@ -192,10 +193,7 @@ class GhostCMSTool(BaseTool):
 
     def _markdown_to_html(self, content: str) -> str:
         """
-        Convert Markdown to HTML for Ghost CMS
-
-        Note: This is a basic converter. Ghost CMS accepts Markdown in the 'mobiledoc'
-        format, but HTML is simpler and more reliable.
+        Convert Markdown to HTML for Ghost CMS using the markdown library
 
         Args:
             content: Markdown content
@@ -205,61 +203,34 @@ class GhostCMSTool(BaseTool):
         """
         import re
 
-        html = content
-
-        # Headers
-        html = re.sub(r'^######\s+(.+)$', r'<h6>\1</h6>', html, flags=re.MULTILINE)
-        html = re.sub(r'^#####\s+(.+)$', r'<h5>\1</h5>', html, flags=re.MULTILINE)
-        html = re.sub(r'^####\s+(.+)$', r'<h4>\1</h4>', html, flags=re.MULTILINE)
-        html = re.sub(r'^###\s+(.+)$', r'<h3>\1</h3>', html, flags=re.MULTILINE)
-        html = re.sub(r'^##\s+(.+)$', r'<h2>\1</h2>', html, flags=re.MULTILINE)
-        html = re.sub(r'^#\s+(.+)$', r'<h1>\1</h1>', html, flags=re.MULTILINE)
-
-        # Bold and italic
-        html = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', html)
-        html = re.sub(r'\*(.+?)\*', r'<em>\1</em>', html)
-        html = re.sub(r'__(.+?)__', r'<strong>\1</strong>', html)
-        html = re.sub(r'_(.+?)_', r'<em>\1</em>', html)
-
-        # Links
-        html = re.sub(r'\[([^\]]+)\]\(([^\)]+)\)', r'<a href="\2">\1</a>', html)
-
-        # Code blocks with language identifiers (Prism.js compatible)
-        def code_block_replacer(match):
-            lang = match.group(1)
-            code = match.group(2)
-            if lang:
-                return f'<pre><code class="language-{lang}">{code}</code></pre>'
-            else:
-                return f'<pre><code>{code}</code></pre>'
-
-        html = re.sub(r'```(\w+)?\n(.+?)\n```', code_block_replacer, html, flags=re.DOTALL)
-        html = re.sub(r'`(.+?)`', r'<code>\1</code>', html)
-
-        # Lists (basic support)
-        html = re.sub(r'^\s*[-*+]\s+(.+)$', r'<li>\1</li>', html, flags=re.MULTILINE)
-        html = re.sub(r'^\s*\d+\.\s+(.+)$', r'<li>\1</li>', html, flags=re.MULTILINE)
-
-        # Wrap consecutive <li> elements in <ul>
-        html = re.sub(r'(<li>.+?</li>(?:\n<li>.+?</li>)+)', r'<ul>\1</ul>', html, flags=re.DOTALL)
-
-        # Paragraphs
-        lines = html.split('\n')
+        # Pre-process: Add blank lines before lists if they don't exist
+        # This ensures the markdown library recognizes them as proper lists
+        lines = content.split('\n')
         processed_lines = []
 
-        for line in lines:
-            stripped = line.strip()
-            if not stripped:
-                processed_lines.append('')
-            elif not any(stripped.startswith(tag) for tag in ['<h', '<ul', '<ol', '<li', '<pre', '<code']):
-                processed_lines.append(f'<p>{stripped}</p>')
-            else:
-                processed_lines.append(stripped)
+        for i, line in enumerate(lines):
+            # Check if this line starts a list (unordered or ordered)
+            is_list_item = (
+                re.match(r'^\s*[-*+]\s+', line) or  # Unordered list
+                re.match(r'^\s*\d+\.\s+', line)      # Ordered list
+            )
 
-        html = '\n'.join(processed_lines)
+            if is_list_item and i > 0:
+                prev_line = lines[i-1].strip()
+                # Add blank line before list if previous line isn't blank and isn't a list item
+                if prev_line and not re.match(r'^\s*[-*+]\s+', lines[i-1]) and not re.match(r'^\s*\d+\.\s+', lines[i-1]):
+                    processed_lines.append('')
 
-        # Clean up multiple newlines
-        html = re.sub(r'\n{3,}', '\n\n', html)
+            processed_lines.append(line)
+
+        preprocessed_content = '\n'.join(processed_lines)
+
+        # Use the markdown library with standard extensions
+        # The 'extra' extension includes: fenced_code, tables, attr_list, def_list, etc.
+        html = markdown.markdown(
+            preprocessed_content,
+            extensions=['extra', 'sane_lists']
+        )
 
         return html
 

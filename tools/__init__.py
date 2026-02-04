@@ -7,6 +7,7 @@ from .html_formatter import HTMLFormatterTool
 from .ghost_cms import GhostCMSTool
 from .tag_extractor import TagExtractionTool
 from .content_analyzer import ContentAnalysisTool
+from .url_fetcher import URLFetcherTool
 
 __all__ = [
     "BraveSearchTool",
@@ -15,4 +16,5 @@ __all__ = [
     "GhostCMSTool",
     "TagExtractionTool",
     "ContentAnalysisTool",
+    "URLFetcherTool",
 ]

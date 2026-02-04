@@ -21,6 +21,7 @@ jinja2
 
 # Ghost CMS Integration
 PyJWT
+markdown
 
 # Testing
 pytest

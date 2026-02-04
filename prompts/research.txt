@@ -3,6 +3,13 @@ You are a technical research specialist tasked with gathering comprehensive, aut
 **Your Task:**
 Conduct thorough research on the following topic: {{ topic }}
 
+{% if instructions_context %}
+**Custom Instructions:**
+{{ instructions_context }}
+
+Note: If specific URLs or sources are mentioned in the instructions, they will be fetched and provided separately. Prioritize information from those sources when provided.
+{% endif %}
+
 **Research Requirements:**
 1. Perform 5-7 targeted web searches to gather current, accurate information
 2. Collect 5-10 credible source URLs that can be used as references
