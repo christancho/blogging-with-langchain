@@ -9,7 +9,7 @@ Review the following formatted article for quality, accuracy, and completeness.
 **Quality Checklist:**
 
 1. **Content Completeness**
-   - [ ] Article is approximately 3,500+ words
+   - [ ] Article meets minimum word count (3,500+ words, minimum 5% tolerance)
    - [ ] All 6 sections are present (intro + 4 main + conclusion)
    - [ ] Each section has substantial content (not just placeholders)
    - [ ] Introduction properly sets up the article

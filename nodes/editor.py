@@ -46,12 +46,11 @@ def editor_node(state: BlogState) -> Dict[str, Any]:
     print(f"  - Quality score: {analysis['quality_score']}")
 
     # Perform quality checks - REJECT ON ANY FAILURE
-    # Word count tolerance: ±10% of target (allows for natural variation in content)
-    min_word_count = Config.WORD_COUNT_TARGET * 0.9
-    max_word_count = Config.WORD_COUNT_TARGET * 1.1
+    # Word count tolerance: minimum 5% below target (no upper limit)
+    min_word_count = Config.WORD_COUNT_TARGET * 0.95
 
     quality_checks = {
-        "word_count": min_word_count <= analysis["word_count"] <= max_word_count,
+        "word_count": analysis["word_count"] >= min_word_count,
         "min_links": analysis["links"]["total_links"] >= Config.MIN_INLINE_LINKS,
         "well_structured": analysis["structure"]["well_structured"],
         "has_h1": analysis["structure"]["h1_count"] == 1,
@@ -93,10 +92,9 @@ def editor_node(state: BlogState) -> Dict[str, Any]:
         for check in failed_checks:
             if check == "word_count":
                 current = analysis["word_count"]
-                min_wc = int(Config.WORD_COUNT_TARGET * 0.9)
-                max_wc = int(Config.WORD_COUNT_TARGET * 1.1)
+                min_wc = int(Config.WORD_COUNT_TARGET * 0.95)
                 feedback_parts.append(
-                    f"Word count is {current}, but must be between {min_wc}-{max_wc} words ({int(Config.WORD_COUNT_TARGET)} ±10%). Adjust content length as needed."
+                    f"Word count is {current}, but must be at least {min_wc} words ({int(Config.WORD_COUNT_TARGET)} with -5% tolerance). Expand content to meet minimum requirement."
                 )
             elif check == "min_links":
                 current = analysis["links"]["total_links"]

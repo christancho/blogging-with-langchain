@@ -51,7 +51,7 @@ Revise and improve the following article to address the specific feedback provid
 - Code blocks without language identifiers will appear as plain grey text with no highlighting
 
 **Key Areas to Verify After Revision:**
-1. Word count is appropriate ({{ min_word_count }}-{{ max_word_count }} words, with {{ word_count_target }} as target ±10%)
+1. Word count meets minimum (at least {{ min_word_count }} words, with {{ word_count_target }} as target. Minimum -5% tolerance)
 2. Minimum inline links are present (10-15)
 3. Article has exactly 1 H1 heading
 4. Article has clear section structure with H2 headings

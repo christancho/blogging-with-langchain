@@ -59,10 +59,10 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
         article_content_escaped = article_content_to_revise.replace("{", "{{").replace("}", "}}")
         feedback_escaped = approval_feedback.replace("{", "{{").replace("}", "}}")
 
-        # Calculate word count tolerance (±10%)
+        # Calculate word count tolerance (minimum 5% below target, no upper limit)
         word_count_target = Config.WORD_COUNT_TARGET
-        min_word_count = int(word_count_target * 0.9)
-        max_word_count = int(word_count_target * 1.1)
+        min_word_count = int(word_count_target * 0.95)
+        max_word_count = word_count_target * 2  # Soft limit for guidance (no strict upper limit)
 
         # Use revision prompt
         revision_template = PromptLoader.load("revision")
@@ -90,10 +90,10 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
         print(f"Instructions: {instructions[:80]}..." if len(instructions) > 80 else f"Instructions: {instructions}")
         print(f"Research summary length: {len(research_summary)} characters")
 
-        # Calculate word count tolerance (±10%)
+        # Calculate word count tolerance (minimum 5% below target, no upper limit)
         word_count_target = Config.WORD_COUNT_TARGET
-        min_word_count = int(word_count_target * 0.9)
-        max_word_count = int(word_count_target * 1.1)
+        min_word_count = int(word_count_target * 0.95)
+        max_word_count = word_count_target * 2  # Soft limit for guidance (no strict upper limit)
 
         # Use standard writer prompt
         writer_template = PromptLoader.load("writer")
