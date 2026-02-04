@@ -56,8 +56,8 @@ Write a complete, publication-ready blog post on: {{ topic }}
      * Make it feel organic, not sales-y
    - End with a thought-provoking statement or forward-looking insight that leaves readers inspired
 
-**INLINE CITATIONS (CRITICAL):**
-- Include 10-15 inline hyperlinks DIRECTLY WITHIN the article text
+**INLINE CITATIONS (RECOMMENDED):**
+- Target: 10-15 inline hyperlinks DIRECTLY WITHIN the article text (minimum 5 recommended)
 - Use Markdown format: [descriptive link text](URL)
 - Distribute links naturally throughout ALL sections
 - Use the research sources provided
@@ -105,7 +105,7 @@ Write a complete, publication-ready blog post on: {{ topic }}
 **IMPORTANT:**
 - Write ALL sections in full - do not summarize or skip sections
 - Every section must have multiple detailed paragraphs
-- Include the 10-15 inline links distributed throughout the text
+- Target: 10-15 inline links distributed throughout the text (minimum 5 recommended)
 - Make the article informative, engaging, and actionable
 - Ensure the content is original and not plagiarized
 - **Optimize for readability:**

@@ -25,11 +25,12 @@ Optimize the following article for SEO:
    - Describes the value readers will get
    - 150-160 characters (optimal for search results)
 
-3. **Excerpt** (200-250 characters)
+3. **Excerpt** (MUST be under 300 characters)
    - Preview text displayed on article listing pages
    - Engaging and compelling (encourages readers to click through)
    - Summarizes the main topic or key benefit
-   - 200-250 characters (slightly longer than meta description for richer preview)
+   - Target: 250-290 characters (slightly longer than meta description for richer preview)
+   - CRITICAL: Maximum 300 characters (hard limit - will be rejected if longer)
    - Should intrigue readers about the article content
 
 4. **Keywords**

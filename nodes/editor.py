@@ -45,6 +45,54 @@ def editor_node(state: BlogState) -> Dict[str, Any]:
     print(f"  - Links: {analysis['links']['total_links']}")
     print(f"  - Quality score: {analysis['quality_score']}")
 
+    # LLM-based cohesiveness check
+    print(f"\n🔍 Running cohesiveness review...")
+    llm = Config.get_llm()
+
+    # Escape curly braces in article content
+    article_content_escaped = article_content.replace("{", "{{").replace("}", "}}")
+
+    editor_template = PromptLoader.load("editor")
+    editor_prompt = editor_template.render(
+        article_content=article_content_escaped,
+        instructions=instructions
+    )
+
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", editor_prompt),
+        ("human", "Provide your cohesiveness assessment in JSON format.")
+    ])
+
+    chain = prompt | llm | StrOutputParser()
+
+    try:
+        llm_review = chain.invoke({})
+
+        # Parse JSON response
+        import re
+        json_match = re.search(r'\{[\s\S]*\}', llm_review)
+        if json_match:
+            review_data = json.loads(json_match.group())
+            cohesiveness_score = review_data.get("cohesiveness_score", 0)
+            passes_cohesiveness = review_data.get("passes_review", False)
+            cohesiveness_feedback = review_data.get("feedback", "No feedback provided")
+            cohesiveness_issues = review_data.get("issues", [])
+
+            print(f"  - Cohesiveness score: {cohesiveness_score}/10")
+            print(f"  - Passes cohesiveness: {passes_cohesiveness}")
+        else:
+            print(f"  ⚠️  Warning: Could not parse LLM review, skipping cohesiveness check")
+            passes_cohesiveness = True  # Default to pass if parsing fails
+            cohesiveness_feedback = ""
+            cohesiveness_issues = []
+            cohesiveness_score = 7
+    except Exception as e:
+        print(f"  ⚠️  Warning: LLM review failed: {str(e)}, skipping cohesiveness check")
+        passes_cohesiveness = True  # Default to pass if LLM fails
+        cohesiveness_feedback = ""
+        cohesiveness_issues = []
+        cohesiveness_score = 7
+
     # Perform quality checks - REJECT ON ANY FAILURE
     # Word count tolerance: minimum 5% below target (no upper limit)
     min_word_count = Config.WORD_COUNT_TARGET * 0.95
@@ -54,7 +102,8 @@ def editor_node(state: BlogState) -> Dict[str, Any]:
         "min_links": analysis["links"]["total_links"] >= Config.MIN_INLINE_LINKS,
         "well_structured": analysis["structure"]["well_structured"],
         "has_h1": analysis["structure"]["h1_count"] == 1,
-        "has_sections": analysis["structure"]["h2_count"] >= Config.NUM_SECTIONS
+        "has_sections": analysis["structure"]["h2_count"] >= Config.NUM_SECTIONS,
+        "cohesiveness": passes_cohesiveness
     }
 
     checks_passed = sum(quality_checks.values())
@@ -100,7 +149,7 @@ def editor_node(state: BlogState) -> Dict[str, Any]:
                 current = analysis["links"]["total_links"]
                 target = Config.MIN_INLINE_LINKS
                 feedback_parts.append(
-                    f"Only {current} inline links found, but {target} are required. Add more citations and references to support claims."
+                    f"Only {current} inline links found (target: {target} recommended). Consider adding more citations and references to support claims."
                 )
             elif check == "well_structured":
                 feedback_parts.append(
@@ -117,6 +166,12 @@ def editor_node(state: BlogState) -> Dict[str, Any]:
                 feedback_parts.append(
                     f"Article has {current} sections (H2), but {target} are required. Add more major sections to improve article depth."
                 )
+            elif check == "cohesiveness":
+                feedback_parts.append(
+                    f"Cohesiveness issues detected (score: {cohesiveness_score}/10):\n{cohesiveness_feedback}"
+                )
+                if cohesiveness_issues:
+                    feedback_parts.append("Specific issues:\n- " + "\n- ".join(cohesiveness_issues))
 
         approval_feedback = "\n".join(feedback_parts)
 

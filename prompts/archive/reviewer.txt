@@ -16,7 +16,7 @@ Review the following formatted article for quality, accuracy, and completeness.
    - [ ] Conclusion provides clear takeaways
 
 2. **Inline Citations**
-   - [ ] AT LEAST 10 inline hyperlinks present in the text
+   - [ ] Target: 10+ inline hyperlinks in the text (minimum 5 recommended)
    - [ ] Links are distributed throughout all sections (not clustered)
    - [ ] Link text is descriptive and natural
    - [ ] URLs are complete and properly formatted

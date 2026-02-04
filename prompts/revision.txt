@@ -52,7 +52,7 @@ Revise and improve the following article to address the specific feedback provid
 
 **Key Areas to Verify After Revision:**
 1. Word count meets minimum (at least {{ min_word_count }} words, with {{ word_count_target }} as target. Minimum -5% tolerance)
-2. Minimum inline links are present (10-15)
+2. Target: 10-15 inline links (minimum 5 recommended)
 3. Article has exactly 1 H1 heading
 4. Article has clear section structure with H2 headings
 5. Content flows logically and is well-organized

@@ -6,7 +6,6 @@ from .writer import writer_node
 from .seo import seo_node
 from .formatter import formatter_node
 from .editor import editor_node
-from .reviewer import reviewer_node
 from .publisher import publisher_node
 
 __all__ = [
@@ -15,6 +14,5 @@ __all__ = [
     "seo_node",
     "formatter_node",
     "editor_node",
-    "reviewer_node",
     "publisher_node",
 ]

@@ -24,6 +24,13 @@ class GhostCMSTool(BaseTool):
     - meta_description: SEO meta description
     - excerpt: Article excerpt for listing pages (optional)
     - tags: List of tags
+    - codeinjection_head: Custom code for <head> section (optional)
+    - codeinjection_foot: Custom code before </body> (optional)
+
+    Features:
+    - Automatically preserves language identifiers in code blocks (e.g., ```python)
+    - Auto-injects Prism.js for syntax highlighting when code blocks are detected
+
     Returns the published post ID and URL.
     """
 
@@ -51,9 +58,22 @@ class GhostCMSTool(BaseTool):
             meta_description = data.get("meta_description", "")
             excerpt = data.get("excerpt", "")
             tags = data.get("tags", Config.DEFAULT_TAGS)
+            codeinjection_head = data.get("codeinjection_head", "")
+            codeinjection_foot = data.get("codeinjection_foot", "")
+
+            # Validate and truncate excerpt to Ghost's 300 character limit
+            if excerpt and len(excerpt) > 300:
+                print(f"[Ghost CMS] Warning: Excerpt truncated from {len(excerpt)} to 300 chars")
+                excerpt = excerpt[:297] + "..."
 
             # Convert Markdown to HTML if needed
             html_content = self._markdown_to_html(content)
+
+            # Auto-inject Prism.js for syntax highlighting if code blocks are present
+            if not codeinjection_head and ('<code class="language-' in html_content or '<pre><code>' in html_content):
+                codeinjection_head = '''<script src="https://cdn.jsdelivr.net/npm/prismjs/prism.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs/plugins/autoloader/prism-autoloader.min.js" defer></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs/themes/prism.min.css">'''
 
             # Generate JWT token
             token = self._generate_jwt()
@@ -64,11 +84,17 @@ class GhostCMSTool(BaseTool):
                     "title": title,
                     "html": html_content,
                     "meta_description": meta_description,
-                    "excerpt": excerpt,
+                    "custom_excerpt": excerpt,
                     "tags": [{"name": tag} for tag in tags],
                     "status": "draft" if Config.PUBLISH_AS_DRAFT else "published"
                 }]
             }
+
+            # Add code injection if present
+            if codeinjection_head:
+                post_data["posts"][0]["codeinjection_head"] = codeinjection_head
+            if codeinjection_foot:
+                post_data["posts"][0]["codeinjection_foot"] = codeinjection_foot
 
             # Add author if specified
             if self.author_id:
@@ -84,8 +110,13 @@ class GhostCMSTool(BaseTool):
 
             print(f"\n[Ghost CMS] Publishing to: {api_endpoint}")
             print(f"[Ghost CMS] Title: {title}")
+            print(f"[Ghost CMS] Meta Description: {meta_description[:80]}..." if len(meta_description) > 80 else f"[Ghost CMS] Meta Description: {meta_description}")
+            print(f"[Ghost CMS] Excerpt: {excerpt[:80]}..." if len(excerpt) > 80 else f"[Ghost CMS] Excerpt: {excerpt}")
+            print(f"[Ghost CMS] Excerpt length: {len(excerpt)} chars")
             print(f"[Ghost CMS] Tags: {tags}")
             print(f"[Ghost CMS] Status: {'draft' if Config.PUBLISH_AS_DRAFT else 'published'}")
+            if codeinjection_head:
+                print(f"[Ghost CMS] Code Injection: Prism.js syntax highlighting enabled")
 
             response = requests.post(
                 api_endpoint,
@@ -193,8 +224,16 @@ class GhostCMSTool(BaseTool):
         # Links
         html = re.sub(r'\[([^\]]+)\]\(([^\)]+)\)', r'<a href="\2">\1</a>', html)
 
-        # Code blocks
-        html = re.sub(r'```(\w+)?\n(.+?)\n```', r'<pre><code>\2</code></pre>', html, flags=re.DOTALL)
+        # Code blocks with language identifiers (Prism.js compatible)
+        def code_block_replacer(match):
+            lang = match.group(1)
+            code = match.group(2)
+            if lang:
+                return f'<pre><code class="language-{lang}">{code}</code></pre>'
+            else:
+                return f'<pre><code>{code}</code></pre>'
+
+        html = re.sub(r'```(\w+)?\n(.+?)\n```', code_block_replacer, html, flags=re.DOTALL)
         html = re.sub(r'`(.+?)`', r'<code>\1</code>', html)
 
         # Lists (basic support)
