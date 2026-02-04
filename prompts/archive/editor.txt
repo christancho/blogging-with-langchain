@@ -48,10 +48,11 @@ Assess the following article for cohesiveness and provide a structured review.
 
 Return your assessment in the following JSON structure:
 
+{% raw %}
 ```json
 {{
-  "cohesiveness_score": <0-10>,
-  "passes_review": <true/false>,
+  "cohesiveness_score": 0-10,
+  "passes_review": true or false,
   "strengths": [
     "List 2-3 specific strengths of the article"
   ],
@@ -62,6 +63,7 @@ Return your assessment in the following JSON structure:
   "feedback": "Detailed feedback on cohesiveness and flow. If issues exist, provide specific, actionable suggestions for improvement. Reference specific sections or paragraphs."
 }}
 ```
+{% endraw %}
 
 **SCORING GUIDE:**
 - 9-10: Exceptional flow, perfect cohesiveness, publication-ready
