@@ -1,6 +1,7 @@
 """
 Writer node for creating blog content
 """
+from datetime import datetime
 from typing import Dict, Any
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -60,19 +61,21 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
         feedback_escaped = approval_feedback.replace("{", "{{").replace("}", "}}")
 
         # Calculate word count tolerance (minimum 5% below target, no upper limit)
-        word_count_target = Config.WORD_COUNT_TARGET
+        word_count_target = state.get("word_count_target", Config.WORD_COUNT_TARGET)
         min_word_count = int(word_count_target * 0.95)
         max_word_count = word_count_target * 2  # Soft limit for guidance (no strict upper limit)
 
         # Use revision prompt
         revision_template = PromptLoader.load("revision")
+        current_date = datetime.now().strftime("%B %d, %Y")
         revision_prompt = revision_template.render(
             topic=topic,
             article_content=article_content_escaped,
             editor_feedback=feedback_escaped,
             word_count_target=word_count_target,
             min_word_count=min_word_count,
-            max_word_count=max_word_count
+            max_word_count=max_word_count,
+            current_date=current_date
         )
 
         prompt = ChatPromptTemplate.from_messages([
@@ -91,20 +94,22 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
         print(f"Research summary length: {len(research_summary)} characters")
 
         # Calculate word count tolerance (minimum 5% below target, no upper limit)
-        word_count_target = Config.WORD_COUNT_TARGET
+        word_count_target = state.get("word_count_target", Config.WORD_COUNT_TARGET)
         min_word_count = int(word_count_target * 0.95)
         max_word_count = word_count_target * 2  # Soft limit for guidance (no strict upper limit)
 
         # Use standard writer prompt
         writer_template = PromptLoader.load("writer")
+        current_date = datetime.now().strftime("%B %d, %Y")
         writer_prompt = writer_template.render(
             topic=topic,
-            tone=Config.BLOG_TONE,
+            tone=state.get("tone", Config.BLOG_TONE),
             instructions=instructions,
             research_summary=research_summary,
             word_count_target=word_count_target,
             min_word_count=min_word_count,
-            max_word_count=max_word_count
+            max_word_count=max_word_count,
+            current_date=current_date
         )
 
         prompt = ChatPromptTemplate.from_messages([
@@ -140,7 +145,7 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
         return {
             "article_content": revised_content,
             "article_title": article_title,
-            "inline_links": inline_links,
+            "inline_links": inline_links
         }
 
     except Exception as e:

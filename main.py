@@ -52,6 +52,12 @@ def interactive_mode():
         tone_input = input("   > ").strip()
         tone = tone_input if tone_input else None
 
+        # Get word count target (optional)
+        print(f"\n📊 Word Count Target (optional, press Enter for default: {Config.WORD_COUNT_TARGET})")
+        print("   Example: 5000")
+        word_count_input = input("   > ").strip()
+        word_count_target = int(word_count_input) if word_count_input else None
+
         # Show summary
         print("\n" + "="*80)
         print("SUMMARY")
@@ -59,6 +65,7 @@ def interactive_mode():
         print(f"Topic:        {topic}")
         print(f"Instructions: {instructions[:60] + '...' if instructions and len(instructions) > 60 else instructions or '(none)'}")
         print(f"Tone:         {tone or f'{Config.BLOG_TONE} (default)'}")
+        print(f"Word Count:   {word_count_target or f'{Config.WORD_COUNT_TARGET} (default)'}")
         print("="*80)
 
         # Confirm
@@ -67,7 +74,7 @@ def interactive_mode():
             print("\n❌ Cancelled by user")
             return None
 
-        return topic, instructions, tone
+        return topic, instructions, tone, word_count_target
 
     except KeyboardInterrupt:
         print("\n\n❌ Cancelled by user")
@@ -110,6 +117,12 @@ def main():
         default=None,
         help='Custom instructions for the article (e.g., "Focus on examples for beginners", "Target C-level executives")'
     )
+    parser.add_argument(
+        "--word-count",
+        type=int,
+        default=None,
+        help=f'Target word count for the article (default: {Config.WORD_COUNT_TARGET})'
+    )
 
     args = parser.parse_args()
 
@@ -126,19 +139,13 @@ def main():
         if result is None:
             return 1  # User cancelled
 
-        topic, instructions, tone = result
-
-        # Apply tone if provided
-        if tone:
-            Config.BLOG_TONE = tone
+        topic, instructions, tone, word_count_target = result
     else:
         # CLI mode - use provided arguments
         topic = args.topic
         instructions = args.instructions
-
-        # Override tone if provided via CLI
-        if args.tone:
-            Config.BLOG_TONE = args.tone
+        tone = args.tone
+        word_count_target = args.word_count
 
     # Print configuration info
     print("\n" + "="*80)
@@ -152,9 +159,9 @@ def main():
     if "fallback" in llm_info:
         print(f"Fallback LLM: {llm_info['fallback']['provider']} ({llm_info['fallback']['model']})")
 
-    print(f"Target Word Count: {Config.WORD_COUNT_TARGET}")
+    print(f"Target Word Count: {word_count_target or Config.WORD_COUNT_TARGET}")
     print(f"Min Inline Links: {Config.MIN_INLINE_LINKS}")
-    print(f"Blog Tone: {Config.BLOG_TONE}")
+    print(f"Blog Tone: {tone or Config.BLOG_TONE}")
     print(f"Publish as Draft: {Config.PUBLISH_AS_DRAFT}")
 
     # Show LangSmith status
@@ -178,13 +185,19 @@ def main():
     start_time = datetime.now()
 
     try:
-        final_state = generate_blog_post(topic, instructions)
+        final_state = generate_blog_post(topic, instructions, tone, word_count_target)
 
         end_time = datetime.now()
         duration_seconds = (end_time - start_time).total_seconds()
         duration_minutes = duration_seconds / 60
 
         print(f"\n⏱️  Total execution time: {duration_minutes:.1f} minutes ({duration_seconds:.0f} seconds)")
+
+        # Show LangSmith info for cost tracking
+        if Config.is_langsmith_enabled():
+            print(f"\n💰 Cost tracking: View detailed token usage and costs in LangSmith")
+            print(f"   Project: {Config.LANGCHAIN_PROJECT}")
+            print(f"   URL: https://smith.langchain.com")
 
         # Check for errors
         errors = final_state.get('errors', [])

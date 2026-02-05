@@ -3,6 +3,7 @@ LangGraph state graph for blog generation workflow
 """
 from langgraph.graph import StateGraph, END
 from state import BlogState
+from config import Config
 from nodes import research_node, writer_node, seo_node, formatter_node, editor_node, publisher_node
 
 
@@ -84,13 +85,20 @@ def create_blog_graph():
 blog_graph = create_blog_graph()
 
 
-def generate_blog_post(topic: str, instructions: str = None) -> dict:
+def generate_blog_post(
+    topic: str,
+    instructions: str = None,
+    tone: str = None,
+    word_count_target: int = None
+) -> dict:
     """
     Generate a complete blog post on the given topic
 
     Args:
         topic: The blog topic to write about
         instructions: Optional custom instructions for the article (e.g., style, audience, focus areas)
+        tone: Optional blog tone override (default: Config.BLOG_TONE)
+        word_count_target: Optional word count target (default: Config.WORD_COUNT_TARGET)
 
     Returns:
         Final state dictionary with all results
@@ -106,6 +114,8 @@ def generate_blog_post(topic: str, instructions: str = None) -> dict:
     initial_state = {
         "topic": topic,
         "instructions": instructions,
+        "tone": tone or Config.BLOG_TONE,
+        "word_count_target": word_count_target or Config.WORD_COUNT_TARGET,
         "errors": [],
         "warnings": [],
         "workflow_version": "1.0.0",

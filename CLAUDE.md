@@ -38,14 +38,23 @@ python main.py "Your blog topic here"
 # With custom tone
 python main.py "Topic" --tone "conversational and engaging"
 
+# With custom word count target
+python main.py "Topic" --word-count 5000
+
 # With custom instructions
 python main.py "Topic" --instructions "Focus on practical examples for beginners"
+
+# Combine options
+python main.py "Topic" --tone "technical and detailed" --word-count 4000 --instructions "Include code examples"
 
 # Enable debug mode
 python main.py "Topic" --debug
 
 # Visualize the workflow graph
 python main.py --visualize
+
+# Interactive mode (prompts for all options)
+python main.py
 ```
 
 ### Testing
@@ -96,7 +105,7 @@ All nodes follow a consistent pattern:
 - `writer.py`: Handles both initial writing and revisions (checks `revision_count` to decide which prompt to use)
 - `formatter.py`: Normalizes Markdown, fixes heading hierarchy (ensures 1 H1)
 - `seo.py`: Generates SEO metadata (title, description, excerpt, tags, keywords)
-- `editor.py`: Quality gate with approval/rejection logic, sets `approval_status` and `revision_count`
+- `editor.py`: LLM-based quality gate evaluating editorial quality and mechanical requirements, sets `approval_status` and `revision_count`
 - `publisher.py`: Saves locally and publishes to Ghost CMS
 
 ### Prompt System
@@ -107,7 +116,7 @@ Prompts are Jinja2 templates stored in `prompts/*.txt` and loaded via `PromptLoa
 - `revision.txt`: Article revision based on editor feedback
 - `formatter.txt`: Content formatting and cleanup
 - `seo.txt`: SEO optimization
-- **Note**: No separate `editor.txt` - editor node uses Python logic for quality checks
+- `editor.txt`: LLM-based editorial review with mechanical awareness (cohesiveness, flow, word count, structure)
 
 **Loading prompts:**
 ```python
@@ -140,14 +149,24 @@ The editor node acts as an approval gate with three possible outcomes:
 2. **Rejected** (`approval_status: "rejected"`): Checks fail, revisions available → route back to Writer
 3. **Force Publish** (`approval_status: "force_publish"`): Checks fail, max revisions reached → route to Publisher with warning note
 
-**Quality Checks** (all must pass for approval):
-- Word count ≥ 3500
+**Quality Assessment** (LLM-based with mechanical awareness):
+
+**Editorial Criteria** (scored 0-10, must score ≥ 7):
+- Cohesiveness & Flow - clear narrative thread, logical transitions
+- Content Consistency - consistent tone, terminology, style
+- Logical Structure - intro/body/conclusion alignment, no gaps
+- Engagement & Readability - compelling hooks, concrete examples
+- Technical Quality - supported claims, accurate information
+
+**Mechanical Requirements** (must all pass):
+- Word count ≥ word_count_target * 0.95 (default: 3325, configurable via --word-count)
 - Inline links ≥ 10
 - Exactly 1 H1 heading
 - At least 4 H2 sections
-- Well-structured content
 
-**Implementation**: See `route_editor_decision()` in graph.py:52
+**Note**: Code blocks and inline code are excluded from word count calculations
+
+**Implementation**: See `editor_node()` in nodes/editor.py and `prompts/editor.txt`
 
 ## Configuration System
 
@@ -159,12 +178,16 @@ The `Config` class in config.py handles all settings with automatic fallback:
 3. Requires at least one API key
 
 **Key Settings:**
-- `WORD_COUNT_TARGET`: 3500
+- `WORD_COUNT_TARGET`: 3500 (default, override with --word-count parameter)
 - `MIN_INLINE_LINKS`: 10
 - `NUM_SECTIONS`: 4
-- `BLOG_TONE`: "informative and insightful" (override with --tone)
+- `BLOG_TONE`: "informative and insightful" (default, override with --tone parameter)
 - `PUBLISH_AS_DRAFT`: true
 - `MAX_REVISIONS`: 3
+
+**Runtime Parameters** (passed in state, override Config defaults):
+- `tone`: Blog tone (CLI: --tone, Interactive: prompted)
+- `word_count_target`: Target word count (CLI: --word-count, Interactive: prompted)
 
 **Environment Variables:** All loaded from `.env` (see .env.example for template)
 
@@ -188,9 +211,11 @@ LANGCHAIN_PROJECT=blog-generation
 ## Common Development Tasks
 
 ### Adding a New Quality Check
-1. Update `editor.py`: Add check logic to editor_node()
-2. Update `state.py`: Add new field to `quality_checks` dict if needed
+1. Update `prompts/editor.txt`: Add new criteria to the assessment section
+2. Update the scoring guide if needed to reflect new criteria weighting
 3. Update `revision.txt`: Include new check in revision guidance
+4. Test with sample articles to ensure LLM understands the new criteria
+5. Optional: Update fallback mechanical checks in `editor.py` if adding quantitative metrics
 
 ### Modifying a Prompt
 1. Edit the corresponding `.txt` file in `prompts/`
@@ -296,10 +321,12 @@ Essential for debugging LLM calls:
 - Check .env.example for template
 
 **Articles rejected repeatedly:**
-- Check editor feedback in console output
-- Verify word count target is reasonable
+- Check editorial feedback in console output (includes cohesiveness score and specific issues)
+- Verify word count target is reasonable (default 3500, configurable via --word-count)
 - Ensure research provides enough sources for inline links
-- Review quality checks in editor.py:editor_node()
+- Review editorial criteria in `prompts/editor.txt`
+- Check LLM assessment in LangSmith traces (if enabled)
+- If LLM evaluation fails, system falls back to mechanical checks only
 
 **Ghost publishing fails:**
 - Verify Ghost Admin API key is valid (not Content API key)

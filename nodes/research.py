@@ -2,6 +2,7 @@
 Research node for gathering information
 """
 import json
+from datetime import datetime
 from typing import Dict, Any
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -57,9 +58,11 @@ def research_node(state: BlogState) -> Dict[str, Any]:
     # STEP 2: Create research prompt with context about instructions
     research_template = PromptLoader.load("research")
     research_context = f"Custom Instructions: {instructions}" if instructions else "No specific instructions provided."
+    current_date = datetime.now().strftime("%B %d, %Y")  # e.g., "February 05, 2026"
     research_prompt = research_template.render(
         topic=topic,
-        instructions_context=research_context
+        instructions_context=research_context,
+        current_date=current_date
     )
 
     prompt = ChatPromptTemplate.from_messages([

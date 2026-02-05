@@ -17,6 +17,8 @@ class BlogState(TypedDict, total=False):
     # ============================================================================
     topic: str  # The blog topic to write about
     instructions: Optional[str]  # Custom instructions for this article (optional)
+    tone: str  # Blog tone (default: Config.BLOG_TONE)
+    word_count_target: int  # Target word count (default: Config.WORD_COUNT_TARGET)
 
     # ============================================================================
     # Research Node Outputs
@@ -82,3 +84,11 @@ class BlogState(TypedDict, total=False):
     # ============================================================================
     timestamp: str  # When the workflow started
     workflow_version: str  # Version of the workflow
+
+    # ============================================================================
+    # Cost Tracking
+    # ============================================================================
+    total_input_tokens: int  # Cumulative input tokens across all LLM calls
+    total_output_tokens: int  # Cumulative output tokens across all LLM calls
+    total_cost_usd: float  # Cumulative cost in USD
+    cost_breakdown: Dict[str, Dict[str, Any]]  # Per-node cost breakdown
