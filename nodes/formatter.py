@@ -79,7 +79,7 @@ def generate_table_of_contents(headings: List[Tuple[str, int, str]]) -> str:
 
 def insert_table_of_contents(content: str, toc: str) -> str:
     """
-    Insert table of contents after the introduction section (after first H2).
+    Insert table of contents after the introduction, before the first H2 section.
 
     Args:
         content: Full markdown content
@@ -92,29 +92,38 @@ def insert_table_of_contents(content: str, toc: str) -> str:
         return content
 
     lines = content.split('\n')
-    h2_indices = []
 
-    # Find all H2 headings
+    # Find the first H2 heading (first main section)
     for i, line in enumerate(lines):
         if re.match(r'^##\s+', line):
-            h2_indices.append(i)
+            # Found first H2 - insert TOC before it
+            insert_pos = i
+            # Skip back over any blank lines before the H2
+            while insert_pos > 0 and lines[insert_pos - 1].strip() == '':
+                insert_pos -= 1
 
-    # Insert TOC before the second H2 (after introduction section)
-    if len(h2_indices) >= 2:
-        insert_pos = h2_indices[1]
-        # Skip back over any blank lines before the second H2
-        while insert_pos > 0 and lines[insert_pos - 1].strip() == '':
-            insert_pos -= 1
+            lines.insert(insert_pos, toc)
+            return '\n'.join(lines)
 
-        lines.insert(insert_pos, toc)
-        return '\n'.join(lines)
-
-    # Fallback: if not enough H2 headings, insert after H1 title
+    # Fallback: if no H2 headings found, insert after H1 title and introduction
+    # Look for H1, then skip to end of introduction paragraph
     for i, line in enumerate(lines):
         if re.match(r'^#\s+', line):
+            # Found H1 title, now find end of introduction (first blank line after some content)
             insert_pos = i + 1
-            if insert_pos < len(lines) and lines[insert_pos].strip() == '':
+            # Skip past the title line and any immediate blank lines
+            while insert_pos < len(lines) and lines[insert_pos].strip() == '':
                 insert_pos += 1
+            # Skip past introduction paragraph(s) - look for blank line followed by more content
+            while insert_pos < len(lines):
+                if lines[insert_pos].strip() == '':
+                    # Found blank line - check if there's content after it
+                    if insert_pos + 1 < len(lines) and lines[insert_pos + 1].strip() != '':
+                        # This is end of introduction
+                        insert_pos += 1
+                        break
+                insert_pos += 1
+
             lines.insert(insert_pos, toc)
             return '\n'.join(lines)
 
