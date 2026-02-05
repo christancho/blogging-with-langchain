@@ -2,8 +2,12 @@
 Main entry point for the LangGraph Blog Generation System
 
 Usage:
-    python main.py "Your blog topic here"
-    python main.py "AI and Machine Learning in Healthcare"
+    Interactive mode:
+        python main.py
+
+    Command-line mode:
+        python main.py "Your blog topic here"
+        python main.py "AI and Machine Learning in Healthcare"
 """
 import sys
 import argparse
@@ -11,6 +15,66 @@ import argparse
 from datetime import datetime
 from graph import generate_blog_post, visualize_graph
 from config import Config
+
+
+def interactive_mode():
+    """
+    Interactive mode for gathering blog generation parameters
+
+    Returns:
+        tuple: (topic, instructions, tone) or None if cancelled
+    """
+    print("\n" + "="*80)
+    print("BLOG GENERATION SYSTEM - Interactive Mode")
+    print("="*80)
+    print("\nPress Ctrl+C at any time to cancel\n")
+
+    try:
+        # Get topic (required)
+        print("📝 Blog Topic (required)")
+        print("   Example: 'Building Your First MCP Server: A Practical Tutorial'")
+        topic = input("   > ").strip()
+
+        if not topic:
+            print("\n❌ Topic is required!")
+            return None
+
+        # Get instructions (optional)
+        print("\n📋 Custom Instructions (optional, press Enter to skip)")
+        print("   Example: 'Use this repo as reference: https://github.com/...'")
+        print("   Tip: You can paste long instructions with URLs")
+        instructions_input = input("   > ").strip()
+        instructions = instructions_input if instructions_input else None
+
+        # Get tone (optional)
+        print(f"\n🎨 Blog Tone (optional, press Enter for default: '{Config.BLOG_TONE}')")
+        print("   Example: 'conversational and engaging' or 'technical and detailed'")
+        tone_input = input("   > ").strip()
+        tone = tone_input if tone_input else None
+
+        # Show summary
+        print("\n" + "="*80)
+        print("SUMMARY")
+        print("="*80)
+        print(f"Topic:        {topic}")
+        print(f"Instructions: {instructions[:60] + '...' if instructions and len(instructions) > 60 else instructions or '(none)'}")
+        print(f"Tone:         {tone or f'{Config.BLOG_TONE} (default)'}")
+        print("="*80)
+
+        # Confirm
+        confirm = input("\n▶️  Start generation? [Y/n]: ").strip().lower()
+        if confirm and confirm not in ['y', 'yes']:
+            print("\n❌ Cancelled by user")
+            return None
+
+        return topic, instructions, tone
+
+    except KeyboardInterrupt:
+        print("\n\n❌ Cancelled by user")
+        return None
+    except EOFError:
+        print("\n\n❌ Cancelled by user")
+        return None
 
 def main():
     """Main entry point"""
@@ -55,27 +119,26 @@ def main():
         visualize_graph()
         return
 
-    # Check if topic is provided
+    # Interactive mode vs CLI mode
     if not args.topic:
-        print("Error: Blog topic is required")
-        print("\nUsage:")
-        print("  python main.py \"Your blog topic here\"")
-        print("\nExamples:")
-        print("  python main.py \"AI and Machine Learning in Healthcare\"")
-        print("  python main.py \"Introduction to LangChain and LangGraph\"")
-        print("  python main.py \"Best Practices for Python Web Development\"")
-        print("\nOptions:")
-        print("  --visualize    Generate a visualization of the workflow graph")
-        print("  --debug        Enable debug mode")
-        print('  --tone         Override blog tone (e.g., "conversational and engaging")')
-        print('  --instructions Custom instructions for the article (e.g., "Focus on practical examples")')
-        sys.exit(1)
+        # No topic provided - enter interactive mode
+        result = interactive_mode()
+        if result is None:
+            return 1  # User cancelled
 
-    topic = args.topic
+        topic, instructions, tone = result
 
-    # Override tone if provided via CLI
-    if args.tone:
-        Config.BLOG_TONE = args.tone
+        # Apply tone if provided
+        if tone:
+            Config.BLOG_TONE = tone
+    else:
+        # CLI mode - use provided arguments
+        topic = args.topic
+        instructions = args.instructions
+
+        # Override tone if provided via CLI
+        if args.tone:
+            Config.BLOG_TONE = args.tone
 
     # Print configuration info
     print("\n" + "="*80)
@@ -110,9 +173,6 @@ def main():
         print(f"   {e}")
         print("\nPlease check your .env file and ensure all required API keys are set.")
         sys.exit(1)
-
-    # Get instructions if provided
-    instructions = args.instructions
 
     # Generate the blog post
     start_time = datetime.now()
