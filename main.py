@@ -15,6 +15,7 @@ import argparse
 from datetime import datetime
 from graph import generate_blog_post, visualize_graph
 from config import Config
+from tools import get_latest_run_cost, format_langsmith_cost_report
 
 
 def interactive_mode():
@@ -193,11 +194,20 @@ def main():
 
         print(f"\n⏱️  Total execution time: {duration_minutes:.1f} minutes ({duration_seconds:.0f} seconds)")
 
-        # Show LangSmith info for cost tracking
+        # Fetch and display cost information from LangSmith
         if Config.is_langsmith_enabled():
-            print(f"\n💰 Cost tracking: View detailed token usage and costs in LangSmith")
-            print(f"   Project: {Config.LANGCHAIN_PROJECT}")
-            print(f"   URL: https://smith.langchain.com")
+            try:
+                print(f"\n🔍 Fetching cost data from LangSmith...")
+                cost_info = get_latest_run_cost(Config.LANGCHAIN_PROJECT)
+                if cost_info:
+                    print(format_langsmith_cost_report(cost_info))
+                else:
+                    print(f"\n💰 Cost tracking: View detailed token usage and costs in LangSmith")
+                    print(f"   Project: {Config.LANGCHAIN_PROJECT}")
+                    print(f"   URL: https://smith.langchain.com")
+            except Exception as e:
+                print(f"\n⚠️  Could not fetch cost data: {e}")
+                print(f"💰 View costs manually at: https://smith.langchain.com")
 
         # Check for errors
         errors = final_state.get('errors', [])

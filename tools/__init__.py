@@ -14,6 +14,11 @@ from .cost_tracker import (
     update_state_cost,
     format_cost_report
 )
+from .langsmith_cost import (
+    get_latest_run_cost,
+    get_langsmith_run_cost,
+    format_langsmith_cost_report
+)
 
 __all__ = [
     "BraveSearchTool",
@@ -27,4 +32,7 @@ __all__ = [
     "extract_usage_from_response",
     "update_state_cost",
     "format_cost_report",
+    "get_latest_run_cost",
+    "get_langsmith_run_cost",
+    "format_langsmith_cost_report",
 ]
