@@ -21,11 +21,24 @@ class BlogState(TypedDict, total=False):
     word_count_target: int  # Target word count (default: Config.WORD_COUNT_TARGET)
 
     # ============================================================================
+    # Research Configuration
+    # ============================================================================
+    deep_research_enabled: bool  # Whether deep research mode is enabled
+
+    # ============================================================================
     # Research Node Outputs
     # ============================================================================
     research_results: Dict[str, Any]  # Search results, URLs, summaries
     research_sources: List[str]  # List of source URLs
     research_summary: str  # Compiled research findings
+
+    # Deep research outputs (populated only when deep_research_enabled=True)
+    research_queries: List[str]  # LLM-generated search queries
+    research_fetched_urls: List[Dict[str, Any]]  # Fetched URL content with metadata
+    research_key_facts: List[Dict[str, str]]  # Extracted facts with sources
+    research_quotes: List[Dict[str, str]]  # Notable quotes with attribution
+    research_themes: List[str]  # Main themes identified
+    research_structured_data: Dict[str, Any]  # Complete synthesis for writer
 
     # ============================================================================
     # Content Writer Node Outputs

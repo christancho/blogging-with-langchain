@@ -89,7 +89,8 @@ def generate_blog_post(
     topic: str,
     instructions: str = None,
     tone: str = None,
-    word_count_target: int = None
+    word_count_target: int = None,
+    deep_research: bool = False
 ) -> dict:
     """
     Generate a complete blog post on the given topic
@@ -99,6 +100,7 @@ def generate_blog_post(
         instructions: Optional custom instructions for the article (e.g., style, audience, focus areas)
         tone: Optional blog tone override (default: Config.BLOG_TONE)
         word_count_target: Optional word count target (default: Config.WORD_COUNT_TARGET)
+        deep_research: Whether to enable deep research mode (default: False)
 
     Returns:
         Final state dictionary with all results
@@ -116,6 +118,7 @@ def generate_blog_post(
         "instructions": instructions,
         "tone": tone or Config.BLOG_TONE,
         "word_count_target": word_count_target or Config.WORD_COUNT_TARGET,
+        "deep_research_enabled": deep_research,
         "errors": [],
         "warnings": [],
         "workflow_version": "1.0.0",

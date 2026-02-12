@@ -42,6 +42,18 @@ class Config:
     BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search"
 
     # ============================================================================
+    # Deep Research Settings
+    # ============================================================================
+
+    # Deep research configuration
+    DEEP_RESEARCH_QUERIES = int(os.getenv("DEEP_RESEARCH_QUERIES", "6"))
+    DEEP_RESEARCH_URLS_PER_QUERY = int(os.getenv("DEEP_RESEARCH_URLS_PER_QUERY", "3"))
+    DEEP_RESEARCH_MAX_URLS_TOTAL = int(os.getenv("DEEP_RESEARCH_MAX_URLS_TOTAL", "20"))
+
+    # URL fetching limits
+    URL_FETCH_TIMEOUT = int(os.getenv("URL_FETCH_TIMEOUT", "30"))
+
+    # ============================================================================
     # Ghost CMS Configuration
     # ============================================================================
 

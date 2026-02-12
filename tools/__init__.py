@@ -8,6 +8,9 @@ from .ghost_cms import GhostCMSTool
 from .tag_extractor import TagExtractionTool
 from .content_analyzer import ContentAnalysisTool
 from .url_fetcher import URLFetcherTool
+from .query_generator import QueryGeneratorTool
+from .content_synthesizer import ContentSynthesisTool
+from .link_validator import LinkValidatorTool
 from .cost_tracker import (
     calculate_cost,
     extract_usage_from_response,
@@ -28,6 +31,9 @@ __all__ = [
     "TagExtractionTool",
     "ContentAnalysisTool",
     "URLFetcherTool",
+    "QueryGeneratorTool",
+    "ContentSynthesisTool",
+    "LinkValidatorTool",
     "calculate_cost",
     "extract_usage_from_response",
     "update_state_cost",
