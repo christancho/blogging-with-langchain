@@ -14,10 +14,12 @@ Cloudflare Worker that sends email notifications with AI-generated social media 
 ## Architecture
 
 ```
-Blog Publisher → Cloudflare Worker → Anthropic API → Mailgun → Email
-                      ↓
-                 (generates posts)
+Ghost CMS (post.published event) → Cloudflare Worker → Anthropic API → Mailgun → Email
+                                          ↓
+                                   (generates posts)
 ```
+
+**Trigger**: Ghost CMS webhook fires when any post is published (via Python script or Ghost admin UI)
 
 ## Prerequisites
 
@@ -121,7 +123,7 @@ curl -X POST http://localhost:8787 \
     "url": "https://example.com/test",
     "excerpt": "This is a test excerpt.",
     "tags": ["test"],
-    "content_preview": "Test content preview..."
+    "content": "Introduction: This is a comprehensive guide to testing webhooks...\n\nTable of Contents:\n- Getting Started\n- Best Practices\n- Common Issues\n\nFull article content here..."
   }'
 ```
 
@@ -135,7 +137,7 @@ curl -X POST https://blog-notification-webhook.<your-subdomain>.workers.dev \
     "url": "https://example.com/test",
     "excerpt": "This is a test excerpt.",
     "tags": ["test"],
-    "content_preview": "Test content preview..."
+    "content": "Introduction: This is a comprehensive guide...\n\nFull article content..."
   }'
 ```
 
@@ -148,33 +150,29 @@ Check your email for the notification!
 
 ## Integration
 
-### Python Blog Generator
+### Ghost CMS Webhook (Required)
 
-Update your `.env` file:
-
-```env
-WEBHOOK_ENABLED=true
-WEBHOOK_URL=https://blog-notification-webhook.<your-subdomain>.workers.dev
-```
-
-The publisher node will automatically call the webhook after successful Ghost CMS publication.
-
-### Ghost CMS Webhook (Optional)
-
-Configure Ghost to trigger the webhook on post publication:
+Configure Ghost to trigger the webhook whenever a post is published:
 
 1. Go to Ghost Admin → Settings → Integrations
 2. Add custom integration: "Blog Notification Webhook"
 3. Add webhook:
    - **Event**: `Post published`
    - **Target URL**: Your worker URL
-4. Test by publishing a post in Ghost
+4. **Save**
+
+**This webhook will trigger for ALL published posts**, whether published via:
+- Python blog generator (`python main.py`)
+- Ghost admin UI (manual publish)
+- Ghost API (any other method)
+
+Test by publishing a post via either method and checking your email.
 
 ## Payload Format
 
 The worker accepts two payload formats:
 
-### Custom Format (from Python publisher)
+### Custom Format
 
 ```json
 {
@@ -182,7 +180,7 @@ The worker accepts two payload formats:
   "url": "https://example.com/blog-post",
   "excerpt": "Post excerpt or summary",
   "tags": ["tag1", "tag2"],
-  "content_preview": "First 500 characters of content..."
+  "content": "Full article content for better post generation..."
 }
 ```
 
@@ -196,11 +194,17 @@ The worker accepts two payload formats:
       "url": "https://example.com/blog-post",
       "excerpt": "Post excerpt",
       "tags": [{"name": "tag1"}, {"name": "tag2"}],
-      "plaintext": "Full content..."
+      "plaintext": "Full article content..."
     }
   }
 }
 ```
+
+**What the LLM receives:**
+- Full article content (introduction, table of contents, all sections)
+- The LLM reads the intro and TOC to understand main topics
+- Generates posts highlighting specific insights and value propositions
+- More accurate and compelling posts than using just excerpts
 
 The worker automatically normalizes both formats.
 

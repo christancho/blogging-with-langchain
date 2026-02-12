@@ -109,13 +109,6 @@ class Config:
     DEFAULT_TAGS = os.getenv("DEFAULT_TAGS", "blog,auto-generated").split(",")
 
     # ============================================================================
-    # Social Media Notification Webhook Settings
-    # ============================================================================
-
-    WEBHOOK_ENABLED = os.getenv("WEBHOOK_ENABLED", "false").lower() == "true"
-    WEBHOOK_URL = os.getenv("WEBHOOK_URL")
-
-    # ============================================================================
     # Validation
     # ============================================================================
 

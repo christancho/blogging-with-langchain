@@ -12,9 +12,14 @@ Blog URL: {url}
 Excerpt: {excerpt}
 Tags: {tags}
 
+Full Article Content:
+{content}
+
 Guidelines:
+- Read the introduction and table of contents to understand the main topics covered
 - Professional and insightful tone
-- Highlight key takeaways or value proposition
+- Highlight 2-3 specific key takeaways or insights from the article
+- Mention what readers will learn (reference actual sections/topics from the content)
 - Include relevant hashtags (3-5 max)
 - Add a call-to-action to read the full article
 - Keep it under 3000 characters
@@ -30,12 +35,16 @@ Blog URL: {url}
 Excerpt: {excerpt}
 Tags: {tags}
 
+Full Article Content:
+{content}
+
 Guidelines:
+- Read the introduction to understand the main hook or problem being solved
 - Conversational and approachable tone
 - Must be under 300 characters (Bluesky's limit)
 - Include the blog URL
 - Make it catchy and shareable
-- Focus on the main hook or insight
+- Focus on the most compelling insight or value proposition from the intro
 - No hashtags (Bluesky doesn't use them the same way)
 
 Format the post as if you're posting directly to Bluesky. Keep it brief, engaging, and make people want to click through to read more.`;
@@ -130,7 +139,7 @@ function normalizePayload(payload) {
 			url: post.url || '',
 			excerpt: post.excerpt || post.custom_excerpt || '',
 			tags: post.tags ? post.tags.map(t => t.name) : [],
-			content_preview: post.plaintext ? post.plaintext.substring(0, 500) : ''
+			content: post.plaintext || ''  // Full content for better context
 		};
 	}
 
@@ -140,7 +149,7 @@ function normalizePayload(payload) {
 		url: payload.url || '',
 		excerpt: payload.excerpt || '',
 		tags: Array.isArray(payload.tags) ? payload.tags : [],
-		content_preview: payload.content_preview || ''
+		content: payload.content || payload.content_preview || ''
 	};
 }
 
@@ -148,7 +157,7 @@ function normalizePayload(payload) {
  * Generate social media posts using Anthropic Claude API
  */
 async function generateSocialPosts(metadata, env) {
-	const { title, url, excerpt, tags } = metadata;
+	const { title, url, excerpt, tags, content } = metadata;
 
 	// Prepare prompt context
 	const tagsStr = Array.isArray(tags) ? tags.join(', ') : '';
@@ -158,7 +167,8 @@ async function generateSocialPosts(metadata, env) {
 		.replace('{title}', title)
 		.replace('{url}', url)
 		.replace('{excerpt}', excerpt)
-		.replace('{tags}', tagsStr);
+		.replace('{tags}', tagsStr)
+		.replace('{content}', content);
 
 	const linkedinPost = await callAnthropicAPI(linkedinPrompt, env);
 
@@ -172,7 +182,8 @@ async function generateSocialPosts(metadata, env) {
 		.replace('{title}', title)
 		.replace('{url}', url)
 		.replace('{excerpt}', excerpt)
-		.replace('{tags}', tagsStr);
+		.replace('{tags}', tagsStr)
+		.replace('{content}', content);
 
 	const blueskyPost = await callAnthropicAPI(blueskyPrompt, env);
 

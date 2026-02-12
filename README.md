@@ -207,6 +207,14 @@ blogging-with-langchain/
 │   ├── editor.py          # Editor approval gate with revision routing
 │   ├── publisher.py       # Publisher node with forced publish support
 │   └── __init__.py
+├── cloudflare-worker/     # Social media notification webhook
+│   ├── worker.js          # Cloudflare Worker (serverless webhook)
+│   ├── wrangler.toml      # Cloudflare configuration
+│   ├── package.json       # npm dependencies
+│   └── README.md          # Webhook setup guide
+├── .github/
+│   └── workflows/
+│       └── deploy-worker.yml  # Auto-deploy webhook to Cloudflare
 ├── tests/                 # Unit tests
 │   ├── test_tools.py
 │   └── test_config.py
@@ -302,6 +310,39 @@ blogging-with-langchain/
 - Publishes as draft or published based on `PUBLISH_AS_DRAFT` setting
 - Returns post ID and URL
 - Logs warnings if article was force-published
+
+## Social Media Notification System
+
+When a blog post is published to Ghost CMS (via Python script or Ghost admin UI), an automated notification system:
+
+📧 **Sends you an email** with AI-generated social media post proposals:
+- **LinkedIn post** - Professional tone, optimized for engagement (<3000 chars)
+- **Bluesky post** - Conversational tone, concise format (<300 chars)
+
+### How It Works
+
+```
+Blog Published → Ghost CMS → Ghost Webhook → Cloudflare Worker → Email
+                                                     ↓
+                                            Anthropic API
+                                          (generates posts)
+```
+
+**Key Features:**
+- ⚡ Serverless (Cloudflare Workers) - no server maintenance
+- 🤖 AI-powered post generation using Claude
+- 📧 Email delivery via Mailgun
+- 🔄 Automatic for all published posts
+- 🆓 Free tier available (100k requests/day)
+
+### Setup
+
+The notification system runs on Cloudflare Workers and requires:
+1. Cloudflare account (free tier works)
+2. Mailgun account (free tier: 5,000 emails/month)
+3. Ghost CMS webhook configuration
+
+**📖 Full setup guide:** [`cloudflare-worker/README.md`](cloudflare-worker/README.md)
 
 ## Running Tests
 

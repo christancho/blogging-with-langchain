@@ -2,7 +2,6 @@
 Ghost CMS publisher node
 """
 import json
-import requests
 from datetime import datetime
 from typing import Dict, Any
 
@@ -95,20 +94,7 @@ def publisher_node(state: BlogState) -> Dict[str, Any]:
 
         if result_data.get("success"):
             print(f"\n✓ Successfully published to Ghost CMS")
-
-            # Call webhook if enabled
-            if Config.WEBHOOK_ENABLED and Config.WEBHOOK_URL:
-                try:
-                    _call_webhook(
-                        title=seo_title,
-                        url=result_data.get("post_url", ""),
-                        excerpt=excerpt,
-                        tags=tags,
-                        content_preview=content_without_title[:500]
-                    )
-                except Exception as e:
-                    print(f"\n⚠️  Webhook notification failed: {str(e)}")
-                    # Don't fail the whole publish if webhook fails
+            print(f"  Ghost webhook will trigger email notification")
 
             return {
                 "ghost_post_id": result_data.get("post_id"),
@@ -138,47 +124,3 @@ def publisher_node(state: BlogState) -> Dict[str, Any]:
             "timestamp": datetime.now().isoformat(),
             "errors": state.get("errors", []) + [f"Publisher exception: {str(e)}"]
         }
-
-
-def _call_webhook(title: str, url: str, excerpt: str, tags: list, content_preview: str) -> None:
-    """
-    Call the Cloudflare Worker webhook to send email notification
-
-    Args:
-        title: Blog post title
-        url: Blog post URL
-        excerpt: Blog post excerpt
-        tags: Blog post tags
-        content_preview: First 500 chars of content
-    """
-    print(f"\n📧 Sending webhook notification to {Config.WEBHOOK_URL}")
-
-    payload = {
-        "title": title,
-        "url": url,
-        "excerpt": excerpt,
-        "tags": tags,
-        "content_preview": content_preview
-    }
-
-    try:
-        response = requests.post(
-            Config.WEBHOOK_URL,
-            json=payload,
-            timeout=30
-        )
-
-        if response.status_code == 200:
-            print("✓ Webhook notification sent successfully")
-            print(f"  Response: {response.json()}")
-        else:
-            print(f"✗ Webhook returned status {response.status_code}")
-            print(f"  Response: {response.text}")
-            raise Exception(f"Webhook returned status {response.status_code}")
-
-    except requests.exceptions.Timeout:
-        print("✗ Webhook request timed out after 30 seconds")
-        raise Exception("Webhook timeout")
-    except requests.exceptions.RequestException as e:
-        print(f"✗ Webhook request failed: {str(e)}")
-        raise
