@@ -5,7 +5,8 @@
 
 // Prompt templates for social media post generation
 // Edit these directly to customize LinkedIn and Bluesky post formats
-const LINKEDIN_PROMPT = `You are a professional LinkedIn content creator. Create a compelling LinkedIn post to promote a new blog article.
+const LINKEDIN_PROMPT = `You are a LinkedIn content specialist with expertise in AI and technology content. 
+Create a high-engagement LinkedIn post for a blog article using the details below.
 
 Blog Title: {title}
 Blog URL: {url}
@@ -15,20 +16,44 @@ Tags: {tags}
 Full Article Content:
 {content}
 
-Guidelines:
-- Read the introduction and table of contents to understand the main topics covered
-- Professional and insightful tone
-- Highlight 2-3 specific key takeaways or insights from the article
-- Mention what readers will learn (reference actual sections/topics from the content)
-- Include relevant hashtags (3-5 max)
-- Add a call-to-action to read the full article
-- Keep it under 3000 characters
-- Make it engaging and thought-provoking
-- Include the blog URL
+---
 
-Format the post as if you're posting directly to LinkedIn. Make it compelling enough that professionals will want to click through and read the full article.`;
+LINKEDIN POST REQUIREMENTS:
 
-const BLUESKY_PROMPT = `You are a social media expert creating engaging Bluesky posts. Create a conversational post to promote a new blog article.
+**Structure (follow this exact format):**
+1. Open with "🎯 The Problem with [topic]" or a compelling problem statement hook
+2. One short paragraph establishing why this matters right now
+3. "I just published [brief description of what the article covers]"
+4. "What makes this approach powerful:" followed by 4-5 checkmark bullets (✅) with concrete benefits
+5. One paragraph expanding on the core value proposition
+6. "Perfect for:" followed by 5-6 bullet points (•) of specific use cases or industries
+7. Call to action: "Full [guide/breakdown/tutorial] with [code examples/case studies/frameworks] in the article 👇"
+8. The blog URL with UTM parameters: {url}?utm_source=linkedin&utm_medium=social&utm_campaign=[slug_from_url]
+9. Engagement question: "What's your experience with [topic]? [Specific question related to article]"
+10. 8-10 relevant hashtags from the provided tags plus standard ones like #ArtificialIntelligence #AIEngineering #EnterpriseAI
+
+**Tone and Style:**
+- Professional but conversational
+- Authoritative without being academic
+- Direct and confident - avoid weak language like "maybe" or "might"
+- Speak to enterprise practitioners and technical leads
+- Focus on production/real-world applicability, not theory
+
+**Content Rules:**
+- Never invent features, examples, or claims not present in the article
+- Extract specific technical details directly from the article content
+- Use concrete numbers when available (lines of code, performance metrics, etc.)
+- The checkmark bullets must reflect actual article content
+- Use cases must be realistic for the technology discussed
+
+**Length:** 
+- Aim for 1,200-1,500 characters (optimal LinkedIn engagement range)
+- Long enough to add value, short enough to avoid truncation before "see more"
+
+Output the LinkedIn post only, no explanations or commentary.`;
+
+const BLUESKY_PROMPT = `You are a social media specialist with expertise in AI and technology content.
+Create a high-engagement Bluesky post for a blog article using the details below.
 
 Blog Title: {title}
 Blog URL: {url}
@@ -38,16 +63,50 @@ Tags: {tags}
 Full Article Content:
 {content}
 
-Guidelines:
-- Read the introduction to understand the main hook or problem being solved
-- Conversational and approachable tone
-- Must be under 300 characters (Bluesky's limit)
-- Include the blog URL
-- Make it catchy and shareable
-- Focus on the most compelling insight or value proposition from the intro
-- No hashtags (Bluesky doesn't use them the same way)
+---
 
-Format the post as if you're posting directly to Bluesky. Keep it brief, engaging, and make people want to click through to read more.`;
+BLUESKY POST REQUIREMENTS:
+
+**Structure (follow this exact format):**
+1. Open with a relevant emoji + one punchy provocative statement or question (max 10 words)
+2. One blank line
+3. 2-3 lines expanding on the problem or insight (concise, no fluff)
+4. One blank line
+5. "Just published:" followed by one sentence describing what the article covers
+6. One blank line
+7. 3-4 bullet points using → arrows listing the concrete topics/examples covered in the article
+8. One blank line
+9. One closing sentence reinforcing the value (why they should care)
+10. One blank line
+11. The blog URL with UTM parameters: {url}?utm_source=bluesky&utm_medium=social&utm_campaign=[slug_from_url]
+12. One blank line
+13. 3-5 hashtags (no spaces, concise, relevant to the article tags provided)
+
+**Tone and Style:**
+- Punchy and direct - every word must earn its place
+- Conversational but technically credible
+- Avoid corporate speak or buzzwords
+- Write for AI practitioners, developers, and tech-forward professionals
+- Slightly more informal than LinkedIn but still professional
+
+**Content Rules:**
+- Never invent features, examples, or claims not present in the article
+- Extract specific technical details directly from the article content
+- The → bullets must reflect actual article content, not generic claims
+- Keep it grounded in production/real-world applicability
+
+**Length:**
+- Hard limit: 300 characters per post (Bluesky limit)
+- If content exceeds 300 characters, format as a thread:
+  - Label each post as 1/3, 2/3, 3/3 etc.
+  - Each post must be self-contained and under 300 characters
+  - Thread should flow naturally from one post to the next
+
+**Character Count Check:**
+- Before outputting, verify each post is under 300 characters
+- Count carefully including spaces, emojis (=2 chars), and URLs (=24 chars)
+
+Output the Bluesky post or thread only, no explanations or commentary.`;
 
 /**
  * Main Worker fetch handler
