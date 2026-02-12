@@ -1,0 +1,22 @@
+{
+  "name": "blog-notification-webhook",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker webhook for blog post publication notifications",
+  "main": "worker.js",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "keywords": [
+    "cloudflare-workers",
+    "webhook",
+    "blog",
+    "notification"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}
