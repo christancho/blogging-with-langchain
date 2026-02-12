@@ -71,6 +71,6 @@ The output should be:
 - The complete article
 - Properly formatted
 - Ready for Ghost CMS publication
-- With the SEO title as the H1
+- Do NOT add or modify the H1 title (it will be automatically replaced with the SEO title)
 
 Format the article now.

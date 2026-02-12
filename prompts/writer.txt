@@ -52,13 +52,13 @@ Write a complete, publication-ready blog post on: {{ topic }}
    - Discuss future trends
 
 6. **Conclusion** (300-400 words)
-   - Summarize the 3-5 key takeaways (reinforce learning)
-   - Provide clear, actionable next steps readers can take immediately
+   - Synthesize the main insights into 3-5 concise takeaways (avoid verbatim repetition of earlier content - distill to essence)
+   - Provide clear, actionable next steps readers can take immediately (specific, numbered steps)
    - **Include a natural Call-to-Action:**
      * What should readers do with this knowledge?
      * Suggest a specific action (try it, implement it, explore further)
      * Make it feel organic, not sales-y
-   - End with a thought-provoking statement or forward-looking insight that leaves readers inspired
+   - End with a forward-looking statement about the broader implications or future trends (don't just restate what was covered)
 
 **INLINE CITATIONS (RECOMMENDED):**
 - Target: 10-15 inline hyperlinks DIRECTLY WITHIN the article text (minimum 5 recommended)
