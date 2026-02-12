@@ -105,9 +105,13 @@ def editor_node(state: BlogState) -> Dict[str, Any]:
         print(f"  - Cohesiveness score: {cohesiveness_score}/10")
         print(f"  - Passes review: {passes_review}")
         if strengths:
-            print(f"  - Strengths: {len(strengths)} identified")
+            print(f"  - Strengths ({len(strengths)}):")
+            for strength in strengths:
+                print(f"    • {strength}")
         if issues:
-            print(f"  - Issues: {len(issues)} identified")
+            print(f"  - Issues ({len(issues)}):")
+            for issue in issues:
+                print(f"    • {issue}")
 
     except Exception as e:
         # LLM evaluation failed - fall back to mechanical checks only
