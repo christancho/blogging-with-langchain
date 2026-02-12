@@ -9,15 +9,25 @@ Cloudflare Worker that sends email notifications with AI-generated social media 
 - 🦋 AI-generated Bluesky posts (conversational tone, <300 chars)
 - 🔄 Handles both Ghost CMS webhooks and custom publisher calls
 - ⚡ Serverless edge deployment with Cloudflare Workers
+- ⚡ Async processing - responds to webhooks in <1 second, processes in background
 - 🛡️ Built-in error handling and fallback emails
 
 ## Architecture
 
 ```
-Ghost CMS (post.published event) → Cloudflare Worker → Anthropic API → Mailgun → Email
+Ghost CMS (post.published event) → Cloudflare Worker (responds 200 OK immediately)
                                           ↓
-                                   (generates posts)
+                                   (background processing)
+                                          ↓
+                                   Anthropic API (generates posts)
+                                          ↓
+                                   Mailgun (sends email)
 ```
+
+**Async Processing:**
+- Worker responds to Ghost webhook in **< 1 second** (no timeouts)
+- Post generation and email delivery happen in **background** via `ctx.waitUntil()`
+- Typically completes within 10-30 seconds
 
 **Trigger**: Ghost CMS webhook fires when any post is published (via Python script or Ghost admin UI)
 

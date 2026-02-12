@@ -53,7 +53,7 @@ Format the post as if you're posting directly to Bluesky. Keep it brief, engagin
  * Main Worker fetch handler
  */
 export default {
-	async fetch(request, env) {
+	async fetch(request, env, ctx) {
 		// Only accept POST requests
 		if (request.method !== 'POST') {
 			return new Response('Method not allowed. Please use POST.', {
@@ -80,35 +80,13 @@ export default {
 			// Normalize payload (handle Ghost CMS vs custom format)
 			const metadata = normalizePayload(payload);
 
-			// Generate social media posts
-			let posts;
-			let postGenerationError = null;
-			try {
-				posts = await generateSocialPosts(metadata, env);
-			} catch (e) {
-				console.error('Post generation failed:', e);
-				postGenerationError = e.message;
-				// Continue to send email with error message
-			}
+			// Queue background processing (non-blocking)
+			ctx.waitUntil(processNotification(metadata, env));
 
-			// Send email notification
-			try {
-				await sendEmailNotification(metadata, posts, postGenerationError, env);
-			} catch (e) {
-				console.error('Email notification failed:', e);
-				return new Response(JSON.stringify({
-					error: 'Email delivery failed',
-					message: e.message
-				}), {
-					status: 500,
-					headers: { 'Content-Type': 'application/json' }
-				});
-			}
-
-			// Success
+			// Respond immediately to Ghost webhook
 			return new Response(JSON.stringify({
 				success: true,
-				message: 'Notification sent successfully'
+				message: 'Notification queued for processing'
 			}), {
 				status: 200,
 				headers: { 'Content-Type': 'application/json' }
@@ -154,6 +132,36 @@ function normalizePayload(payload) {
 }
 
 /**
+ * Process notification in background (non-blocking)
+ */
+async function processNotification(metadata, env) {
+	console.log('Starting background notification processing:', metadata.title);
+
+	// Generate social media posts
+	let posts;
+	let postGenerationError = null;
+	try {
+		posts = await generateSocialPosts(metadata, env);
+		console.log('Social posts generated successfully');
+	} catch (e) {
+		console.error('Post generation failed:', e);
+		postGenerationError = e.message;
+		// Continue to send email with error message
+	}
+
+	// Send email notification
+	try {
+		await sendEmailNotification(metadata, posts, postGenerationError, env);
+		console.log('Email notification sent successfully');
+	} catch (e) {
+		console.error('Email notification failed:', e);
+		// Log but don't fail - webhook already responded 200
+	}
+
+	console.log('Background processing complete for:', metadata.title);
+}
+
+/**
  * Generate social media posts using Anthropic Claude API
  */
 async function generateSocialPosts(metadata, env) {
@@ -162,32 +170,34 @@ async function generateSocialPosts(metadata, env) {
 	// Prepare prompt context
 	const tagsStr = Array.isArray(tags) ? tags.join(', ') : '';
 
-	// Generate LinkedIn post
+	// Use first 2500 chars for faster processing (intro + TOC + first sections)
+	const contentSummary = content.substring(0, 2500);
+
+	// Prepare both prompts
 	const linkedinPrompt = LINKEDIN_PROMPT
 		.replace('{title}', title)
 		.replace('{url}', url)
 		.replace('{excerpt}', excerpt)
 		.replace('{tags}', tagsStr)
-		.replace('{content}', content);
+		.replace('{content}', contentSummary);
 
-	const linkedinPost = await callAnthropicAPI(linkedinPrompt, env);
-
-	// Verify LinkedIn character limit
-	if (linkedinPost.length > 3000) {
-		console.warn('LinkedIn post exceeds 3000 characters, truncating...');
-	}
-
-	// Generate Bluesky post
 	const blueskyPrompt = BLUESKY_PROMPT
 		.replace('{title}', title)
 		.replace('{url}', url)
 		.replace('{excerpt}', excerpt)
 		.replace('{tags}', tagsStr)
-		.replace('{content}', content);
+		.replace('{content}', contentSummary);
 
-	const blueskyPost = await callAnthropicAPI(blueskyPrompt, env);
+	// Call both APIs in parallel for speed
+	const [linkedinPost, blueskyPost] = await Promise.all([
+		callAnthropicAPI(linkedinPrompt, env),
+		callAnthropicAPI(blueskyPrompt, env)
+	]);
 
-	// Verify Bluesky character limit
+	// Verify character limits
+	if (linkedinPost.length > 3000) {
+		console.warn('LinkedIn post exceeds 3000 characters, truncating...');
+	}
 	if (blueskyPost.length > 300) {
 		console.warn('Bluesky post exceeds 300 characters, truncating...');
 	}
