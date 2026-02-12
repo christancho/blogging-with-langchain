@@ -28,7 +28,7 @@ LINKEDIN POST REQUIREMENTS:
 5. One paragraph expanding on the core value proposition
 6. "Perfect for:" followed by 5-6 bullet points (•) of specific use cases or industries
 7. Call to action: "Full [guide/breakdown/tutorial] with [code examples/case studies/frameworks] in the article 👇"
-8. The blog URL with UTM parameters: {url}?utm_source=linkedin&utm_medium=social&utm_campaign=[slug_from_url]
+8. The blog URL (already includes tracking): {url}
 9. Engagement question: "What's your experience with [topic]? [Specific question related to article]"
 10. 8-10 relevant hashtags from the provided tags plus standard ones like #ArtificialIntelligence #AIEngineering #EnterpriseAI
 
@@ -78,7 +78,7 @@ BLUESKY POST REQUIREMENTS:
 8. One blank line
 9. One closing sentence reinforcing the value (why they should care)
 10. One blank line
-11. The blog URL with UTM parameters: {url}?utm_source=bluesky&utm_medium=social&utm_campaign=[slug_from_url]
+11. The blog URL (already includes tracking): {url}
 12. One blank line
 13. 3-5 hashtags (no spaces, concise, relevant to the article tags provided)
 
@@ -196,11 +196,26 @@ function normalizePayload(payload) {
 async function processNotification(metadata, env) {
 	console.log('Starting background notification processing:', metadata.title);
 
+	// Generate short URLs with UTM parameters for each platform
+	let shortUrls;
+	try {
+		shortUrls = await generateShortUrls(metadata.url, env);
+		console.log('Short URLs generated:', shortUrls);
+	} catch (e) {
+		console.error('Short URL generation failed, using long URLs:', e);
+		// Fallback to long URLs with UTM params
+		const slug = extractSlugFromUrl(metadata.url);
+		shortUrls = {
+			linkedin: `${metadata.url}?utm_source=linkedin&utm_medium=social&utm_campaign=${slug}`,
+			bluesky: `${metadata.url}?utm_source=bluesky&utm_medium=social&utm_campaign=${slug}`
+		};
+	}
+
 	// Generate social media posts
 	let posts;
 	let postGenerationError = null;
 	try {
-		posts = await generateSocialPosts(metadata, env);
+		posts = await generateSocialPosts(metadata, shortUrls, env);
 		console.log('Social posts generated successfully');
 	} catch (e) {
 		console.error('Post generation failed:', e);
@@ -221,10 +236,89 @@ async function processNotification(metadata, env) {
 }
 
 /**
+ * Generate short URLs using Bitly API
+ */
+async function generateShortUrls(baseUrl, env) {
+	const bitlyToken = env.BITLY_ACCESS_TOKEN;
+	if (!bitlyToken) {
+		throw new Error('BITLY_ACCESS_TOKEN not configured');
+	}
+
+	// Extract slug from URL for campaign parameter
+	const slug = extractSlugFromUrl(baseUrl);
+
+	// Build long URLs with UTM parameters for each platform
+	const linkedinLongUrl = `${baseUrl}?utm_source=linkedin&utm_medium=social&utm_campaign=${slug}`;
+	const blueskyLongUrl = `${baseUrl}?utm_source=bluesky&utm_medium=social&utm_campaign=${slug}`;
+
+	// Shorten both URLs in parallel
+	const [linkedinShortUrl, blueskyShortUrl] = await Promise.all([
+		shortenWithBitly(linkedinLongUrl, bitlyToken),
+		shortenWithBitly(blueskyLongUrl, bitlyToken)
+	]);
+
+	return {
+		linkedin: linkedinShortUrl,
+		bluesky: blueskyShortUrl
+	};
+}
+
+/**
+ * Call Bitly API to shorten a URL
+ */
+async function shortenWithBitly(longUrl, token) {
+	const controller = new AbortController();
+	const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+	try {
+		const response = await fetch('https://api-ssl.bitly.com/v4/shorten', {
+			method: 'POST',
+			headers: {
+				'Authorization': `Bearer ${token}`,
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({ long_url: longUrl }),
+			signal: controller.signal
+		});
+
+		clearTimeout(timeoutId);
+
+		if (!response.ok) {
+			const errorText = await response.text();
+			throw new Error(`Bitly API error (${response.status}): ${errorText}`);
+		}
+
+		const data = await response.json();
+		return data.link; // Returns shortened URL like https://bit.ly/xyz123
+
+	} catch (e) {
+		clearTimeout(timeoutId);
+		if (e.name === 'AbortError') {
+			throw new Error('Bitly API request timed out after 10 seconds');
+		}
+		throw e;
+	}
+}
+
+/**
+ * Extract slug from URL for campaign tracking
+ */
+function extractSlugFromUrl(url) {
+	try {
+		const urlObj = new URL(url);
+		const pathParts = urlObj.pathname.split('/').filter(p => p.length > 0);
+		return pathParts[pathParts.length - 1] || 'blog-post';
+	} catch (e) {
+		console.error('Error extracting slug from URL:', e);
+		return 'blog-post';
+	}
+}
+
+/**
  * Generate social media posts using Anthropic Claude API
  */
-async function generateSocialPosts(metadata, env) {
-	const { title, url, excerpt, tags, content } = metadata;
+async function generateSocialPosts(metadata, shortUrls, env) {
+	const { title, excerpt, tags, content } = metadata;
 
 	// Prepare prompt context
 	const tagsStr = Array.isArray(tags) ? tags.join(', ') : '';
@@ -232,17 +326,17 @@ async function generateSocialPosts(metadata, env) {
 	// Use first 2500 chars for faster processing (intro + TOC + first sections)
 	const contentSummary = content.substring(0, 2500);
 
-	// Prepare both prompts
+	// Prepare both prompts with short URLs
 	const linkedinPrompt = LINKEDIN_PROMPT
 		.replace('{title}', title)
-		.replace('{url}', url)
+		.replace('{url}', shortUrls.linkedin)
 		.replace('{excerpt}', excerpt)
 		.replace('{tags}', tagsStr)
 		.replace('{content}', contentSummary);
 
 	const blueskyPrompt = BLUESKY_PROMPT
 		.replace('{title}', title)
-		.replace('{url}', url)
+		.replace('{url}', shortUrls.bluesky)
 		.replace('{excerpt}', excerpt)
 		.replace('{tags}', tagsStr)
 		.replace('{content}', contentSummary);

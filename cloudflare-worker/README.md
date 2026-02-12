@@ -5,6 +5,7 @@ Cloudflare Worker that sends email notifications with AI-generated social media 
 ## Features
 
 - 📧 Email notifications via Mailgun
+- 🔗 **URL shortening via Bitly** with UTM tracking for each platform
 - 🤖 AI-generated LinkedIn posts (professional tone, <3000 chars)
 - 🦋 AI-generated Bluesky posts (conversational tone, <300 chars)
 - 🔄 Handles both Ghost CMS webhooks and custom publisher calls
@@ -19,7 +20,9 @@ Ghost CMS (post.published event) → Cloudflare Worker (responds 200 OK immediat
                                           ↓
                                    (background processing)
                                           ↓
-                                   Anthropic API (generates posts)
+                                   Bitly API (shortens URLs with UTM params)
+                                          ↓
+                                   Anthropic API (generates posts with short URLs)
                                           ↓
                                    Mailgun (sends email)
 ```
@@ -34,6 +37,7 @@ Ghost CMS (post.published event) → Cloudflare Worker (responds 200 OK immediat
 ## Prerequisites
 
 - Cloudflare account (free tier works)
+- Bitly account (free tier: 1,000 links/month)
 - Mailgun account (free tier: 5,000 emails/month)
 - Anthropic API key (for Claude LLM)
 - Node.js 18+ and npm
@@ -62,11 +66,14 @@ npm install
 
 ### 4. Configure Secrets
 
-The worker requires 5 secrets to be configured:
+The worker requires 6 secrets to be configured:
 
 ```bash
 # Anthropic API key (for generating social posts)
 wrangler secret put ANTHROPIC_API_KEY
+
+# Bitly access token (for URL shortening)
+wrangler secret put BITLY_ACCESS_TOKEN
 
 # Mailgun API key (from mailgun.com dashboard)
 wrangler secret put MAILGUN_API_KEY
@@ -84,6 +91,7 @@ wrangler secret put EMAIL_TO
 **Getting API Keys:**
 
 - **Anthropic**: https://console.anthropic.com/settings/keys
+- **Bitly**: https://bitly.com/a/sign_up → Settings → Developer Settings → API → Generate Access Token
 - **Mailgun**: https://app.mailgun.com/app/account/security/api_keys
 
 ### 5. Deploy
@@ -95,6 +103,25 @@ wrangler deploy
 The worker will be deployed to: `https://blog-notification-webhook.<your-subdomain>.workers.dev`
 
 ## Configuration
+
+### Bitly Setup
+
+1. **Sign up**: https://bitly.com/a/sign_up (free tier: 1,000 links/month)
+2. **Get access token**:
+   - Go to Settings → Developer Settings → API
+   - Click "Generate Access Token"
+   - Copy the token (shown only once)
+3. **Configure secret**: `wrangler secret put BITLY_ACCESS_TOKEN`
+
+**URL Tracking:**
+- Each blog post generates **2 short URLs** (LinkedIn + Bluesky)
+- UTM parameters automatically added: `utm_source=[platform]&utm_medium=social&utm_campaign=[slug]`
+- Track clicks in Bitly dashboard: Analytics → Links
+- Free tier: ~500 posts/month (2 URLs per post)
+
+**Fallback Behavior:**
+- If Bitly API fails or isn't configured, worker uses long URLs with UTM params
+- No impact on email delivery - graceful degradation
 
 ### Mailgun Setup
 
@@ -277,10 +304,18 @@ Shows real-time logs from your worker.
 2. **Check quota**: Ensure Anthropic account has credits
 3. **View logs**: `wrangler tail` to see error details
 
+### Bitly errors
+
+1. **Verify access token**: Check `BITLY_ACCESS_TOKEN` secret
+2. **Check quota**: Free tier = 1,000 links/month (Bitly dashboard → Account)
+3. **Rate limits**: 600 requests/hour, 10,000 requests/month
+4. **Fallback**: Worker automatically uses long URLs if Bitly fails
+5. **View logs**: `wrangler tail` to see if URLs are being shortened
+
 ### Deployment issues
 
 1. **Authentication**: Run `wrangler login` again
-2. **Secrets missing**: Ensure all 5 secrets are configured
+2. **Secrets missing**: Ensure all 6 secrets are configured
 3. **Syntax errors**: Check worker.js for JavaScript errors
 
 ### Worker not triggering
@@ -347,12 +382,14 @@ The `.github/workflows/deploy-worker.yml` workflow automatically deploys the wor
 ### Free Tier Limits
 
 - **Cloudflare Workers**: 100,000 requests/day
+- **Bitly**: 1,000 links/month
 - **Mailgun**: 5,000 emails/month
 - **Anthropic**: Pay per token (check pricing)
 
 Typical usage for a blog:
-- ~10-20 posts/month = well within free tiers
-- Estimated cost: <$1/month
+- ~10-20 posts/month = 20-40 Bitly links/month
+- Well within all free tiers
+- Estimated cost: <$1/month (Anthropic usage only)
 
 ## Security
 
