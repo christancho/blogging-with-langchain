@@ -5,7 +5,7 @@ Cloudflare Worker that sends email notifications with AI-generated social media 
 ## Features
 
 - 📧 Email notifications via Mailgun
-- 🔗 **URL shortening via Bitly** with UTM tracking for each platform
+- 🔗 **URL shortening via TinyURL** with UTM tracking for each platform
 - 🤖 AI-generated LinkedIn posts (professional tone, <3000 chars)
 - 🦋 AI-generated Bluesky posts (conversational tone, <300 chars)
 - 🔄 Handles both Ghost CMS webhooks and custom publisher calls
@@ -20,7 +20,7 @@ Ghost CMS (post.published event) → Cloudflare Worker (responds 200 OK immediat
                                           ↓
                                    (background processing)
                                           ↓
-                                   Bitly API (shortens URLs with UTM params)
+                                   TinyURL API (shortens URLs with UTM params)
                                           ↓
                                    Anthropic API (generates posts with short URLs)
                                           ↓
@@ -37,7 +37,7 @@ Ghost CMS (post.published event) → Cloudflare Worker (responds 200 OK immediat
 ## Prerequisites
 
 - Cloudflare account (free tier works)
-- Bitly account (free tier: 1,000 links/month)
+- TinyURL account (free tier: unlimited links)
 - Mailgun account (free tier: 5,000 emails/month)
 - Anthropic API key (for Claude LLM)
 - Node.js 18+ and npm
@@ -72,8 +72,8 @@ The worker requires 6 secrets to be configured:
 # Anthropic API key (for generating social posts)
 wrangler secret put ANTHROPIC_API_KEY
 
-# Bitly access token (for URL shortening)
-wrangler secret put BITLY_ACCESS_TOKEN
+# TinyURL API token (for URL shortening)
+wrangler secret put TINYURL_API_TOKEN
 
 # Mailgun API key (from mailgun.com dashboard)
 wrangler secret put MAILGUN_API_KEY
@@ -91,7 +91,7 @@ wrangler secret put EMAIL_TO
 **Getting API Keys:**
 
 - **Anthropic**: https://console.anthropic.com/settings/keys
-- **Bitly**: https://bitly.com/a/sign_up → Settings → Developer Settings → API → Generate Access Token
+- **TinyURL**: https://tinyurl.com/app/settings/api → Generate API Token
 - **Mailgun**: https://app.mailgun.com/app/account/security/api_keys
 
 ### 5. Deploy
@@ -104,23 +104,22 @@ The worker will be deployed to: `https://blog-notification-webhook.<your-subdoma
 
 ## Configuration
 
-### Bitly Setup
+### TinyURL Setup
 
-1. **Sign up**: https://bitly.com/a/sign_up (free tier: 1,000 links/month)
-2. **Get access token**:
-   - Go to Settings → Developer Settings → API
-   - Click "Generate Access Token"
-   - Copy the token (shown only once)
-3. **Configure secret**: `wrangler secret put BITLY_ACCESS_TOKEN`
+1. **Sign up**: https://tinyurl.com/app/sign-up (free tier: unlimited links, no ads)
+2. **Get API token**:
+   - Go to Settings → API
+   - Click "Generate API Token"
+   - Copy the token
+3. **Configure secret**: `wrangler secret put TINYURL_API_TOKEN`
 
 **URL Tracking:**
 - Each blog post generates **2 short URLs** (LinkedIn + Bluesky)
 - UTM parameters automatically added: `utm_source=[platform]&utm_medium=social&utm_campaign=[slug]`
-- Track clicks in Bitly dashboard: Analytics → Links
-- Free tier: ~500 posts/month (2 URLs per post)
+- Free tier: unlimited links, no interstitial ads on click-through
 
 **Fallback Behavior:**
-- If Bitly API fails or isn't configured, worker uses long URLs with UTM params
+- If TinyURL API fails or isn't configured, worker uses long URLs with UTM params
 - No impact on email delivery - graceful degradation
 
 ### Mailgun Setup
@@ -304,13 +303,12 @@ Shows real-time logs from your worker.
 2. **Check quota**: Ensure Anthropic account has credits
 3. **View logs**: `wrangler tail` to see error details
 
-### Bitly errors
+### TinyURL errors
 
-1. **Verify access token**: Check `BITLY_ACCESS_TOKEN` secret
-2. **Check quota**: Free tier = 1,000 links/month (Bitly dashboard → Account)
-3. **Rate limits**: 600 requests/hour, 10,000 requests/month
-4. **Fallback**: Worker automatically uses long URLs if Bitly fails
-5. **View logs**: `wrangler tail` to see if URLs are being shortened
+1. **Verify API token**: Check `TINYURL_API_TOKEN` secret
+2. **Rate limits**: ~40 requests/minute on free tier
+3. **Fallback**: Worker automatically uses long URLs if TinyURL fails
+4. **View logs**: `wrangler tail` to see if URLs are being shortened
 
 ### Deployment issues
 
@@ -382,12 +380,12 @@ The `.github/workflows/deploy-worker.yml` workflow automatically deploys the wor
 ### Free Tier Limits
 
 - **Cloudflare Workers**: 100,000 requests/day
-- **Bitly**: 1,000 links/month
+- **TinyURL**: Unlimited links (free tier)
 - **Mailgun**: 5,000 emails/month
 - **Anthropic**: Pay per token (check pricing)
 
 Typical usage for a blog:
-- ~10-20 posts/month = 20-40 Bitly links/month
+- ~10-20 posts/month = 20-40 TinyURL links/month
 - Well within all free tiers
 - Estimated cost: <$1/month (Anthropic usage only)
 

@@ -4,7 +4,7 @@ compatibility_date = "2024-01-01"
 
 # Secrets required (set via: wrangler secret put <NAME>):
 # - ANTHROPIC_API_KEY
-# - BITLY_ACCESS_TOKEN
+# - TINYURL_API_TOKEN
 # - MAILGUN_API_KEY
 # - MAILGUN_DOMAIN
 # - EMAIL_FROM
