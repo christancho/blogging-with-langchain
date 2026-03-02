@@ -236,12 +236,12 @@ async function processNotification(metadata, env) {
 }
 
 /**
- * Generate short URLs using Bitly API
+ * Generate short URLs using TinyURL API
  */
 async function generateShortUrls(baseUrl, env) {
-	const bitlyToken = env.BITLY_ACCESS_TOKEN;
-	if (!bitlyToken) {
-		throw new Error('BITLY_ACCESS_TOKEN not configured');
+	const tinyurlToken = env.TINYURL_API_TOKEN;
+	if (!tinyurlToken) {
+		throw new Error('TINYURL_API_TOKEN not configured');
 	}
 
 	// Extract slug from URL for campaign parameter
@@ -253,8 +253,8 @@ async function generateShortUrls(baseUrl, env) {
 
 	// Shorten both URLs in parallel
 	const [linkedinShortUrl, blueskyShortUrl] = await Promise.all([
-		shortenWithBitly(linkedinLongUrl, bitlyToken),
-		shortenWithBitly(blueskyLongUrl, bitlyToken)
+		shortenWithTinyURL(linkedinLongUrl, tinyurlToken),
+		shortenWithTinyURL(blueskyLongUrl, tinyurlToken)
 	]);
 
 	return {
@@ -264,20 +264,20 @@ async function generateShortUrls(baseUrl, env) {
 }
 
 /**
- * Call Bitly API to shorten a URL
+ * Call TinyURL API to shorten a URL
  */
-async function shortenWithBitly(longUrl, token) {
+async function shortenWithTinyURL(longUrl, token) {
 	const controller = new AbortController();
 	const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
 	try {
-		const response = await fetch('https://api-ssl.bitly.com/v4/shorten', {
+		const response = await fetch('https://api.tinyurl.com/create', {
 			method: 'POST',
 			headers: {
 				'Authorization': `Bearer ${token}`,
 				'Content-Type': 'application/json'
 			},
-			body: JSON.stringify({ long_url: longUrl }),
+			body: JSON.stringify({ url: longUrl }),
 			signal: controller.signal
 		});
 
@@ -285,16 +285,16 @@ async function shortenWithBitly(longUrl, token) {
 
 		if (!response.ok) {
 			const errorText = await response.text();
-			throw new Error(`Bitly API error (${response.status}): ${errorText}`);
+			throw new Error(`TinyURL API error (${response.status}): ${errorText}`);
 		}
 
 		const data = await response.json();
-		return data.link; // Returns shortened URL like https://bit.ly/xyz123
+		return data.data.tiny_url; // Returns shortened URL like https://tinyurl.com/xyz123
 
 	} catch (e) {
 		clearTimeout(timeoutId);
 		if (e.name === 'AbortError') {
-			throw new Error('Bitly API request timed out after 10 seconds');
+			throw new Error('TinyURL API request timed out after 10 seconds');
 		}
 		throw e;
 	}
