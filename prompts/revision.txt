@@ -29,6 +29,25 @@ Revise and improve the following article to address the specific feedback provid
 - Add missing inline citations/links where feedback indicates insufficient references
 - Improve article structure and flow if feedback mentions structural issues
 
+**IF HOOK SCORE IS LOW (below 7):**
+- Rewrite the first 2 sentences to immediately grab attention — use a surprising fact, a direct pain point question, or a vivid "you" scenario
+- Remove generic openings like "In today's world..." or "Technology is evolving..."
+- Add a clear, specific value promise within the first paragraph: what will the reader be able to DO after reading?
+- Keep the intro tight — don't bury the hook under background context
+
+**IF STORYTELLING SCORE IS LOW (below 6):**
+- Add at least 2 concrete, real-world examples throughout the article (case studies, named companies, specific tools)
+- Replace vague hypotheticals ("imagine a company that...") with specific, named examples where possible
+- Add before/after scenarios to illustrate key transformations or benefits
+- Ground abstract advice in concrete illustrations the reader can visualize
+
+**IF VOICE SCORE IS LOW (below 6):**
+- Replace corporate or textbook-sounding phrases with conversational language
+- Add more "you" and "your" — speak directly to the reader
+- Vary sentence length: mix short punchy statements with longer explanations
+- Add honest acknowledgments where appropriate: "This can be tricky", "There's no perfect answer here"
+- Remove filler phrases: "it should be noted that", "it is important to mention", "in order to"
+
 **HEADING HIERARCHY (CRITICAL - THIS IS LIKELY WHY REVISION FAILED):**
 - # (H1) - Use ONLY ONCE for the article title at the very beginning
 - ## (H2) - Use for all main sections (Introduction, Section 1, Section 2, Section 3, Section 4, Conclusion)

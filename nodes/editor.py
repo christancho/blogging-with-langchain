@@ -2,6 +2,7 @@
 Editorial supervisor node - LLM-based quality review with mechanical awareness
 """
 import json
+from datetime import datetime
 from typing import Dict, Any
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -57,10 +58,12 @@ def editor_node(state: BlogState) -> Dict[str, Any]:
     article_content_escaped = article_content.replace("{", "{{").replace("}", "}}")
 
     # Prepare prompt variables
+    current_date = datetime.now().strftime("%B %d, %Y")
     editor_template = PromptLoader.load("editor")
     editor_prompt_text = editor_template.render(
         article_content=article_content_escaped,
         instructions=instructions,
+        current_date=current_date,
         current_word_count=analysis["word_count"],
         word_count_target=word_count_target,
         min_word_count=min_word_count,
@@ -96,6 +99,9 @@ def editor_node(state: BlogState) -> Dict[str, Any]:
 
         # Extract fields
         cohesiveness_score = editorial_assessment.get("cohesiveness_score", 0)
+        hook_score = editorial_assessment.get("hook_score", 0)
+        storytelling_score = editorial_assessment.get("storytelling_score", 0)
+        voice_score = editorial_assessment.get("voice_score", 0)
         passes_review = editorial_assessment.get("passes_review", False)
         strengths = editorial_assessment.get("strengths", [])
         issues = editorial_assessment.get("issues", [])
@@ -103,6 +109,9 @@ def editor_node(state: BlogState) -> Dict[str, Any]:
 
         print(f"\n📋 Editorial Assessment:")
         print(f"  - Cohesiveness score: {cohesiveness_score}/10")
+        print(f"  - Hook score: {hook_score}/10")
+        print(f"  - Storytelling score: {storytelling_score}/10")
+        print(f"  - Voice score: {voice_score}/10")
         print(f"  - Passes review: {passes_review}")
         if strengths:
             print(f"  - Strengths ({len(strengths)}):")
@@ -128,6 +137,9 @@ def editor_node(state: BlogState) -> Dict[str, Any]:
 
         passes_review = all(mechanical_checks.values())
         cohesiveness_score = 7 if passes_review else 5
+        hook_score = 7 if passes_review else 5
+        storytelling_score = 7 if passes_review else 5
+        voice_score = 7 if passes_review else 5
         strengths = ["Mechanical checks passed"] if passes_review else []
         issues = [f"{check} failed" for check, passed in mechanical_checks.items() if not passed]
         feedback = f"LLM evaluation unavailable. Mechanical checks: {', '.join(issues) if issues else 'all passed'}"
@@ -142,6 +154,9 @@ def editor_node(state: BlogState) -> Dict[str, Any]:
             "quality_score": cohesiveness_score / 10,  # Normalize to 0-1
             "quality_checks": {
                 "cohesiveness_score": cohesiveness_score,
+                "hook_score": hook_score,
+                "storytelling_score": storytelling_score,
+                "voice_score": voice_score,
                 "passes_llm_review": passes_review,
                 "editorial_strengths": strengths,
                 "editorial_issues": issues
@@ -164,7 +179,7 @@ def editor_node(state: BlogState) -> Dict[str, Any]:
 This article was published after exceeding the maximum revision limit ({max_revisions} revisions).
 The editorial review identified the following issues:
 
-**Cohesiveness Score:** {cohesiveness_score}/10
+**Scores:** Cohesiveness: {cohesiveness_score}/10 | Hook: {hook_score}/10 | Storytelling: {storytelling_score}/10 | Voice: {voice_score}/10
 
 **Issues Identified:**
 {chr(10).join('- ' + issue for issue in issues)}

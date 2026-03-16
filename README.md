@@ -4,26 +4,30 @@ An automated blog post generation system built with LangGraph, LangChain, and Cl
 
 ## Features
 
-- **Automated Research**: Uses Brave Search API to gather current information
-- **AI-Powered Writing**: Generates comprehensive 3,500+ word articles with compelling hooks and reader engagement techniques
+- **Automated Research**: Uses Brave Search API to gather current information and generate headline candidates
+- **Audience Analysis**: Identifies target reader persona, pain points, and content angle before writing
+- **AI-Powered Writing**: Generates comprehensive 3,500+ word articles with compelling hooks, storytelling, and authentic voice
+- **Tone Presets**: Choose from built-in tone presets (`conversational`, `expert_casual`, `storyteller`, `practical`, `thought_leader`) or define your own
 - **Custom Instructions**: Provide per-article instructions to guide the content direction
 - **SEO Optimization**: Automatically optimizes content for search engines with excerpt support
 - **Ghost CMS Integration**: Publishes directly to Ghost CMS with full metadata (title, excerpt, meta description, tags)
-- **Editor Approval Gate**: Articles go through quality review before formatting and publication
+- **Editor Approval Gate**: LLM-based editorial review scoring cohesiveness, hook quality, storytelling, and authentic voice
 - **Revision Loop**: Failed articles automatically route back to writer with specific, actionable feedback (max 3 attempts)
 - **Forced Publishing**: Articles exceeding max revisions force-publish with editor's note explaining unresolved issues
+- **Visual Recommendations**: Formatter suggests where to add images, charts, tables, and diagrams
 - **Quality Assurance**: Built-in content quality checks (word count, inline links, structure, headings, sections)
+- **Date-Aware Prompts**: All prompts receive the current date for timely, relevant content
 - **Modular Architecture**: Clean, maintainable codebase using LangGraph
 - **LangSmith Tracing**: Optional integration for debugging and monitoring
 
 ## Architecture
 
-The system uses a LangGraph state graph with 6 nodes and an approval gate workflow:
+The system uses a LangGraph state graph with 7 nodes and an approval gate workflow:
 
 ```
-Research → Writer → Formatter → SEO → Editor (Approval Gate)
-                                          ├─→ Approved → Publisher
-                                          └─→ Rejected ↻ Writer (Revision Loop, max 3 attempts)
+Research → Audience Analysis → Writer → Formatter → SEO → Editor (Approval Gate)
+                                  ↑                          ├─→ Approved → Publisher
+                                  └──────────────────────────└─→ Rejected ↻ Writer (Revision Loop, max 3 attempts)
 ```
 
 ### Workflow Diagram
@@ -32,15 +36,18 @@ Research → Writer → Formatter → SEO → Editor (Approval Gate)
 
 Each node performs a specific task and updates the shared state:
 
-- **Research**: Gathers information via web search
-- **Writer**: Generates comprehensive article with hooks and engagement techniques (or revises based on editor feedback)
+- **Research**: Gathers information via web search, generates headline candidates
+- **Audience Analysis**: Identifies target reader persona, pain points, goals, and content angle
+- **Writer**: Generates comprehensive article with hooks, storytelling, and authentic voice (or revises based on editor feedback)
 - **Formatter**: Normalizes and formats content for readability
   - Fixes heading hierarchy (ensures exactly 1 H1)
   - Cleans up Markdown formatting and spacing
+  - Analyzes content and suggests visual element placements (images, charts, tables)
   - Prepares content for SEO and editorial review
 - **SEO**: Optimizes for search engines (title, description, excerpt, keywords, tags)
 - **Editor**: Quality approval gate with rejection and revision loop
-  - Rejects on ANY quality check failure (word count, links, structure, H1, sections)
+  - Scores cohesiveness, hook quality, storytelling, and authentic voice (0-10 each)
+  - Checks mechanical requirements (word count, links, structure, H1, sections)
   - Provides specific, actionable feedback for revisions
   - Allows max 3 revision attempts before forced publishing
   - Sets approval status for conditional routing
@@ -124,21 +131,29 @@ python main.py "Best Practices for Python Web Development"
 
 ### Customize Blog Tone
 
-Override the default tone for a specific blog post:
+Override the default tone using built-in presets or a custom description:
 
 ```bash
-python main.py "Your topic" --tone "conversational and engaging"
-python main.py "Advanced Python Patterns" --tone "technical and detailed"
+# Use a preset
+python main.py "Your topic" --tone "preset:conversational"
+python main.py "Advanced Python Patterns" --tone "preset:expert_casual"
+python main.py "AI Strategy Guide" --tone "preset:thought_leader"
+
+# Or use a custom tone description
+python main.py "Your topic" --tone "technical and detailed"
 python main.py "Getting Started with AI" --tone "educational and accessible"
 ```
 
-**Available tone options:**
-- `informative and insightful` (default)
-- `conversational and engaging`
-- `authoritative and professional`
-- `technical and detailed`
-- `educational and accessible`
-- Or create your own custom tone description
+**Built-in tone presets:**
+| Preset | Style |
+|--------|-------|
+| `preset:conversational` | Friendly and approachable, like a knowledgeable friend |
+| `preset:expert_casual` | Knowledgeable yet informal, like a senior colleague |
+| `preset:storyteller` | Narrative-driven, weaving real-world stories throughout |
+| `preset:practical` | Direct, actionable, and results-focused |
+| `preset:thought_leader` | Bold, opinionated, and forward-looking |
+
+Or use any custom tone description (e.g., `"conversational and engaging"`, `"technical and detailed"`).
 
 Set the default tone in your `.env` file:
 ```env
@@ -191,20 +206,22 @@ blogging-with-langchain/
 │   ├── ghost_cms.py       # Ghost CMS publishing
 │   ├── tag_extractor.py   # Tag extraction
 │   └── content_analyzer.py # Content quality analysis
-├── prompts/               # Jinja2 prompt templates
-│   ├── research.txt       # Research planning prompt
-│   ├── writer.txt         # Initial article writing prompt
+├── prompts/               # Jinja2 prompt templates (all date-aware)
+│   ├── research.txt       # Research planning + headline generation prompt
+│   ├── audience_analysis.txt  # Target audience analysis prompt
+│   ├── writer.txt         # Article writing prompt (hooks, storytelling, voice)
 │   ├── revision.txt       # Article revision prompt (with editor feedback)
 │   ├── seo.txt            # SEO optimization prompt
 │   ├── formatter.txt      # Content formatting prompt
-│   └── editor.txt         # Editor review prompt
+│   └── editor.txt         # Editor review prompt (4 scoring dimensions)
 ├── nodes/                 # LangGraph node functions
 │   ├── prompt_loader.py   # Jinja2 prompt loading and caching utility
-│   ├── research.py        # Research node
+│   ├── research.py        # Research node + headline candidate generation
+│   ├── audience_analysis.py  # Audience analysis node (persona, pain points)
 │   ├── writer.py          # Writer node (handles initial write and revisions)
 │   ├── seo.py             # SEO optimization node
-│   ├── formatter.py       # Content formatting node
-│   ├── editor.py          # Editor approval gate with revision routing
+│   ├── formatter.py       # Content formatting + visual recommendations
+│   ├── editor.py          # Editor approval gate (cohesiveness, hook, storytelling, voice)
 │   ├── publisher.py       # Publisher node with forced publish support
 │   └── __init__.py
 ├── cloudflare-worker/     # Social media notification webhook
@@ -232,26 +249,44 @@ blogging-with-langchain/
 - Performs 5-7 web searches using Brave Search API
 - Collects 5-10 credible sources
 - Generates research summary with source information
+- Generates 5-7 headline candidates for the writer to choose from
 
-### 2. Writer Node
+### 2. Audience Analysis Node
+- Identifies the primary reader persona (role, experience level, existing knowledge)
+- Surfaces top 3 pain points that brought the reader to search for this topic
+- Defines reader goals and desired outcomes
+- Recommends content angle and engagement hooks
+- Informs the writer to craft content tailored to the target audience
+
+### 3. Writer Node
 - Creates comprehensive 3,500+ word article
 - **Structured with:** Introduction, 4 main sections, Conclusion
-- **Hook techniques included:**
+- **Hook requirements (first 2 sentences):**
   - Surprising statistics or facts
-  - Thought-provoking questions
-  - Relatable problems
-  - Bold statements
-  - Real-world scenarios
+  - Thought-provoking questions targeting specific pain points
+  - Relatable "you" scenarios
+  - Bold, contrarian statements
+  - Real-world stories mirroring the reader's struggle
+- **Storytelling & Examples (minimum 2 per article):**
+  - Concrete real-world examples and case studies
+  - Before/after scenarios showing transformation
+  - Specific, named examples (companies, tools, projects)
+  - Examples that mirror the reader's likely situation
+- **Authentic Voice:**
+  - Conversational "you" language throughout
+  - Honest acknowledgment of complexity
+  - Natural rhythm with varied sentence lengths
+  - No corporate jargon or filler phrases
 - **Engagement strategies:**
   - Strategic bolding of key insights
-  - Mini-stories and real-world examples
   - Metaphors and analogies
   - Rhetorical questions
   - Short, scannable paragraphs (2-4 sentences max)
-- **Features:** 10-15 inline citations from research
+  - Mini-cliffhangers between sections
+- **Features:** 10-15 inline citations, headline candidates from research, audience-tailored content
 - **Custom instructions:** Applied to influence article direction and focus
 
-### 3. SEO Node
+### 4. SEO Node
 - Generates SEO-optimized title (50-60 chars)
 - Creates meta description (150-160 chars)
 - **Generates article excerpt** (200-250 chars for listing pages)
@@ -260,44 +295,46 @@ blogging-with-langchain/
 - Calculates keyword density (targets 1.5-2%)
 - **Custom instructions:** Guides keyword selection and optimization strategy
 
-### 4. Formatter Node
+### 5. Formatter Node
 - Formats content for Ghost CMS
 - Ensures proper Markdown syntax
 - Fixes heading hierarchy
 - Normalizes spacing and line breaks
+- Generates visual placement recommendations (hero images, comparison tables, workflow diagrams, charts, screenshots)
 
-### 5. Editor Node (Approval Gate)
-**Quality Checks (Reject on ANY failure):**
-- ✓ Word count ≥ 3,500 words
+### 6. Editor Node (Approval Gate)
+
+**Editorial Scoring (LLM-based, 0-10 each):**
+- Cohesiveness & Flow (must score ≥ 7)
+- Hook Quality (must score ≥ 7)
+- Storytelling & Examples (must score ≥ 6)
+- Authentic Voice (must score ≥ 6)
+
+**Mechanical Requirements (must all pass):**
+- ✓ Word count ≥ 95% of target
 - ✓ Minimum 10 inline links
-- ✓ Well-structured content
 - ✓ Exactly 1 H1 heading
 - ✓ At least 4 H2 sections
 
 **Approval Paths:**
-1. **✅ APPROVED**: All checks pass
+1. **✅ APPROVED**: All scores meet thresholds and mechanical requirements pass
    - Sets `approval_status: "approved"`
-   - Routes to Formatter node
+   - Routes to Publisher node
 
-2. **❌ REJECTED + Revisions Available**: Checks fail, attempts < 3
+2. **❌ REJECTED + Revisions Available**: Scores or checks fail, attempts < 3
    - Sets `approval_status: "rejected"`
-   - Provides specific feedback for each failed check:
-     - "Word count is X, but target is 3500"
-     - "Only X links found, X required"
-     - "Article structure is unclear..."
-     - "Article has X H1 headings, should have 1"
-     - "Article has X sections (H2), Y required"
+   - Provides specific feedback per dimension (hook, storytelling, voice, mechanics)
    - Increments `revision_count`
    - Routes back to Writer node with editor feedback
-   - Writer uses `revision.txt` prompt for targeted improvements
+   - Writer uses `revision.txt` prompt with targeted guidance for each low-scoring dimension
 
 3. **⚠️ FORCE PUBLISH**: Checks fail, revisions exhausted (≥ 3 attempts)
    - Sets `approval_status: "force_publish"`
-   - Prepends editor's note explaining unresolved issues
+   - Prepends editor's note with all scores and unresolved issues
    - Routes to Publisher node with forced note
    - Marks article with warning in logs
 
-### 6. Publisher Node
+### 7. Publisher Node
 - Checks for forced publish note and prepends if present
 - Saves article to local `output/` directory with timestamp
 - Removes H1 title from content (sent separately to avoid duplication)
@@ -415,29 +452,32 @@ python main.py "Your topic"
 
 Each blog generation run will show:
 
-- **Research Node**: All web searches and sources gathered
-- **Writer Node**: LLM prompt and full article generation
+- **Research Node**: All web searches, sources gathered, headline candidates generated
+- **Audience Analysis Node**: Target reader persona and pain point identification
+- **Writer Node**: LLM prompt and full article generation (with audience context and headlines)
 - **SEO Node**: SEO analysis, optimization, and excerpt generation
-- **Formatter Node**: Content formatting transformations
-- **Editor Node**: Editorial refinement and quality validation (combined role)
+- **Formatter Node**: Content formatting transformations and visual recommendations
+- **Editor Node**: Editorial scoring (cohesiveness, hook, storytelling, voice) and quality validation
 - **Publisher Node**: Ghost CMS API calls
 
 ### Example Trace View
 
 ```
-Blog Generation Run (3m 45s)
+Blog Generation Run (4m 30s)
 ├── research_node (45s)
 │   ├── BraveSearchTool: "AI trends" (3s)
-│   ├── BraveSearchTool: "machine learning 2024" (2s)
-│   └── LLM Call: Research summary (40s)
+│   ├── BraveSearchTool: "machine learning 2026" (2s)
+│   └── LLM Call: Research summary + headlines (40s)
+├── audience_analysis_node (20s)
+│   └── LLM Call: Audience persona + pain points (20s)
 ├── writer_node (2m 15s)
 │   └── LLM Call: Generate 3500 word article (2m 15s)
+├── formatter_node (5s)
+│   └── LLM Call: Format for Ghost CMS + visual suggestions (5s)
 ├── seo_node (20s)
 │   └── LLM Call: SEO optimization + excerpt generation (20s)
-├── formatter_node (5s)
-│   └── LLM Call: Format for Ghost CMS (5s)
 ├── editor_node (15s)
-│   └── LLM Call: Editorial refinement + quality validation (15s)
+│   └── LLM Call: Score cohesiveness, hook, storytelling, voice (15s)
 └── publisher_node (7s)
     └── GhostCMSTool: Publish with excerpt to CMS (7s)
 ```

@@ -76,6 +76,15 @@ class Config:
     # Writing style and tone
     BLOG_TONE = os.getenv("BLOG_TONE", "informative and insightful")
 
+    # Tone presets - use with --tone preset:<name> (e.g., --tone preset:conversational)
+    TONE_PRESETS = {
+        "conversational": "friendly, conversational, and approachable — like a knowledgeable friend explaining something they care about, while remaining authoritative and well-researched",
+        "expert_casual": "knowledgeable yet informal — like a senior colleague sharing hard-won insights over coffee, mixing technical depth with relatable language",
+        "storyteller": "narrative-driven and engaging — weaving real-world stories and examples throughout, making complex topics feel like compelling reads rather than textbooks",
+        "practical": "direct, actionable, and results-focused — every paragraph earns its place by teaching the reader something they can use immediately, with minimal fluff",
+        "thought_leader": "bold, opinionated, and forward-looking — taking clear positions on industry trends, challenging conventional wisdom, and backing claims with evidence",
+    }
+
     # Links and references
     MIN_INLINE_LINKS = int(os.getenv("MIN_INLINE_LINKS", "10"))
     MAX_INLINE_LINKS = int(os.getenv("MAX_INLINE_LINKS", "15"))

@@ -2,6 +2,7 @@
 HTML formatter node for Ghost CMS compatibility
 """
 import re
+from datetime import datetime
 from typing import Dict, Any, List, Tuple
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -130,6 +131,59 @@ def insert_table_of_contents(content: str, toc: str) -> str:
     return content
 
 
+def analyze_visual_opportunities(content: str) -> List[str]:
+    """
+    Analyze content to suggest where visuals would improve reader experience.
+
+    Uses pattern matching to identify sections that would benefit from
+    images, tables, diagrams, or other visual elements.
+
+    Args:
+        content: Formatted markdown content
+
+    Returns:
+        List of visual placement suggestions
+    """
+    suggestions = []
+    lines = content.split('\n')
+    current_section = ""
+
+    for line in lines:
+        h2_match = re.match(r'^##\s+(.+)$', line)
+        if h2_match:
+            current_section = h2_match.group(1).strip()
+
+        # Suggest comparison table when content lists alternatives or comparisons
+        if current_section and any(word in line.lower() for word in ['vs', 'versus', 'compared to', 'difference between', 'pros and cons']):
+            suggestion = f"Add comparison table in '{current_section}' — content discusses comparisons that readers could scan more easily in table format"
+            if suggestion not in suggestions:
+                suggestions.append(suggestion)
+
+        # Suggest diagram for process/workflow descriptions
+        if current_section and any(word in line.lower() for word in ['step 1', 'first step', 'workflow', 'pipeline', 'process flow']):
+            suggestion = f"Add workflow diagram in '{current_section}' — step-by-step process would benefit from a visual flowchart"
+            if suggestion not in suggestions:
+                suggestions.append(suggestion)
+
+        # Suggest screenshot/image for tool or UI references
+        if current_section and any(word in line.lower() for word in ['dashboard', 'interface', 'screenshot', 'ui', 'click on', 'navigate to']):
+            suggestion = f"Add screenshot in '{current_section}' — UI/tool reference would be clearer with a visual"
+            if suggestion not in suggestions:
+                suggestions.append(suggestion)
+
+        # Suggest chart for data/statistics mentions
+        if current_section and re.search(r'\d+%|\d+x\s|growth|increase|decrease|performance', line.lower()):
+            suggestion = f"Add chart/graph in '{current_section}' — statistics and metrics are more impactful when visualized"
+            if suggestion not in suggestions:
+                suggestions.append(suggestion)
+
+    # Suggest hero image for the article
+    if not suggestions or not any('hero' in s.lower() for s in suggestions):
+        suggestions.insert(0, "Add a hero image below the title to increase visual appeal and social sharing potential")
+
+    return suggestions[:6]  # Cap at 6 suggestions
+
+
 def formatter_node(state: BlogState) -> Dict[str, Any]:
     """
     Formatter node: Format content for Ghost CMS
@@ -160,9 +214,11 @@ def formatter_node(state: BlogState) -> Dict[str, Any]:
 
     # Create prompt
     formatter_template = PromptLoader.load("formatter")
+    current_date = datetime.now().strftime("%B %d, %Y")
     formatter_prompt = formatter_template.render(
         article_content=article_content_escaped,
-        seo_metadata=seo_metadata_escaped
+        seo_metadata=seo_metadata_escaped,
+        current_date=current_date
     )
 
     prompt = ChatPromptTemplate.from_messages([
@@ -203,14 +259,22 @@ def formatter_node(state: BlogState) -> Dict[str, Any]:
         # Generate HTML version
         formatted_html = formatter_tool.markdown_to_html(formatted_content)
 
+        # Analyze visual opportunities
+        visual_recommendations = analyze_visual_opportunities(formatted_content)
+
         print(f"\n✓ Formatting completed")
         print(f"  - Markdown length: {len(formatted_content)} chars")
         print(f"  - HTML length: {len(formatted_html)} chars")
+        if visual_recommendations:
+            print(f"  - Visual suggestions: {len(visual_recommendations)}")
+            for rec in visual_recommendations:
+                print(f"    📷 {rec}")
 
         return {
             "formatted_content": formatted_content,
             "formatted_html": formatted_html,
-            "table_of_contents": table_of_contents
+            "table_of_contents": table_of_contents,
+            "visual_recommendations": visual_recommendations
         }
 
     except Exception as e:

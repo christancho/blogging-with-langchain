@@ -18,6 +18,34 @@ from config import Config
 from tools import get_latest_run_cost, format_langsmith_cost_report
 
 
+def resolve_tone(tone_input: str) -> str:
+    """
+    Resolve tone input — supports preset names or custom tone strings.
+
+    Use 'preset:<name>' to select a preset (e.g., 'preset:conversational').
+
+    Args:
+        tone_input: Raw tone string from user
+
+    Returns:
+        Resolved tone string
+    """
+    if not tone_input:
+        return None
+
+    # Check for preset syntax
+    if tone_input.startswith("preset:"):
+        preset_name = tone_input.split(":", 1)[1].strip()
+        if preset_name in Config.TONE_PRESETS:
+            print(f"   ✓ Using tone preset: {preset_name}")
+            return Config.TONE_PRESETS[preset_name]
+        else:
+            print(f"   ⚠️  Unknown preset '{preset_name}'. Available: {', '.join(Config.TONE_PRESETS.keys())}")
+            print(f"   Using as custom tone instead.")
+
+    return tone_input
+
+
 def interactive_mode():
     """
     Interactive mode for gathering blog generation parameters
@@ -49,9 +77,10 @@ def interactive_mode():
 
         # Get tone (optional)
         print(f"\n🎨 Blog Tone (optional, press Enter for default: '{Config.BLOG_TONE}')")
-        print("   Example: 'conversational and engaging' or 'technical and detailed'")
+        print("   Presets: " + ", ".join(f"preset:{name}" for name in Config.TONE_PRESETS.keys()))
+        print("   Or type a custom tone (e.g., 'conversational and engaging')")
         tone_input = input("   > ").strip()
-        tone = tone_input if tone_input else None
+        tone = resolve_tone(tone_input) if tone_input else None
 
         # Get word count target (optional)
         print(f"\n📊 Word Count Target (optional, press Enter for default: {Config.WORD_COUNT_TARGET})")
@@ -117,7 +146,7 @@ def main():
         "--tone",
         type=str,
         default=None,
-        help='Override the blog tone (e.g., "conversational and engaging", "technical and detailed")'
+        help='Override the blog tone. Use "preset:<name>" for presets (conversational, expert_casual, storyteller, practical, thought_leader) or a custom string'
     )
     parser.add_argument(
         "--instructions",
@@ -158,7 +187,7 @@ def main():
         # CLI mode - use provided arguments
         topic = args.topic
         instructions = args.instructions
-        tone = args.tone
+        tone = resolve_tone(args.tone) if args.tone else None
         word_count_target = args.word_count
         deep_research = args.deep_research
 

@@ -32,6 +32,9 @@ class BlogState(TypedDict, total=False):
     research_sources: List[str]  # List of source URLs
     research_summary: str  # Compiled research findings
 
+    headline_candidates: List[str]  # Headline options generated during research
+    audience_analysis: str  # Target reader persona, pain points, and content angle
+
     # Deep research outputs (populated only when deep_research_enabled=True)
     research_queries: List[str]  # LLM-generated search queries
     research_fetched_urls: List[Dict[str, Any]]  # Fetched URL content with metadata
@@ -65,6 +68,7 @@ class BlogState(TypedDict, total=False):
     formatted_content: str  # Ghost CMS-compatible Markdown/HTML
     formatted_html: str  # Pure HTML if needed
     table_of_contents: Optional[str]  # Generated table of contents markdown
+    visual_recommendations: List[str]  # Suggestions for where to add images, charts, or tables
 
     # ============================================================================
     # Editor Node Outputs (Approval Gate)

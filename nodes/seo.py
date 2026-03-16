@@ -2,6 +2,7 @@
 SEO optimization node
 """
 import re
+from datetime import datetime
 from typing import Dict, Any
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -42,11 +43,13 @@ def seo_node(state: BlogState) -> Dict[str, Any]:
     article_content_escaped = article_content.replace("{", "{{").replace("}", "}}")
 
     # Create prompt
+    current_date = datetime.now().strftime("%B %d, %Y")
     seo_template = PromptLoader.load("seo")
     seo_prompt = seo_template.render(
         article_title=article_title,
         article_content=article_content_escaped,
-        instructions=instructions
+        instructions=instructions,
+        current_date=current_date
     )
 
     prompt = ChatPromptTemplate.from_messages([

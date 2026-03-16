@@ -104,7 +104,12 @@ def _standard_research(state: BlogState) -> Dict[str, Any]:
         # Get LLM to plan research queries
         research_plan = chain.invoke({"topic": topic})
 
-        # STEP 3: Execute supplementary web searches
+        # STEP 3: Extract headline candidates from research plan
+        headline_candidates = _extract_headlines(research_plan)
+        if headline_candidates:
+            print(f"\n📰 Generated {len(headline_candidates)} headline candidates")
+
+        # STEP 4: Execute supplementary web searches
         search_queries = [
             topic,
             f"{topic} latest developments",
@@ -163,6 +168,7 @@ def _standard_research(state: BlogState) -> Dict[str, Any]:
         return {
             "research_summary": research_output_escaped,
             "research_sources": valid_sources,  # Only pass validated URLs
+            "headline_candidates": headline_candidates,
             "research_results": {
                 "raw_output": research_output,
                 "sources": valid_sources,
@@ -179,6 +185,7 @@ def _standard_research(state: BlogState) -> Dict[str, Any]:
         return {
             "research_summary": f"Research encountered an error: {str(e)}",
             "research_sources": [],
+            "headline_candidates": [],
             "research_results": {"error": str(e)},
             "errors": state.get("errors", []) + [f"Research error: {str(e)}"]
         }
@@ -209,6 +216,38 @@ def extract_sources_from_text(text: str) -> list:
             unique_urls.append(url)
 
     return unique_urls
+
+
+def _extract_headlines(research_text: str) -> List[str]:
+    """
+    Extract headline candidates from research output.
+
+    Looks for a numbered list under a 'Headline Candidates' section.
+
+    Args:
+        research_text: Raw research output from LLM
+
+    Returns:
+        List of headline strings
+    """
+    import re
+
+    headlines = []
+
+    # Find the headline candidates section
+    headline_section_match = re.search(
+        r'(?:Headline Candidates|headline candidates)[:\s]*\n((?:\s*\d+[\.\)]\s*.+\n?)+)',
+        research_text,
+        re.IGNORECASE
+    )
+
+    if headline_section_match:
+        section_text = headline_section_match.group(1)
+        # Extract numbered items
+        items = re.findall(r'\d+[\.\)]\s*(.+)', section_text)
+        headlines = [item.strip().strip('"').strip("'") for item in items if item.strip()]
+
+    return headlines[:7]  # Cap at 7
 
 
 def _deep_research(state: BlogState) -> Dict[str, Any]:
@@ -373,6 +412,13 @@ def _deep_research(state: BlogState) -> Dict[str, Any]:
     # STEP 5: Format for writer
     research_summary = _format_deep_research_summary(synthesis, all_fetched_urls)
 
+    # STEP 6: Generate headline candidates from synthesis
+    headline_candidates = _extract_headlines(research_summary)
+    if not headline_candidates:
+        headline_candidates = _extract_headlines(synthesis.get("summary", ""))
+    if headline_candidates:
+        print(f"\n📰 Generated {len(headline_candidates)} headline candidates")
+
     # Extract source URLs
     sources = [f["url"] for f in all_fetched_urls]
 
@@ -385,6 +431,7 @@ def _deep_research(state: BlogState) -> Dict[str, Any]:
     return {
         "research_summary": research_summary_escaped,
         "research_sources": sources,
+        "headline_candidates": headline_candidates,
         "deep_research_enabled": True,
         "research_queries": all_queries,
         "research_fetched_urls": all_fetched_urls,

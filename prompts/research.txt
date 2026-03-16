@@ -45,6 +45,13 @@ Provide a structured research report containing:
 
 5. **Suggested Angles:** 2-3 unique angles or perspectives to make the article stand out
 
+6. **Headline Candidates:** Generate 5-7 compelling headline options for this article. Each headline should:
+   - Be 50-70 characters long
+   - Promise clear, specific value to the reader (what they'll learn or be able to do)
+   - Use power words that create curiosity or urgency (e.g., "essential", "proven", "complete guide")
+   - Avoid clickbait — deliver on the promise the headline makes
+   - Format: one headline per line, numbered
+
 **Important:**
 - Prioritize accuracy and credibility over quantity
 - Note any conflicting information found during research

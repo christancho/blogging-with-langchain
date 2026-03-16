@@ -15,41 +15,57 @@ Write a complete, publication-ready blog post on: {{ topic }}
 **Research Context:**
 {{ research_summary }}
 
+{% if audience_analysis %}
+**Target Audience Analysis:**
+Use this to shape your tone, examples, and content angle — write FOR this reader:
+{{ audience_analysis }}
+{% endif %}
+
+{% if headline_candidates %}
+**Headline Candidates (from research phase):**
+Choose the best headline below as your H1 title, or craft a better one inspired by these options:
+{% for headline in headline_candidates %}
+{{ loop.index }}. {{ headline }}
+{% endfor %}
+{% endif %}
+
 **Article Requirements:**
 
 **LENGTH:** Approximately {{ word_count_target }} words (minimum: {{ min_word_count }} words, no upper limit. Minimum -5% tolerance)
 
 **STRUCTURE:**
 1. **Introduction** ({{ (word_count_target * 0.09)|int }}-{{ (word_count_target * 0.11)|int }} words)
-   - **Hook the reader** with a compelling opening using one of these techniques:
-     * Start with a surprising statistic or fact
-     * Ask a thought-provoking question that challenges assumptions
-     * Begin with a relatable problem the reader might face
-     * Present a bold, contrarian statement
-     * Tell a brief story or real-world scenario
-   - Explain why this topic matters and who should care
-   - Clearly state the value/benefit: "By the end, you'll understand..."
-   - Preview what the article will cover
+   - **Hook the reader in the FIRST 2 SENTENCES** using one of these techniques:
+     * Start with a surprising statistic or fact that challenges what readers assume
+     * Ask a thought-provoking question that names a specific pain point
+     * Begin with a relatable "you" scenario: "You've just spent hours doing X, only to realize..."
+     * Present a bold, contrarian statement that makes readers stop scrolling
+     * Open with a brief real-world story that mirrors the reader's struggle
+   - **Immediately identify the reader's pain point** — what problem brought them here?
+   - **Promise specific value**: "By the end, you'll be able to [concrete outcome]" — not vague benefits, but tangible results
+   - Preview what the article will cover in a way that builds anticipation
+   - Keep the intro under {{ (word_count_target * 0.11)|int }} words — don't bury the hook
 
 2. **Section 1** ({{ (word_count_target * 0.18)|int }}-{{ (word_count_target * 0.22)|int }} words)
    - Cover foundational concepts
    - Define key terms
    - Provide context and background
+   - Include at least one concrete example or analogy to ground the concepts
 
 3. **Section 2** ({{ (word_count_target * 0.18)|int }}-{{ (word_count_target * 0.22)|int }} words)
    - Dive into technical details
    - Explain implementations or architectures
-   - Include practical examples
+   - Include a real-world example or case study showing this in practice
 
 4. **Section 3** ({{ (word_count_target * 0.18)|int }}-{{ (word_count_target * 0.22)|int }} words)
    - Explore real-world applications
-   - Discuss use cases and scenarios
-   - Show practical benefits
+   - Discuss use cases with specific, named examples (companies, tools, projects)
+   - Show practical benefits with before/after scenarios where possible
 
 5. **Section 4** ({{ (word_count_target * 0.18)|int }}-{{ (word_count_target * 0.22)|int }} words)
-   - Address challenges and solutions
-   - Share best practices
-   - Discuss future trends
+   - Address challenges and solutions with actionable steps
+   - Share best practices backed by examples or evidence
+   - Discuss future trends grounded in current trajectories
 
 6. **Conclusion** ({{ (word_count_target * 0.09)|int }}-{{ (word_count_target * 0.11)|int }} words)
    - Synthesize the main insights into 3-5 concise takeaways (avoid verbatim repetition of earlier content - distill to essence)
@@ -72,20 +88,39 @@ Write a complete, publication-ready blog post on: {{ topic }}
 - Adopt a tone that is: {{ tone }}
 - Make complex concepts accessible to technical and non-technical readers
 - Use clear, concise language
-- Include concrete examples and analogies (compare to familiar concepts)
 - Balance depth with readability
 - Use active voice
 - Break up long paragraphs (2-4 sentences max per paragraph)
-- **Engagement techniques:**
-  * Use strategic bolding for key insights and takeaways
-  * Tell mini-stories or real-world scenarios to illustrate points
-  * Use metaphors and analogies to explain complex ideas
-  * Ask rhetorical questions within sections to maintain engagement
-  * Provide concrete, actionable examples readers can relate to
+
+**AUTHENTIC VOICE (Critical for reader trust and engagement):**
+- Write like a knowledgeable friend explaining something they care about — not a textbook
+- Use "you" and "your" frequently to speak directly to the reader
+- Use "I" or "we" sparingly but intentionally — to share a perspective, admit a nuance, or build rapport
+- Avoid corporate-sounding language: no "leveraging synergies", "it should be noted that", or "in conclusion"
+- Show genuine enthusiasm where appropriate — if something is exciting, let that come through
+- Acknowledge complexity honestly: "This part can be tricky" is more trustworthy than pretending everything is simple
+- Vary your register — mix short punchy sentences with longer explanatory ones to create natural rhythm
+
+**STORYTELLING & EXAMPLES (Minimum 2 per article):**
+- Each major section MUST include at least ONE of the following:
+  * A concrete real-world example or case study showing the concept in action
+  * A before/after scenario that illustrates the transformation or benefit
+  * A brief anecdote or "imagine this" scenario that makes abstract ideas tangible
+  * A specific, named example (company, project, tool) rather than vague generalities
+- When presenting data or claims, ground them in stories: "When Company X switched to this approach, they saw..."
+- Use examples that mirror the reader's likely situation — make them think "that's exactly my problem"
+- Avoid hypothetical examples when real ones exist — specificity builds credibility
+
+**ENGAGEMENT TECHNIQUES:**
+- Use strategic bolding for key insights and takeaways
+- Use metaphors and analogies to explain complex ideas (compare to familiar concepts)
+- Ask rhetorical questions within sections to re-engage the reader
+- Provide concrete, actionable steps readers can implement immediately
 - **Maintain reader interest throughout:**
-  * Connect each section to reader benefits/problems
+  * Connect each section to reader benefits/problems — answer "why should I care?" for every section
   * Use transitional phrases: "Here's where it gets interesting...", "But there's a catch...", "This is critical because..."
-  * Vary sentence structure to maintain rhythm
+  * Create mini-cliffhangers between sections to pull readers forward
+  * End sections with a bridge to the next: hint at what's coming or pose a question the next section answers
 
 **FORMATTING:**
 - Use Markdown formatting

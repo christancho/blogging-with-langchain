@@ -4,7 +4,7 @@ LangGraph state graph for blog generation workflow
 from langgraph.graph import StateGraph, END
 from state import BlogState
 from config import Config
-from nodes import research_node, writer_node, seo_node, formatter_node, editor_node, publisher_node
+from nodes import research_node, audience_analysis_node, writer_node, seo_node, formatter_node, editor_node, publisher_node
 
 
 def route_editor_decision(state: BlogState) -> str:
@@ -45,6 +45,7 @@ def create_blog_graph():
 
     # Add all nodes
     workflow.add_node("research", research_node)
+    workflow.add_node("audience_analysis", audience_analysis_node)
     workflow.add_node("writer", writer_node)
     workflow.add_node("seo", seo_node)
     workflow.add_node("formatter", formatter_node)
@@ -52,8 +53,9 @@ def create_blog_graph():
     workflow.add_node("publisher", publisher_node)
 
     # Define the workflow edges
-    # New order: research -> writer -> formatter -> seo -> editor -> publisher
-    workflow.add_edge("research", "writer")
+    # Order: research -> audience_analysis -> writer -> formatter -> seo -> editor -> publisher
+    workflow.add_edge("research", "audience_analysis")
+    workflow.add_edge("audience_analysis", "writer")
     workflow.add_edge("writer", "formatter")
     workflow.add_edge("formatter", "seo")
     workflow.add_edge("seo", "editor")

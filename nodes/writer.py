@@ -101,11 +101,15 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
         # Use standard writer prompt
         writer_template = PromptLoader.load("writer")
         current_date = datetime.now().strftime("%B %d, %Y")
+        headline_candidates = state.get("headline_candidates", [])
+        audience_analysis = state.get("audience_analysis", "")
         writer_prompt = writer_template.render(
             topic=topic,
             tone=state.get("tone", Config.BLOG_TONE),
             instructions=instructions,
             research_summary=research_summary,
+            audience_analysis=audience_analysis,
+            headline_candidates=headline_candidates,
             word_count_target=word_count_target,
             min_word_count=min_word_count,
             max_word_count=max_word_count,
