@@ -4,6 +4,7 @@ LangGraph node functions
 from .research import research_node
 from .audience_analysis import audience_analysis_node
 from .writer import writer_node
+from .fact_checker import fact_checker_node
 from .seo import seo_node
 from .formatter import formatter_node
 from .editor import editor_node
@@ -13,6 +14,7 @@ __all__ = [
     "research_node",
     "audience_analysis_node",
     "writer_node",
+    "fact_checker_node",
     "seo_node",
     "formatter_node",
     "editor_node",

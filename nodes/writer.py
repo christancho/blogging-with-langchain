@@ -30,12 +30,24 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
     research_summary = state.get("research_summary", "")
     revision_count = state.get("revision_count", 0)
     approval_feedback = state.get("approval_feedback", "")
+    fact_check_feedback = state.get("fact_check_feedback", "")
+    fact_revision_count = state.get("fact_revision_count", 0)
 
     # Initialize LLM
     llm = Config.get_llm()
 
+    # Combine feedback sources — fact-check corrections take priority
+    combined_feedback = ""
+    if fact_check_feedback and fact_revision_count > 0:
+        combined_feedback = fact_check_feedback
+        if approval_feedback:
+            combined_feedback += f"\n\nAdditional editorial feedback:\n{approval_feedback}"
+    else:
+        combined_feedback = approval_feedback
+
     # Check if this is a revision
-    is_revision = revision_count > 0 and approval_feedback
+    is_revision = (revision_count > 0 or fact_revision_count > 0) and combined_feedback
+    approval_feedback = combined_feedback
 
     if is_revision:
         # REVISION MODE - Use feedback from editor

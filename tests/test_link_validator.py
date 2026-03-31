@@ -102,54 +102,6 @@ class TestLinkValidatorTool:
         assert "Timeout" in summary["error_breakdown"]
 
 
-@pytest.mark.integration
-@pytest.mark.slow
-class TestLinkValidatorIntegration:
-    """Integration tests for link validation in research workflow"""
-
-    def test_research_validates_urls(self):
-        """Test that research node validates URLs"""
-        from graph import generate_blog_post
-
-        # Run a quick test with standard mode
-        result = generate_blog_post(
-            topic="Python testing best practices",
-            deep_research=False
-        )
-
-        # Check that research sources exist and are validated
-        research_sources = result.get("research_sources", [])
-        research_results = result.get("research_results", {})
-
-        # Should have some valid sources
-        assert len(research_sources) > 0
-
-        # Check if validation metadata exists
-        if "invalid_sources" in research_results:
-            # Validation was performed
-            assert isinstance(research_results["invalid_sources"], list)
-
-    def test_deep_research_validates_urls(self):
-        """Test that deep research mode validates URLs"""
-        from graph import generate_blog_post
-
-        result = generate_blog_post(
-            topic="FastAPI tutorial",
-            deep_research=True
-        )
-
-        # Check that fetched URLs are valid
-        fetched_urls = result.get("research_fetched_urls", [])
-
-        # All fetched URLs should have content (they were validated before fetching)
-        assert len(fetched_urls) > 0
-
-        for url_data in fetched_urls:
-            assert "url" in url_data
-            assert "content" in url_data
-            # If it was fetched, it should have content (validation passed)
-            assert len(url_data.get("content", "")) > 0
-
 
 @pytest.mark.benchmark
 class TestLinkValidatorPerformance:

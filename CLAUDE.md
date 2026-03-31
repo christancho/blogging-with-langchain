@@ -335,6 +335,7 @@ Essential for debugging LLM calls:
 
 ## Code Style and Conventions
 
+- **No silent error swallowing**: Never use bare `except: pass` or `except Exception: pass` (or equivalent) that silently discard errors. Every `except` block must at minimum log or print the error. If a fallback is used, the error must still be visible in the output. Errors that are caught and hidden are bugs waiting to happen.
 - **Docstrings**: All functions have docstrings explaining args, returns, and purpose
 - **Type hints**: Used throughout (BlogState, Config, node functions)
 - **Error handling**: Accumulate errors in state rather than raising exceptions

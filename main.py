@@ -51,7 +51,7 @@ def interactive_mode():
     Interactive mode for gathering blog generation parameters
 
     Returns:
-        tuple: (topic, instructions, tone) or None if cancelled
+        tuple: (topic, instructions, tone, word_count_target) or None if cancelled
     """
     print("\n" + "="*80)
     print("BLOG GENERATION SYSTEM - Interactive Mode")
@@ -88,13 +88,6 @@ def interactive_mode():
         word_count_input = input("   > ").strip()
         word_count_target = int(word_count_input) if word_count_input else None
 
-        # Get deep research preference (optional)
-        print(f"\n🔬 Deep Research (optional, press Enter for standard)")
-        print("   Deep mode: Fetches and analyzes ~15-20 web pages")
-        print("   Estimated time: +2-3 minutes | Estimated cost: +$0.20-0.30")
-        deep_input = input("   Enable deep research? [y/N]: ").strip().lower()
-        deep_research = deep_input in ['y', 'yes']
-
         # Show summary
         print("\n" + "="*80)
         print("SUMMARY")
@@ -103,7 +96,6 @@ def interactive_mode():
         print(f"Instructions:  {instructions[:60] + '...' if instructions and len(instructions) > 60 else instructions or '(none)'}")
         print(f"Tone:          {tone or f'{Config.BLOG_TONE} (default)'}")
         print(f"Word Count:    {word_count_target or f'{Config.WORD_COUNT_TARGET} (default)'}")
-        print(f"Deep Research: {'Yes' if deep_research else 'No'}")
         print("="*80)
 
         # Confirm
@@ -112,7 +104,7 @@ def interactive_mode():
             print("\n❌ Cancelled by user")
             return None
 
-        return topic, instructions, tone, word_count_target, deep_research
+        return topic, instructions, tone, word_count_target
 
     except KeyboardInterrupt:
         print("\n\n❌ Cancelled by user")
@@ -161,12 +153,6 @@ def main():
         default=None,
         help=f'Target word count for the article (default: {Config.WORD_COUNT_TARGET})'
     )
-    parser.add_argument(
-        "--deep-research",
-        action="store_true",
-        help="Enable deep research mode (fetches and analyzes actual web content, slower but higher quality)"
-    )
-
     args = parser.parse_args()
 
     # Handle visualization request
@@ -182,14 +168,13 @@ def main():
         if result is None:
             return 1  # User cancelled
 
-        topic, instructions, tone, word_count_target, deep_research = result
+        topic, instructions, tone, word_count_target = result
     else:
         # CLI mode - use provided arguments
         topic = args.topic
         instructions = args.instructions
         tone = resolve_tone(args.tone) if args.tone else None
         word_count_target = args.word_count
-        deep_research = args.deep_research
 
     # Print configuration info
     print("\n" + "="*80)
@@ -229,7 +214,7 @@ def main():
     start_time = datetime.now()
 
     try:
-        final_state = generate_blog_post(topic, instructions, tone, word_count_target, deep_research)
+        final_state = generate_blog_post(topic, instructions, tone, word_count_target)
 
         end_time = datetime.now()
         duration_seconds = (end_time - start_time).total_seconds()

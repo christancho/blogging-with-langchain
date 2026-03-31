@@ -46,23 +46,27 @@ Choose the best headline below as your H1 title, or craft a better one inspired 
    - Preview what the article will cover in a way that builds anticipation
    - Keep the intro under {{ (word_count_target * 0.11)|int }} words — don't bury the hook
 
-2. **Section 1** ({{ (word_count_target * 0.18)|int }}-{{ (word_count_target * 0.22)|int }} words)
+2. **Body Section 1** ({{ (word_count_target * 0.18)|int }}-{{ (word_count_target * 0.22)|int }} words)
+   - Give this section a descriptive, topic-specific heading (NOT "Section 1")
    - Cover foundational concepts
    - Define key terms
    - Provide context and background
    - Include at least one concrete example or analogy to ground the concepts
 
-3. **Section 2** ({{ (word_count_target * 0.18)|int }}-{{ (word_count_target * 0.22)|int }} words)
+3. **Body Section 2** ({{ (word_count_target * 0.18)|int }}-{{ (word_count_target * 0.22)|int }} words)
+   - Give this section a descriptive, topic-specific heading (NOT "Section 2")
    - Dive into technical details
    - Explain implementations or architectures
    - Include a real-world example or case study showing this in practice
 
-4. **Section 3** ({{ (word_count_target * 0.18)|int }}-{{ (word_count_target * 0.22)|int }} words)
+4. **Body Section 3** ({{ (word_count_target * 0.18)|int }}-{{ (word_count_target * 0.22)|int }} words)
+   - Give this section a descriptive, topic-specific heading (NOT "Section 3")
    - Explore real-world applications
    - Discuss use cases with specific, named examples (companies, tools, projects)
    - Show practical benefits with before/after scenarios where possible
 
-5. **Section 4** ({{ (word_count_target * 0.18)|int }}-{{ (word_count_target * 0.22)|int }} words)
+5. **Body Section 4** ({{ (word_count_target * 0.18)|int }}-{{ (word_count_target * 0.22)|int }} words)
+   - Give this section a descriptive, topic-specific heading (NOT "Section 4")
    - Address challenges and solutions with actionable steps
    - Share best practices backed by examples or evidence
    - Discuss future trends grounded in current trajectories
@@ -127,7 +131,7 @@ Choose the best headline below as your H1 title, or craft a better one inspired 
 
 **HEADING HIERARCHY (CRITICAL):**
 - # (H1) - Use ONLY ONCE for the article title at the very beginning
-- ## (H2) - Use for all main section headings (Introduction, Section 1, Section 2, etc.)
+- ## (H2) - Use for all main section headings — use descriptive, topic-specific titles (never "Section 1", "Section 2", etc.)
 - ### (H3) - Use for subsections within H2 sections if needed
 - **DO NOT create multiple H1 headings** - The editor will reject articles with more than one H1
 

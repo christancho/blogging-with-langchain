@@ -21,11 +21,6 @@ class BlogState(TypedDict, total=False):
     word_count_target: int  # Target word count (default: Config.WORD_COUNT_TARGET)
 
     # ============================================================================
-    # Research Configuration
-    # ============================================================================
-    deep_research_enabled: bool  # Whether deep research mode is enabled
-
-    # ============================================================================
     # Research Node Outputs
     # ============================================================================
     research_results: Dict[str, Any]  # Search results, URLs, summaries
@@ -35,7 +30,6 @@ class BlogState(TypedDict, total=False):
     headline_candidates: List[str]  # Headline options generated during research
     audience_analysis: str  # Target reader persona, pain points, and content angle
 
-    # Deep research outputs (populated only when deep_research_enabled=True)
     research_queries: List[str]  # LLM-generated search queries
     research_fetched_urls: List[Dict[str, Any]]  # Fetched URL content with metadata
     research_key_facts: List[Dict[str, str]]  # Extracted facts with sources
@@ -69,6 +63,15 @@ class BlogState(TypedDict, total=False):
     formatted_html: str  # Pure HTML if needed
     table_of_contents: Optional[str]  # Generated table of contents markdown
     visual_recommendations: List[str]  # Suggestions for where to add images, charts, or tables
+
+    # ============================================================================
+    # Fact Checker Node Outputs
+    # ============================================================================
+    fact_check_status: str  # "passed", "failed", "force_passed"
+    fact_verdicts: List[Dict[str, Any]]  # Per-claim verdicts with source URLs
+    fact_check_feedback: str  # Structured correction list passed to writer on failure
+    fact_revision_count: int  # Number of fact-check revision attempts (starts at 0)
+    fact_max_revisions: int  # Maximum allowed fact-check revisions (default: 3)
 
     # ============================================================================
     # Editor Node Outputs (Approval Gate)

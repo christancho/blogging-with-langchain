@@ -4,7 +4,27 @@ LangGraph state graph for blog generation workflow
 from langgraph.graph import StateGraph, END
 from state import BlogState
 from config import Config
-from nodes import research_node, audience_analysis_node, writer_node, seo_node, formatter_node, editor_node, publisher_node
+from nodes import research_node, audience_analysis_node, writer_node, fact_checker_node, seo_node, formatter_node, editor_node, publisher_node
+
+
+def route_fact_check_decision(state: BlogState) -> str:
+    """
+    Route the workflow based on fact-checker decision.
+
+    Returns:
+        "formatter" if passed/force_passed, "writer" if failed with revisions remaining
+    """
+    fact_check_status = state.get("fact_check_status", "passed")
+    fact_revision_count = state.get("fact_revision_count", 0)
+    fact_max_revisions = state.get("fact_max_revisions", 3)
+
+    if fact_check_status in ["passed", "force_passed"]:
+        return "formatter"
+
+    if fact_check_status == "failed" and fact_revision_count <= fact_max_revisions:
+        return "writer"
+
+    return "formatter"
 
 
 def route_editor_decision(state: BlogState) -> str:
@@ -47,16 +67,28 @@ def create_blog_graph():
     workflow.add_node("research", research_node)
     workflow.add_node("audience_analysis", audience_analysis_node)
     workflow.add_node("writer", writer_node)
+    workflow.add_node("fact_checker", fact_checker_node)
     workflow.add_node("seo", seo_node)
     workflow.add_node("formatter", formatter_node)
     workflow.add_node("editor", editor_node)
     workflow.add_node("publisher", publisher_node)
 
     # Define the workflow edges
-    # Order: research -> audience_analysis -> writer -> formatter -> seo -> editor -> publisher
+    # Order: research -> audience_analysis -> writer -> fact_checker -> formatter -> seo -> editor -> publisher
     workflow.add_edge("research", "audience_analysis")
     workflow.add_edge("audience_analysis", "writer")
-    workflow.add_edge("writer", "formatter")
+    workflow.add_edge("writer", "fact_checker")
+
+    # Conditional edge based on fact-checker decision
+    workflow.add_conditional_edges(
+        "fact_checker",
+        route_fact_check_decision,
+        {
+            "formatter": "formatter",
+            "writer": "writer"
+        }
+    )
+
     workflow.add_edge("formatter", "seo")
     workflow.add_edge("seo", "editor")
 
@@ -92,7 +124,6 @@ def generate_blog_post(
     instructions: str = None,
     tone: str = None,
     word_count_target: int = None,
-    deep_research: bool = False
 ) -> dict:
     """
     Generate a complete blog post on the given topic
@@ -102,7 +133,6 @@ def generate_blog_post(
         instructions: Optional custom instructions for the article (e.g., style, audience, focus areas)
         tone: Optional blog tone override (default: Config.BLOG_TONE)
         word_count_target: Optional word count target (default: Config.WORD_COUNT_TARGET)
-        deep_research: Whether to enable deep research mode (default: False)
 
     Returns:
         Final state dictionary with all results
@@ -120,13 +150,17 @@ def generate_blog_post(
         "instructions": instructions,
         "tone": tone or Config.BLOG_TONE,
         "word_count_target": word_count_target or Config.WORD_COUNT_TARGET,
-        "deep_research_enabled": deep_research,
         "errors": [],
         "warnings": [],
         "workflow_version": "1.0.0",
         "approval_status": "pending",
         "revision_count": 0,
-        "max_revisions": 3
+        "max_revisions": 3,
+        "fact_check_status": "pending",
+        "fact_revision_count": 0,
+        "fact_max_revisions": 3,
+        "fact_verdicts": [],
+        "fact_check_feedback": ""
     }
 
     # Run the graph
