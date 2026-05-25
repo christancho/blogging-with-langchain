@@ -39,7 +39,7 @@ export default function HistoryPage() {
   useEffect(() => {
     jobs.list()
       .then(data => setAllJobs(data))
-      .catch(() => {})
+      .catch((err) => console.error('Failed to load history:', err))
       .finally(() => setLoading(false));
   }, []);
 
@@ -51,8 +51,8 @@ export default function HistoryPage() {
       router.push('/queue');
       // Add new pending job to list
       setAllJobs(prev => [newJob, ...prev]);
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('Failed to retry job:', err);
     } finally {
       setRetryingId(null);
     }
@@ -63,8 +63,8 @@ export default function HistoryPage() {
     try {
       await jobs.delete(id);
       setAllJobs(prev => prev.filter(j => j.id !== id));
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('Failed to dismiss job:', err);
     } finally {
       setDismissingId(null);
     }

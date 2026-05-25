@@ -40,8 +40,8 @@ export default function PreviewPage() {
     try {
       await jobs.delete(job.id);
       router.push('/history');
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('Failed to discard job:', err);
     } finally {
       setDiscarding(false);
     }
