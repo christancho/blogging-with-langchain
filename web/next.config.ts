@@ -1,9 +1,5 @@
 import type { NextConfig } from 'next';
 
-const nextConfig: NextConfig = {
-  experimental: {
-    after: true,
-  } as any,
-};
+const nextConfig: NextConfig = {};
 
 export default nextConfig;
