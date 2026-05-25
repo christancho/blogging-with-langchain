@@ -16,7 +16,7 @@ export default function PreviewPage() {
   useEffect(() => {
     jobs.get(id)
       .then(setJob)
-      .catch(() => router.push('/history'))
+      .catch((err) => { console.error('Failed to load job:', err); router.push('/history'); })
       .finally(() => setLoading(false));
   }, [id, router]);
 

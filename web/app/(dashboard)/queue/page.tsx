@@ -28,8 +28,8 @@ export default function QueuePage() {
     try {
       const data = await jobs.list();
       setAllJobs(data);
-    } catch {
-      // auth errors handled by dashboard layout
+    } catch (err) {
+      console.error('Failed to fetch jobs:', err);
     } finally {
       setLoading(false);
     }
@@ -46,8 +46,8 @@ export default function QueuePage() {
     try {
       await jobs.delete(id);
       setAllJobs(prev => prev.filter(j => j.id !== id));
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('Failed to delete job:', err);
     } finally {
       setDeletingId(null);
     }

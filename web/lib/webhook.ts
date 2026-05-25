@@ -208,7 +208,7 @@ a{color:#2563eb}`;
 
   const metaBlock = `<div class="meta">
 <p><strong>Title:</strong> ${escapeHTML(metadata.title)}</p>
-<p><strong>URL:</strong> <a href="${escapeHTML(metadata.url)}">${metadata.url}</a></p>
+<p><strong>URL:</strong> <a href="${escapeHTML(metadata.url)}">${escapeHTML(metadata.url)}</a></p>
 <p><strong>Excerpt:</strong> ${escapeHTML(metadata.excerpt)}</p>
 <p><strong>Tags:</strong> ${escapeHTML(metadata.tags.join(', '))}</p>
 </div>`;

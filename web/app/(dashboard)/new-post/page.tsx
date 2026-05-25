@@ -18,7 +18,7 @@ export default function NewPostPage() {
     settings.get().then(s => {
       setTone(s.default_tone);
       setWordCount(s.default_word_count);
-    }).catch(() => {});
+    }).catch((err) => console.error('Failed to load settings:', err));
   }, []);
 
   async function handleSubmit(e: FormEvent) {
