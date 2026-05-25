@@ -45,6 +45,7 @@ output/
 *.log
 *.md
 !README.md
+!docs/**/*.md
 
 # Test coverage
 htmlcov/
