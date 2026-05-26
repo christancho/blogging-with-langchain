@@ -89,9 +89,9 @@ Research → Writer → Formatter → SEO → Editor → Publisher
 ```
 
 **Key Files:**
-- `graph.py`: StateGraph definition, conditional routing logic, and workflow orchestration
-- `state.py`: BlogState TypedDict defining all state fields
-- `config.py`: Configuration management with automatic LLM fallback (Anthropic → OpenRouter)
+- `agentic/graph.py`: StateGraph definition, conditional routing logic, and workflow orchestration
+- `agentic/state.py`: BlogState TypedDict defining all state fields
+- `agentic/config.py`: Configuration management with automatic LLM fallback (Anthropic → OpenRouter)
 
 ### Node Architecture
 All nodes follow a consistent pattern:
@@ -100,7 +100,7 @@ All nodes follow a consistent pattern:
 3. Return dict updates to merge into state
 4. Never mutate state directly
 
-**Node files** (`nodes/` directory):
+**Node files** (`agentic/nodes/` directory):
 - `research.py`: Web search via Brave API, generates research summary
 - `writer.py`: Handles both initial writing and revisions (checks `revision_count` to decide which prompt to use)
 - `formatter.py`: Normalizes Markdown, fixes heading hierarchy (ensures 1 H1)
@@ -109,7 +109,7 @@ All nodes follow a consistent pattern:
 - `publisher.py`: Saves locally and publishes to Ghost CMS
 
 ### Prompt System
-Prompts are Jinja2 templates stored in `prompts/*.txt` and loaded via `PromptLoader` utility:
+Prompts are Jinja2 templates stored in `agentic/prompts/*.txt` and loaded via `PromptLoader` utility:
 
 - `research.txt`: Research planning and source gathering
 - `writer.txt`: Initial article generation (3500+ words)
@@ -120,7 +120,7 @@ Prompts are Jinja2 templates stored in `prompts/*.txt` and loaded via `PromptLoa
 
 **Loading prompts:**
 ```python
-from nodes.prompt_loader import PromptLoader
+from agentic.nodes.prompt_loader import PromptLoader
 
 template = PromptLoader.load("writer")
 prompt = template.render(
@@ -132,7 +132,7 @@ prompt = template.render(
 ```
 
 ### Tools Architecture
-Tools in `tools/` provide utilities for each node:
+Tools in `agentic/tools/` provide utilities for each node:
 
 - `brave_search.py`: Web search integration
 - `content_analyzer.py`: Quality analysis (word count, link count, structure)
@@ -166,11 +166,11 @@ The editor node acts as an approval gate with three possible outcomes:
 
 **Note**: Code blocks and inline code are excluded from word count calculations
 
-**Implementation**: See `editor_node()` in nodes/editor.py and `prompts/editor.txt`
+**Implementation**: See `editor_node()` in `agentic/nodes/editor.py` and `agentic/prompts/editor.txt`
 
 ## Configuration System
 
-The `Config` class in config.py handles all settings with automatic fallback:
+The `Config` class in `agentic/config.py` handles all settings with automatic fallback:
 
 **LLM Fallback Chain:**
 1. Try Anthropic Claude (primary)
@@ -211,30 +211,30 @@ LANGCHAIN_PROJECT=blog-generation
 ## Common Development Tasks
 
 ### Adding a New Quality Check
-1. Update `prompts/editor.txt`: Add new criteria to the assessment section
+1. Update `agentic/prompts/editor.txt`: Add new criteria to the assessment section
 2. Update the scoring guide if needed to reflect new criteria weighting
-3. Update `revision.txt`: Include new check in revision guidance
+3. Update `agentic/prompts/revision.txt`: Include new check in revision guidance
 4. Test with sample articles to ensure LLM understands the new criteria
-5. Optional: Update fallback mechanical checks in `editor.py` if adding quantitative metrics
+5. Optional: Update fallback mechanical checks in `agentic/nodes/editor.py` if adding quantitative metrics
 
 ### Modifying a Prompt
-1. Edit the corresponding `.txt` file in `prompts/`
+1. Edit the corresponding `.txt` file in `agentic/prompts/`
 2. Templates use Jinja2 syntax: `{{ variable }}`, `{% if %}`, etc.
 3. Clear cache in development: `PromptLoader.clear_cache()`
 4. Test changes with `python main.py "test topic" --debug`
 
 ### Adding a New Node
-1. Create `nodes/new_node.py` with function signature: `def new_node(state: BlogState) -> dict`
-2. Add to `nodes/__init__.py`
-3. Update workflow in `graph.py`: `workflow.add_node("new_node", new_node)`
+1. Create `agentic/nodes/new_node.py` with function signature: `def new_node(state: BlogState) -> dict`
+2. Add to `agentic/nodes/__init__.py`
+3. Update workflow in `agentic/graph.py`: `workflow.add_node("new_node", new_node)`
 4. Add edges: `workflow.add_edge("previous", "new_node")`
-5. Update `state.py` with new output fields
+5. Update `agentic/state.py` with new output fields
 
 ### Changing the Workflow Order
 **Current:** Research → Writer → Formatter → SEO → Editor → Publisher
 
 To modify:
-1. Update edges in `graph.py`: `workflow.add_edge(source, target)`
+1. Update edges in `agentic/graph.py`: `workflow.add_edge(source, target)`
 2. Update conditional routing if needed: `route_editor_decision()`
 3. Regenerate visualization: `python main.py --visualize`
 4. Update documentation and diagrams
@@ -242,7 +242,7 @@ To modify:
 ## Testing Guidelines
 
 ### Unit Tests
-- Test files mirror source structure: `tests/test_tools.py` tests `tools/*.py`
+- Test files mirror source structure: `tests/test_tools.py` tests `agentic/tools/*.py`
 - Use pytest fixtures for common setup
 - Mock external APIs (Brave, Anthropic, Ghost)
 - Test each tool independently
@@ -264,7 +264,7 @@ Located in `tests/golden_tests/`:
 The `BlogState` TypedDict flows through the entire graph. Key principles:
 
 - **Immutable updates**: Nodes return dicts that merge into state
-- **Typed fields**: All fields defined in state.py with type hints
+- **Typed fields**: All fields defined in `agentic/state.py` with type hints
 - **Optional fields**: Uses `total=False` to allow partial state
 - **No direct mutation**: Never modify state in-place
 
@@ -282,7 +282,7 @@ Publishing to Ghost requires:
 - API URL (your Ghost instance)
 - Author ID (for attribution)
 
-**Implementation:** `tools/ghost_cms.py`
+**Implementation:** `agentic/tools/ghost_cms.py`
 
 **Publishing logic:**
 1. Remove H1 from content (sent separately as title)
@@ -324,7 +324,7 @@ Essential for debugging LLM calls:
 - Check editorial feedback in console output (includes cohesiveness score and specific issues)
 - Verify word count target is reasonable (default 3500, configurable via --word-count)
 - Ensure research provides enough sources for inline links
-- Review editorial criteria in `prompts/editor.txt`
+- Review editorial criteria in `agentic/prompts/editor.txt`
 - Check LLM assessment in LangSmith traces (if enabled)
 - If LLM evaluation fails, system falls back to mechanical checks only
 
@@ -340,4 +340,4 @@ Essential for debugging LLM calls:
 - **Type hints**: Used throughout (BlogState, Config, node functions)
 - **Error handling**: Accumulate errors in state rather than raising exceptions
 - **Logging**: Use print statements for user feedback (not logging module)
-- **File structure**: Organized by responsibility (nodes, tools, prompts, tests)
+- **File structure**: Organized by responsibility (agentic/nodes, agentic/tools, agentic/prompts, tests)

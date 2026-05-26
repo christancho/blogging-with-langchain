@@ -195,51 +195,44 @@ Displays detailed error traces and debugging information during execution.
 
 ```
 blogging-with-langchain/
-├── config.py              # Configuration settings
-├── state.py               # BlogState TypedDict (defines approval_status, revision_count, etc.)
-├── graph.py               # LangGraph state graph definition with conditional routing
-├── main.py                # Entry point
-├── tools/                 # Custom tools
-│   ├── brave_search.py    # Web search tool
-│   ├── seo_analyzer.py    # SEO analysis
-│   ├── html_formatter.py  # HTML/Markdown formatting
-│   ├── ghost_cms.py       # Ghost CMS publishing
-│   ├── tag_extractor.py   # Tag extraction
-│   └── content_analyzer.py # Content quality analysis
-├── prompts/               # Jinja2 prompt templates (all date-aware)
-│   ├── research.txt       # Research planning + headline generation prompt
-│   ├── audience_analysis.txt  # Target audience analysis prompt
-│   ├── writer.txt         # Article writing prompt (hooks, storytelling, voice)
-│   ├── revision.txt       # Article revision prompt (with editor feedback)
-│   ├── seo.txt            # SEO optimization prompt
-│   ├── formatter.txt      # Content formatting prompt
-│   └── editor.txt         # Editor review prompt (4 scoring dimensions)
-├── nodes/                 # LangGraph node functions
-│   ├── prompt_loader.py   # Jinja2 prompt loading and caching utility
-│   ├── research.py        # Research node + headline candidate generation
-│   ├── audience_analysis.py  # Audience analysis node (persona, pain points)
-│   ├── writer.py          # Writer node (handles initial write and revisions)
-│   ├── seo.py             # SEO optimization node
-│   ├── formatter.py       # Content formatting + visual recommendations
-│   ├── editor.py          # Editor approval gate (cohesiveness, hook, storytelling, voice)
-│   ├── publisher.py       # Publisher node with forced publish support
-│   └── __init__.py
-├── cloudflare-worker/     # Social media notification webhook
-│   ├── worker.js          # Cloudflare Worker (serverless webhook)
-│   ├── wrangler.toml      # Cloudflare configuration
-│   ├── package.json       # npm dependencies
-│   └── README.md          # Webhook setup guide
-├── .github/
-│   └── workflows/
-│       └── deploy-worker.yml  # Auto-deploy webhook to Cloudflare
+├── agentic/               # LangGraph pipeline (standalone core)
+│   ├── config.py          # Configuration settings
+│   ├── state.py           # BlogState TypedDict
+│   ├── graph.py           # LangGraph state graph definition
+│   ├── republish.py       # Republish utility script
+│   ├── tools/             # Custom tools
+│   │   ├── brave_search.py
+│   │   ├── seo_analyzer.py
+│   │   ├── html_formatter.py
+│   │   ├── ghost_cms.py
+│   │   ├── tag_extractor.py
+│   │   └── content_analyzer.py
+│   ├── prompts/           # Jinja2 prompt templates (all date-aware)
+│   │   ├── research.txt
+│   │   ├── audience_analysis.txt
+│   │   ├── writer.txt
+│   │   ├── revision.txt
+│   │   ├── seo.txt
+│   │   ├── formatter.txt
+│   │   └── editor.txt
+│   └── nodes/             # LangGraph node functions
+│       ├── prompt_loader.py
+│       ├── research.py
+│       ├── audience_analysis.py
+│       ├── writer.py
+│       ├── seo.py
+│       ├── formatter.py
+│       ├── editor.py
+│       ├── publisher.py
+│       └── __init__.py
+├── api/                   # FastAPI HTTP interface
+│   ├── alembic/           # Database migrations
+│   ├── alembic.ini
+│   └── ...
+├── web/                   # Next.js frontend
+├── main.py                # CLI entry point
 ├── tests/                 # Unit tests
-│   ├── test_tools.py
-│   └── test_config.py
-├── media/                 # Generated visualizations
-│   └── blog_graph.png     # Workflow diagram
-├── output/                # Generated blog posts
-├── requirements.txt       # Python dependencies
-├── .env                   # Environment variables (create this)
+├── requirements.txt
 └── .gitignore
 ```
 
