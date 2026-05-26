@@ -5,7 +5,7 @@ import pytest
 import os
 from unittest.mock import patch
 
-from config import Config
+from agentic.config import Config
 
 
 class TestConfig:
@@ -36,7 +36,7 @@ class TestConfig:
     def test_get_llm_info_anthropic_only(self):
         """Test LLM info when only Anthropic is configured"""
         from importlib import reload
-        import config
+        import agentic.config as config
         reload(config)
 
         llm_info = config.Config.get_llm_info()
@@ -55,7 +55,7 @@ class TestConfig:
     def test_get_llm_info_both_providers(self):
         """Test LLM info when both providers are configured"""
         from importlib import reload
-        import config
+        import agentic.config as config
         reload(config)
 
         llm_info = config.Config.get_llm_info()
@@ -75,7 +75,7 @@ class TestConfig:
     def test_get_llm_info_openrouter_only(self):
         """Test LLM info when only OpenRouter is configured"""
         from importlib import reload
-        import config
+        import agentic.config as config
         reload(config)
 
         llm_info = config.Config.get_llm_info()

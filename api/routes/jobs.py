@@ -46,7 +46,7 @@ async def list_jobs(db: AsyncSession = Depends(get_db), _: str = Depends(require
 @router.post("", status_code=201)
 async def create_job(body: JobCreate, db: AsyncSession = Depends(get_db), _: str = Depends(require_auth)):
     """Add a new job to the queue as pending."""
-    from config import Config
+    from agentic.config import Config
     job = Job(
         topic=body.topic,
         tone=body.tone or Config.BLOG_TONE,
@@ -92,7 +92,7 @@ async def publish_job(job_id: uuid.UUID, db: AsyncSession = Depends(get_db), _: 
     if not job.result:
         raise HTTPException(status_code=409, detail="Job has no result to publish")
 
-    from nodes.publisher import publisher_node
+    from agentic.nodes.publisher import publisher_node
     state_updates = publisher_node(job.result)
 
     if state_updates.get("publication_status") == "failed":

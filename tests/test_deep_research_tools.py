@@ -2,7 +2,7 @@
 Unit tests for deep research tools
 """
 import pytest
-from tools import QueryGeneratorTool, ContentSynthesisTool
+from agentic.tools import QueryGeneratorTool, ContentSynthesisTool
 
 
 class TestQueryGeneratorTool:

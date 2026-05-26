@@ -10,7 +10,7 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
-from graph import create_blog_graph  # noqa: E402 — must come after sys.path setup
+from agentic.graph import create_blog_graph  # noqa: E402 — must come after sys.path setup
 
 logger = logging.getLogger(__name__)
 

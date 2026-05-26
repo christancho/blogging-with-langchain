@@ -14,7 +14,7 @@ from typing import Dict, Any
 from unittest.mock import patch, MagicMock
 
 # Import tools for validation
-from tools.content_analyzer import ContentAnalysisTool
+from agentic.tools.content_analyzer import ContentAnalysisTool
 
 
 class GoldenTestLoader:
