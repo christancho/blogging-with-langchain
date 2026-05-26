@@ -5,7 +5,7 @@ import re
 from typing import Dict, List, Any
 from langchain.tools import BaseTool
 
-from config import Config
+from agentic.config import Config
 
 
 class SEOAnalysisTool(BaseTool):

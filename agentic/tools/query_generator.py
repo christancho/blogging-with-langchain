@@ -5,7 +5,7 @@ from typing import List
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from datetime import datetime
-from config import Config
+from agentic.config import Config
 
 
 class QueryGeneratorTool:

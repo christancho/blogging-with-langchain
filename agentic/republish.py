@@ -9,7 +9,7 @@ import sys
 import argparse
 import re
 from pathlib import Path
-from tools.ghost_cms import GhostCMSTool
+from agentic.tools.ghost_cms import GhostCMSTool
 import json
 
 
@@ -153,7 +153,7 @@ def main():
         }
 
         # Override the Config.PUBLISH_AS_DRAFT setting if --status is specified
-        from config import Config
+        from agentic.config import Config
         original_setting = Config.PUBLISH_AS_DRAFT
         Config.PUBLISH_AS_DRAFT = (args.status == "draft")
 

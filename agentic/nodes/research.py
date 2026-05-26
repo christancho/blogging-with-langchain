@@ -4,8 +4,8 @@ Research node for gathering information
 import json
 from datetime import datetime
 from typing import Dict, Any, List
-from state import BlogState
-from config import Config
+from agentic.state import BlogState
+from agentic.config import Config
 
 
 def research_node(state: BlogState) -> Dict[str, Any]:
@@ -38,7 +38,7 @@ def research_node(state: BlogState) -> Dict[str, Any]:
         print(f"Instructions: {preview}")
 
     # Initialize tools
-    from tools import BraveSearchTool, URLFetcherTool, QueryGeneratorTool, ContentSynthesisTool, LinkValidatorTool
+    from agentic.tools import BraveSearchTool, URLFetcherTool, QueryGeneratorTool, ContentSynthesisTool, LinkValidatorTool
     search_tool = BraveSearchTool()
     url_fetcher = URLFetcherTool()
     query_generator = QueryGeneratorTool()

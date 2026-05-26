@@ -7,10 +7,10 @@ from typing import Dict, Any
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
-from state import BlogState
-from config import Config
-from nodes.prompt_loader import PromptLoader
-from tools import ContentAnalysisTool
+from agentic.state import BlogState
+from agentic.config import Config
+from agentic.nodes.prompt_loader import PromptLoader
+from agentic.tools import ContentAnalysisTool
 
 
 def editor_node(state: BlogState) -> Dict[str, Any]:

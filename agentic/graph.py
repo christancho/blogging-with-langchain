@@ -2,9 +2,9 @@
 LangGraph state graph for blog generation workflow
 """
 from langgraph.graph import StateGraph, END
-from state import BlogState
-from config import Config
-from nodes import research_node, audience_analysis_node, writer_node, fact_checker_node, seo_node, formatter_node, editor_node, publisher_node
+from agentic.state import BlogState
+from agentic.config import Config
+from agentic.nodes import research_node, audience_analysis_node, writer_node, fact_checker_node, seo_node, formatter_node, editor_node, publisher_node
 
 
 def route_fact_check_decision(state: BlogState) -> str:

@@ -6,7 +6,7 @@ import json
 from typing import Dict, Any, List
 from langchain.tools import BaseTool
 
-from config import Config
+from agentic.config import Config
 
 
 class ContentAnalysisTool(BaseTool):

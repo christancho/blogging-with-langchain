@@ -10,7 +10,7 @@ from typing import Dict, Any, Optional
 from langchain.tools import BaseTool
 from pydantic import Field
 
-from config import Config
+from agentic.config import Config
 
 
 class GhostCMSTool(BaseTool):

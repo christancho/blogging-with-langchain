@@ -7,10 +7,10 @@ from typing import Dict, Any, List, Tuple
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
-from state import BlogState
-from config import Config
-from nodes.prompt_loader import PromptLoader
-from tools import HTMLFormatterTool
+from agentic.state import BlogState
+from agentic.config import Config
+from agentic.nodes.prompt_loader import PromptLoader
+from agentic.tools import HTMLFormatterTool
 
 
 def extract_headings(content: str) -> List[Tuple[str, int, str]]:

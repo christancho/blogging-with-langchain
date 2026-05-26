@@ -7,7 +7,7 @@ from typing import Any, Optional, Dict, List
 from langchain.tools import BaseTool
 from pydantic import Field
 
-from config import Config
+from agentic.config import Config
 
 
 class BraveSearchTool(BaseTool):

@@ -6,7 +6,7 @@ import json
 from typing import List, Set
 from langchain.tools import BaseTool
 
-from config import Config
+from agentic.config import Config
 
 
 class TagExtractionTool(BaseTool):

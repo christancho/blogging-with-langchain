@@ -4,7 +4,7 @@ Link Validator Tool for validating URL accessibility
 import subprocess
 from typing import Dict, List, Tuple
 from urllib.parse import urlparse
-from config import Config
+from agentic.config import Config
 
 
 class LinkValidatorTool:

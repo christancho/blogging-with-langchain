@@ -8,10 +8,10 @@ from typing import Dict, Any, List
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
-from state import BlogState
-from config import Config
-from nodes.prompt_loader import PromptLoader
-from tools import BraveSearchTool, URLFetcherTool
+from agentic.state import BlogState
+from agentic.config import Config
+from agentic.nodes.prompt_loader import PromptLoader
+from agentic.tools import BraveSearchTool, URLFetcherTool
 
 
 MAX_URLS_PER_CLAIM = 2
