@@ -7,6 +7,7 @@ An automated blog post generation system built with LangGraph, LangChain, and Cl
 - **Automated Research**: Uses Brave Search API to gather current information and generate headline candidates
 - **Audience Analysis**: Identifies target reader persona, pain points, and content angle before writing
 - **AI-Powered Writing**: Generates comprehensive 3,500+ word articles with compelling hooks, storytelling, and authentic voice
+- **Fact Checking**: Verifies factual claims against web sources after writing, with a revision loop (max 3 attempts)
 - **Tone Presets**: Choose from built-in tone presets (`conversational`, `expert_casual`, `storyteller`, `practical`, `thought_leader`) or define your own
 - **Custom Instructions**: Provide per-article instructions to guide the content direction
 - **SEO Optimization**: Automatically optimizes content for search engines with excerpt support
@@ -22,12 +23,12 @@ An automated blog post generation system built with LangGraph, LangChain, and Cl
 
 ## Architecture
 
-The system uses a LangGraph state graph with 7 nodes and an approval gate workflow:
+The system uses a LangGraph state graph with 8 nodes and two approval gate workflows:
 
 ```
-Research → Audience Analysis → Writer → Formatter → SEO → Editor (Approval Gate)
-                                  ↑                          ├─→ Approved → Publisher
-                                  └──────────────────────────└─→ Rejected ↻ Writer (Revision Loop, max 3 attempts)
+Research → Audience Analysis → Writer → Fact Checker → Formatter → SEO → Editor (Approval Gate)
+                                  ↑           |                               ├─→ Approved → Publisher
+                                  └───────────┘ (Fact Check Loop, max 3x)    └─→ Rejected ↻ Writer (Revision Loop, max 3x)
 ```
 
 ### Workflow Diagram
@@ -38,7 +39,8 @@ Each node performs a specific task and updates the shared state:
 
 - **Research**: Gathers information via web search, generates headline candidates
 - **Audience Analysis**: Identifies target reader persona, pain points, goals, and content angle
-- **Writer**: Generates comprehensive article with hooks, storytelling, and authentic voice (or revises based on editor feedback)
+- **Writer**: Generates comprehensive article with hooks, storytelling, and authentic voice (or revises based on fact checker / editor feedback)
+- **Fact Checker**: Verifies factual claims against web sources; routes back to Writer if issues found (max 3 attempts), force-passes if exhausted
 - **Formatter**: Normalizes and formats content for readability
   - Fixes heading hierarchy (ensures exactly 1 H1)
   - Cleans up Markdown formatting and spacing
@@ -279,7 +281,14 @@ blogging-with-langchain/
 - **Features:** 10-15 inline citations, headline candidates from research, audience-tailored content
 - **Custom instructions:** Applied to influence article direction and focus
 
-### 4. SEO Node
+### 4. Fact Checker Node
+- Verifies factual claims in the article against live web sources using Brave Search
+- Identifies inaccurate, outdated, or unverifiable claims
+- Routes back to Writer with specific correction feedback if issues found
+- Allows max 3 revision attempts before force-passing to Formatter
+- Sets `fact_check_status` (`passed`, `failed`, `force_passed`) for conditional routing
+
+### 5. SEO Node
 - Generates SEO-optimized title (50-60 chars)
 - Creates meta description (150-160 chars)
 - **Generates article excerpt** (200-250 chars for listing pages)
@@ -288,14 +297,14 @@ blogging-with-langchain/
 - Calculates keyword density (targets 1.5-2%)
 - **Custom instructions:** Guides keyword selection and optimization strategy
 
-### 5. Formatter Node
+### 6. Formatter Node
 - Formats content for Ghost CMS
 - Ensures proper Markdown syntax
 - Fixes heading hierarchy
 - Normalizes spacing and line breaks
 - Generates visual placement recommendations (hero images, comparison tables, workflow diagrams, charts, screenshots)
 
-### 6. Editor Node (Approval Gate)
+### 7. Editor Node (Approval Gate)
 
 **Editorial Scoring (LLM-based, 0-10 each):**
 - Cohesiveness & Flow (must score ≥ 7)
@@ -327,7 +336,7 @@ blogging-with-langchain/
    - Routes to Publisher node with forced note
    - Marks article with warning in logs
 
-### 7. Publisher Node
+### 8. Publisher Node
 - Checks for forced publish note and prepends if present
 - Saves article to local `output/` directory with timestamp
 - Removes H1 title from content (sent separately to avoid duplication)
@@ -448,6 +457,7 @@ Each blog generation run will show:
 - **Research Node**: All web searches, sources gathered, headline candidates generated
 - **Audience Analysis Node**: Target reader persona and pain point identification
 - **Writer Node**: LLM prompt and full article generation (with audience context and headlines)
+- **Fact Checker Node**: Web searches for claim verification and LLM fact assessment
 - **SEO Node**: SEO analysis, optimization, and excerpt generation
 - **Formatter Node**: Content formatting transformations and visual recommendations
 - **Editor Node**: Editorial scoring (cohesiveness, hook, storytelling, voice) and quality validation
@@ -465,6 +475,10 @@ Blog Generation Run (4m 30s)
 │   └── LLM Call: Audience persona + pain points (20s)
 ├── writer_node (2m 15s)
 │   └── LLM Call: Generate 3500 word article (2m 15s)
+├── fact_checker_node (30s)
+│   ├── BraveSearchTool: Verify claim 1 (5s)
+│   ├── BraveSearchTool: Verify claim 2 (5s)
+│   └── LLM Call: Fact check assessment (20s)
 ├── formatter_node (5s)
 │   └── LLM Call: Format for Ghost CMS + visual suggestions (5s)
 ├── seo_node (20s)

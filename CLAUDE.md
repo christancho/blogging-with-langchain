@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a LangGraph-based blog generation system that creates comprehensive, SEO-optimized articles and publishes them to Ghost CMS. The system uses a state graph workflow with 6 nodes, an editor approval gate, and a revision loop (max 3 attempts).
+This is a LangGraph-based blog generation system that creates comprehensive, SEO-optimized articles and publishes them to Ghost CMS. The system uses a state graph workflow with 8 nodes, a fact-check gate, an editor approval gate, and two revision loops (max 3 attempts each).
 
 ## Important Guidelines for Claude Code
 
@@ -81,11 +81,11 @@ pytest tests/golden_tests/
 The system uses LangGraph's StateGraph with conditional routing:
 
 ```
-Research → Writer → Formatter → SEO → Editor → Publisher
-                      ↑                   |
-                      |                   | (if rejected)
-                      └───────────────────┘
-                          (revision loop, max 3x)
+Research → Audience Analysis → Writer → Fact Checker → Formatter → SEO → Editor → Publisher
+                                  ↑           |                               |
+                                  └───────────┘ (fact check loop, max 3x)    | (if rejected)
+                                  └───────────────────────────────────────────┘
+                                                  (revision loop, max 3x)
 ```
 
 **Key Files:**
@@ -102,7 +102,9 @@ All nodes follow a consistent pattern:
 
 **Node files** (`agentic/nodes/` directory):
 - `research.py`: Web search via Brave API, generates research summary
+- `audience_analysis.py`: Identifies target reader persona, pain points, and content angle
 - `writer.py`: Handles both initial writing and revisions (checks `revision_count` to decide which prompt to use)
+- `fact_checker.py`: Verifies factual claims against web sources, sets `fact_check_status` and routes back to writer if failed
 - `formatter.py`: Normalizes Markdown, fixes heading hierarchy (ensures 1 H1)
 - `seo.py`: Generates SEO metadata (title, description, excerpt, tags, keywords)
 - `editor.py`: LLM-based quality gate evaluating editorial quality and mechanical requirements, sets `approval_status` and `revision_count`
