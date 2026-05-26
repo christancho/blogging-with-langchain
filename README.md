@@ -2,6 +2,24 @@
 
 An automated blog post generation system built with LangGraph, LangChain, and Claude AI. This system generates comprehensive, SEO-optimized blog posts and publishes them to Ghost CMS.
 
+## Table of Contents
+
+- [Features](#features)
+- [Architecture](#architecture)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Usage (CLI)](#usage)
+- [Web Interface](#web-interface)
+- [API](#api)
+- [Project Structure](#project-structure)
+- [Workflow Details](#workflow-details)
+- [Social Media Notifications](#social-media-notification-system)
+- [Running Tests](#running-tests)
+- [Configuration Options](#configuration-options)
+- [LangSmith Tracing](#langsmith-tracing-optional)
+- [Troubleshooting](#troubleshooting)
+- [Cost Estimates](#cost-estimates)
+
 ## Features
 
 - **Automated Research**: Uses Brave Search API to gather current information and generate headline candidates
@@ -193,6 +211,75 @@ python main.py "Your topic" --debug
 
 Displays detailed error traces and debugging information during execution.
 
+## Web Interface
+
+The system includes a Next.js web dashboard for managing blog generation without using the CLI.
+
+### Running the Web Interface
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### Pages
+
+| Page | Description |
+|------|-------------|
+| **New Post** | Create a new blog generation job with topic, tone, word count, and custom instructions |
+| **Queue** | View pending and in-progress jobs |
+| **History** | Browse completed jobs and their results |
+| **Settings** | Set default tone and word count, change password |
+
+### Authentication
+
+The web interface is password-protected. The default password is set via the `UI_PASSWORD` environment variable (defaults to `changeme` — change this before deploying).
+
+## API
+
+A FastAPI backend provides the HTTP interface between the web UI and the agentic pipeline.
+
+### Running the API
+
+```bash
+# From the repo root
+uvicorn api.main:app --reload
+```
+
+The API runs at [http://localhost:8000](http://localhost:8000). Interactive docs available at `/docs`.
+
+### Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/login` | Authenticate and receive a JWT token |
+| `GET` | `/jobs` | List all jobs (newest first) |
+| `POST` | `/jobs` | Queue a new blog generation job |
+| `DELETE` | `/jobs/{id}` | Remove a pending job |
+| `GET` | `/settings` | Get default tone and word count |
+| `PATCH` | `/settings` | Update default tone and word count |
+| `POST` | `/settings/password` | Change the UI password |
+
+### Background Worker
+
+The API runs a background worker thread that picks up pending jobs and runs them through the full agentic pipeline. Job status (`pending`, `running`, `completed`, `failed`) and the current node are updated in real time.
+
+### Database
+
+Uses PostgreSQL via SQLAlchemy async. Run migrations with:
+
+```bash
+cd api && alembic upgrade head
+```
+
+Set `DATABASE_URL` in your `.env`:
+```env
+DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/blogforge
+```
+
 ## Project Structure
 
 ```
@@ -352,36 +439,36 @@ blogging-with-langchain/
 
 ## Social Media Notification System
 
-When a blog post is published to Ghost CMS (via Python script or Ghost admin UI), an automated notification system:
+When a blog post is published to Ghost CMS, an automated notification system sends you an email with AI-generated social media post proposals:
 
-📧 **Sends you an email** with AI-generated social media post proposals:
-- **LinkedIn post** - Professional tone, optimized for engagement (<3000 chars)
-- **Bluesky post** - Conversational tone, concise format (<300 chars)
+- **LinkedIn post** — Professional tone, optimized for engagement (<3000 chars)
+- **Bluesky post** — Conversational tone, concise format (<300 chars)
 
 ### How It Works
 
 ```
-Blog Published → Ghost CMS → Ghost Webhook → Cloudflare Worker → Email
-                                                     ↓
-                                            Anthropic API
-                                          (generates posts)
+Blog Published → Ghost CMS → Ghost Webhook → Next.js API Route → Email
+                                                      ↓
+                                             Anthropic API
+                                           (generates posts)
 ```
 
-**Key Features:**
-- ⚡ Serverless (Cloudflare Workers) - no server maintenance
-- 🤖 AI-powered post generation using Claude
-- 📧 Email delivery via Mailgun
-- 🔄 Automatic for all published posts
-- 🆓 Free tier available (100k requests/day)
+The webhook is handled by the Next.js app at `/api/webhook/ghost`. Ghost calls this endpoint whenever a post is published, the route generates social copy using Claude, and delivers it via Mailgun.
 
 ### Setup
 
-The notification system runs on Cloudflare Workers and requires:
-1. Cloudflare account (free tier works)
-2. Mailgun account (free tier: 5,000 emails/month)
-3. Ghost CMS webhook configuration
+Requires:
+1. Mailgun account (free tier: 5,000 emails/month)
+2. Ghost CMS webhook pointing to your deployed web URL: `https://your-web-url.com/api/webhook/ghost`
 
-**📖 Full setup guide:** [`cloudflare-worker/README.md`](cloudflare-worker/README.md)
+Add to your web environment:
+```env
+MAILGUN_API_KEY=your_mailgun_api_key
+MAILGUN_DOMAIN=your_mailgun_domain
+EMAIL_FROM=noreply@yourdomain.com
+EMAIL_TO=you@youremail.com
+ANTHROPIC_API_KEY=your_anthropic_api_key
+```
 
 ## Running Tests
 
