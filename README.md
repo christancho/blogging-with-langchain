@@ -2,11 +2,30 @@
 
 An automated blog post generation system built with LangGraph, LangChain, and Claude AI. This system generates comprehensive, SEO-optimized blog posts and publishes them to Ghost CMS.
 
+## Table of Contents
+
+- [Features](#features)
+- [Architecture](#architecture)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Usage (CLI)](#usage)
+- [Web Interface](#web-interface)
+- [API](#api)
+- [Project Structure](#project-structure)
+- [Workflow Details](#workflow-details)
+- [Social Media Notifications](#social-media-notification-system)
+- [Running Tests](#running-tests)
+- [Configuration Options](#configuration-options)
+- [LangSmith Tracing](#langsmith-tracing-optional)
+- [Troubleshooting](#troubleshooting)
+- [Cost Estimates](#cost-estimates)
+
 ## Features
 
 - **Automated Research**: Uses Brave Search API to gather current information and generate headline candidates
 - **Audience Analysis**: Identifies target reader persona, pain points, and content angle before writing
 - **AI-Powered Writing**: Generates comprehensive 3,500+ word articles with compelling hooks, storytelling, and authentic voice
+- **Fact Checking**: Verifies factual claims against web sources after writing, with a revision loop (max 3 attempts)
 - **Tone Presets**: Choose from built-in tone presets (`conversational`, `expert_casual`, `storyteller`, `practical`, `thought_leader`) or define your own
 - **Custom Instructions**: Provide per-article instructions to guide the content direction
 - **SEO Optimization**: Automatically optimizes content for search engines with excerpt support
@@ -22,12 +41,12 @@ An automated blog post generation system built with LangGraph, LangChain, and Cl
 
 ## Architecture
 
-The system uses a LangGraph state graph with 7 nodes and an approval gate workflow:
+The system uses a LangGraph state graph with 8 nodes and two approval gate workflows:
 
 ```
-Research → Audience Analysis → Writer → Formatter → SEO → Editor (Approval Gate)
-                                  ↑                          ├─→ Approved → Publisher
-                                  └──────────────────────────└─→ Rejected ↻ Writer (Revision Loop, max 3 attempts)
+Research → Audience Analysis → Writer → Fact Checker → Formatter → SEO → Editor (Approval Gate)
+                                  ↑           |                               ├─→ Approved → Publisher
+                                  └───────────┘ (Fact Check Loop, max 3x)    └─→ Rejected ↻ Writer (Revision Loop, max 3x)
 ```
 
 ### Workflow Diagram
@@ -38,7 +57,8 @@ Each node performs a specific task and updates the shared state:
 
 - **Research**: Gathers information via web search, generates headline candidates
 - **Audience Analysis**: Identifies target reader persona, pain points, goals, and content angle
-- **Writer**: Generates comprehensive article with hooks, storytelling, and authentic voice (or revises based on editor feedback)
+- **Writer**: Generates comprehensive article with hooks, storytelling, and authentic voice (or revises based on fact checker / editor feedback)
+- **Fact Checker**: Verifies factual claims against web sources; routes back to Writer if issues found (max 3 attempts), force-passes if exhausted
 - **Formatter**: Normalizes and formats content for readability
   - Fixes heading hierarchy (ensures exactly 1 H1)
   - Cleans up Markdown formatting and spacing
@@ -191,55 +211,117 @@ python main.py "Your topic" --debug
 
 Displays detailed error traces and debugging information during execution.
 
+## Web Interface
+
+The system includes a Next.js web dashboard for managing blog generation without using the CLI.
+
+### Running the Web Interface
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### Pages
+
+| Page | Description |
+|------|-------------|
+| **New Post** | Create a new blog generation job with topic, tone, word count, and custom instructions |
+| **Queue** | View pending and in-progress jobs |
+| **History** | Browse completed jobs and their results |
+| **Settings** | Set default tone and word count, change password |
+
+### Authentication
+
+The web interface is password-protected. The default password is set via the `UI_PASSWORD` environment variable (defaults to `changeme` — change this before deploying).
+
+## API
+
+A FastAPI backend provides the HTTP interface between the web UI and the agentic pipeline.
+
+### Running the API
+
+```bash
+# From the repo root
+uvicorn api.main:app --reload
+```
+
+The API runs at [http://localhost:8000](http://localhost:8000). Interactive docs available at `/docs`.
+
+### Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/login` | Authenticate and receive a JWT token |
+| `GET` | `/jobs` | List all jobs (newest first) |
+| `POST` | `/jobs` | Queue a new blog generation job |
+| `DELETE` | `/jobs/{id}` | Remove a pending job |
+| `GET` | `/settings` | Get default tone and word count |
+| `PATCH` | `/settings` | Update default tone and word count |
+| `POST` | `/settings/password` | Change the UI password |
+
+### Background Worker
+
+The API runs a background worker thread that picks up pending jobs and runs them through the full agentic pipeline. Job status (`pending`, `running`, `completed`, `failed`) and the current node are updated in real time.
+
+### Database
+
+Uses PostgreSQL via SQLAlchemy async. Run migrations with:
+
+```bash
+cd api && alembic upgrade head
+```
+
+Set `DATABASE_URL` in your `.env`:
+```env
+DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/blogforge
+```
+
 ## Project Structure
 
 ```
 blogging-with-langchain/
-├── config.py              # Configuration settings
-├── state.py               # BlogState TypedDict (defines approval_status, revision_count, etc.)
-├── graph.py               # LangGraph state graph definition with conditional routing
-├── main.py                # Entry point
-├── tools/                 # Custom tools
-│   ├── brave_search.py    # Web search tool
-│   ├── seo_analyzer.py    # SEO analysis
-│   ├── html_formatter.py  # HTML/Markdown formatting
-│   ├── ghost_cms.py       # Ghost CMS publishing
-│   ├── tag_extractor.py   # Tag extraction
-│   └── content_analyzer.py # Content quality analysis
-├── prompts/               # Jinja2 prompt templates (all date-aware)
-│   ├── research.txt       # Research planning + headline generation prompt
-│   ├── audience_analysis.txt  # Target audience analysis prompt
-│   ├── writer.txt         # Article writing prompt (hooks, storytelling, voice)
-│   ├── revision.txt       # Article revision prompt (with editor feedback)
-│   ├── seo.txt            # SEO optimization prompt
-│   ├── formatter.txt      # Content formatting prompt
-│   └── editor.txt         # Editor review prompt (4 scoring dimensions)
-├── nodes/                 # LangGraph node functions
-│   ├── prompt_loader.py   # Jinja2 prompt loading and caching utility
-│   ├── research.py        # Research node + headline candidate generation
-│   ├── audience_analysis.py  # Audience analysis node (persona, pain points)
-│   ├── writer.py          # Writer node (handles initial write and revisions)
-│   ├── seo.py             # SEO optimization node
-│   ├── formatter.py       # Content formatting + visual recommendations
-│   ├── editor.py          # Editor approval gate (cohesiveness, hook, storytelling, voice)
-│   ├── publisher.py       # Publisher node with forced publish support
-│   └── __init__.py
-├── cloudflare-worker/     # Social media notification webhook
-│   ├── worker.js          # Cloudflare Worker (serverless webhook)
-│   ├── wrangler.toml      # Cloudflare configuration
-│   ├── package.json       # npm dependencies
-│   └── README.md          # Webhook setup guide
-├── .github/
-│   └── workflows/
-│       └── deploy-worker.yml  # Auto-deploy webhook to Cloudflare
+├── agentic/               # LangGraph pipeline (standalone core)
+│   ├── config.py          # Configuration settings
+│   ├── state.py           # BlogState TypedDict
+│   ├── graph.py           # LangGraph state graph definition
+│   ├── republish.py       # Republish utility script
+│   ├── tools/             # Custom tools
+│   │   ├── brave_search.py
+│   │   ├── seo_analyzer.py
+│   │   ├── html_formatter.py
+│   │   ├── ghost_cms.py
+│   │   ├── tag_extractor.py
+│   │   └── content_analyzer.py
+│   ├── prompts/           # Jinja2 prompt templates (all date-aware)
+│   │   ├── research.txt
+│   │   ├── audience_analysis.txt
+│   │   ├── writer.txt
+│   │   ├── revision.txt
+│   │   ├── seo.txt
+│   │   ├── formatter.txt
+│   │   └── editor.txt
+│   └── nodes/             # LangGraph node functions
+│       ├── prompt_loader.py
+│       ├── research.py
+│       ├── audience_analysis.py
+│       ├── writer.py
+│       ├── seo.py
+│       ├── formatter.py
+│       ├── editor.py
+│       ├── publisher.py
+│       └── __init__.py
+├── api/                   # FastAPI HTTP interface
+│   ├── alembic/           # Database migrations
+│   ├── alembic.ini
+│   └── ...
+├── web/                   # Next.js frontend
+├── main.py                # CLI entry point
 ├── tests/                 # Unit tests
-│   ├── test_tools.py
-│   └── test_config.py
-├── media/                 # Generated visualizations
-│   └── blog_graph.png     # Workflow diagram
-├── output/                # Generated blog posts
-├── requirements.txt       # Python dependencies
-├── .env                   # Environment variables (create this)
+├── requirements.txt
 └── .gitignore
 ```
 
@@ -286,7 +368,14 @@ blogging-with-langchain/
 - **Features:** 10-15 inline citations, headline candidates from research, audience-tailored content
 - **Custom instructions:** Applied to influence article direction and focus
 
-### 4. SEO Node
+### 4. Fact Checker Node
+- Verifies factual claims in the article against live web sources using Brave Search
+- Identifies inaccurate, outdated, or unverifiable claims
+- Routes back to Writer with specific correction feedback if issues found
+- Allows max 3 revision attempts before force-passing to Formatter
+- Sets `fact_check_status` (`passed`, `failed`, `force_passed`) for conditional routing
+
+### 5. SEO Node
 - Generates SEO-optimized title (50-60 chars)
 - Creates meta description (150-160 chars)
 - **Generates article excerpt** (200-250 chars for listing pages)
@@ -295,14 +384,14 @@ blogging-with-langchain/
 - Calculates keyword density (targets 1.5-2%)
 - **Custom instructions:** Guides keyword selection and optimization strategy
 
-### 5. Formatter Node
+### 6. Formatter Node
 - Formats content for Ghost CMS
 - Ensures proper Markdown syntax
 - Fixes heading hierarchy
 - Normalizes spacing and line breaks
 - Generates visual placement recommendations (hero images, comparison tables, workflow diagrams, charts, screenshots)
 
-### 6. Editor Node (Approval Gate)
+### 7. Editor Node (Approval Gate)
 
 **Editorial Scoring (LLM-based, 0-10 each):**
 - Cohesiveness & Flow (must score ≥ 7)
@@ -334,7 +423,7 @@ blogging-with-langchain/
    - Routes to Publisher node with forced note
    - Marks article with warning in logs
 
-### 7. Publisher Node
+### 8. Publisher Node
 - Checks for forced publish note and prepends if present
 - Saves article to local `output/` directory with timestamp
 - Removes H1 title from content (sent separately to avoid duplication)
@@ -350,36 +439,36 @@ blogging-with-langchain/
 
 ## Social Media Notification System
 
-When a blog post is published to Ghost CMS (via Python script or Ghost admin UI), an automated notification system:
+When a blog post is published to Ghost CMS, an automated notification system sends you an email with AI-generated social media post proposals:
 
-📧 **Sends you an email** with AI-generated social media post proposals:
-- **LinkedIn post** - Professional tone, optimized for engagement (<3000 chars)
-- **Bluesky post** - Conversational tone, concise format (<300 chars)
+- **LinkedIn post** — Professional tone, optimized for engagement (<3000 chars)
+- **Bluesky post** — Conversational tone, concise format (<300 chars)
 
 ### How It Works
 
 ```
-Blog Published → Ghost CMS → Ghost Webhook → Cloudflare Worker → Email
-                                                     ↓
-                                            Anthropic API
-                                          (generates posts)
+Blog Published → Ghost CMS → Ghost Webhook → Next.js API Route → Email
+                                                      ↓
+                                             Anthropic API
+                                           (generates posts)
 ```
 
-**Key Features:**
-- ⚡ Serverless (Cloudflare Workers) - no server maintenance
-- 🤖 AI-powered post generation using Claude
-- 📧 Email delivery via Mailgun
-- 🔄 Automatic for all published posts
-- 🆓 Free tier available (100k requests/day)
+The webhook is handled by the Next.js app at `/api/webhook/ghost`. Ghost calls this endpoint whenever a post is published, the route generates social copy using Claude, and delivers it via Mailgun.
 
 ### Setup
 
-The notification system runs on Cloudflare Workers and requires:
-1. Cloudflare account (free tier works)
-2. Mailgun account (free tier: 5,000 emails/month)
-3. Ghost CMS webhook configuration
+Requires:
+1. Mailgun account (free tier: 5,000 emails/month)
+2. Ghost CMS webhook pointing to your deployed web URL: `https://your-web-url.com/api/webhook/ghost`
 
-**📖 Full setup guide:** [`cloudflare-worker/README.md`](cloudflare-worker/README.md)
+Add to your web environment:
+```env
+MAILGUN_API_KEY=your_mailgun_api_key
+MAILGUN_DOMAIN=your_mailgun_domain
+EMAIL_FROM=noreply@yourdomain.com
+EMAIL_TO=you@youremail.com
+ANTHROPIC_API_KEY=your_anthropic_api_key
+```
 
 ## Running Tests
 
@@ -455,6 +544,7 @@ Each blog generation run will show:
 - **Research Node**: All web searches, sources gathered, headline candidates generated
 - **Audience Analysis Node**: Target reader persona and pain point identification
 - **Writer Node**: LLM prompt and full article generation (with audience context and headlines)
+- **Fact Checker Node**: Web searches for claim verification and LLM fact assessment
 - **SEO Node**: SEO analysis, optimization, and excerpt generation
 - **Formatter Node**: Content formatting transformations and visual recommendations
 - **Editor Node**: Editorial scoring (cohesiveness, hook, storytelling, voice) and quality validation
@@ -472,6 +562,10 @@ Blog Generation Run (4m 30s)
 │   └── LLM Call: Audience persona + pain points (20s)
 ├── writer_node (2m 15s)
 │   └── LLM Call: Generate 3500 word article (2m 15s)
+├── fact_checker_node (30s)
+│   ├── BraveSearchTool: Verify claim 1 (5s)
+│   ├── BraveSearchTool: Verify claim 2 (5s)
+│   └── LLM Call: Fact check assessment (20s)
 ├── formatter_node (5s)
 │   └── LLM Call: Format for Ghost CMS + visual suggestions (5s)
 ├── seo_node (20s)

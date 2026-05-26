@@ -2,7 +2,7 @@
 Unit tests for LinkValidatorTool
 """
 import pytest
-from tools import LinkValidatorTool
+from agentic.tools import LinkValidatorTool
 
 
 class TestLinkValidatorTool:
@@ -112,7 +112,7 @@ class TestLinkValidatorPerformance:
         pytest.skip("Benchmark test - run with pytest -m benchmark")
 
         import time
-        from tools import LinkValidatorTool
+        from agentic.tools import LinkValidatorTool
 
         tool = LinkValidatorTool()
 

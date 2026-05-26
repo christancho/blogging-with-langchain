@@ -5,10 +5,10 @@ import pytest
 import json
 from unittest.mock import Mock, patch, MagicMock
 
-from tools.seo_analyzer import SEOAnalysisTool, analyze_seo
-from tools.html_formatter import HTMLFormatterTool, format_for_ghost, extract_metadata
-from tools.tag_extractor import TagExtractionTool, extract_tags
-from tools.content_analyzer import ContentAnalysisTool, analyze_content
+from agentic.tools.seo_analyzer import SEOAnalysisTool, analyze_seo
+from agentic.tools.html_formatter import HTMLFormatterTool, format_for_ghost, extract_metadata
+from agentic.tools.tag_extractor import TagExtractionTool, extract_tags
+from agentic.tools.content_analyzer import ContentAnalysisTool, analyze_content
 
 
 class TestSEOAnalysisTool:

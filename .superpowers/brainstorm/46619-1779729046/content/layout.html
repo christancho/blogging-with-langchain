@@ -1,0 +1,108 @@
+<h2>Which layout feels right for your blog tool?</h2>
+<p class="subtitle">All three support the same features: topic queue, job status, post history.</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="font-family:monospace;font-size:11px;background:#1a1a2e;color:#e0e0e0;padding:12px;border-radius:6px;min-height:160px">
+        <div style="background:#16213e;padding:8px 12px;margin:-12px -12px 10px;border-radius:6px 6px 0 0;display:flex;justify-content:space-between;align-items:center">
+          <span style="color:#7c83fd;font-weight:bold">✍ BlogForge</span>
+          <span style="color:#888;font-size:10px">● 1 running</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div style="background:#0f3460;padding:8px;border-radius:4px">
+            <div style="color:#7c83fd;font-size:10px;margin-bottom:6px">NEW TOPIC</div>
+            <div style="background:#1a1a2e;border-radius:3px;padding:4px;margin-bottom:4px;color:#ccc;font-size:10px">Topic name...</div>
+            <div style="background:#7c83fd;border-radius:3px;padding:3px;text-align:center;font-size:10px">Add to Queue →</div>
+          </div>
+          <div style="background:#0f3460;padding:8px;border-radius:4px">
+            <div style="color:#7c83fd;font-size:10px;margin-bottom:6px">QUEUE (3)</div>
+            <div style="background:#1a1a2e;border-radius:3px;padding:4px;margin-bottom:3px;font-size:10px;color:#4ade80">⟳ AI trends 2025...</div>
+            <div style="background:#1a1a2e;border-radius:3px;padding:4px;margin-bottom:3px;font-size:10px;color:#888">○ React Server...</div>
+            <div style="background:#1a1a2e;border-radius:3px;padding:4px;font-size:10px;color:#888">○ LangChain tips</div>
+          </div>
+        </div>
+        <div style="background:#0f3460;padding:8px;border-radius:4px;margin-top:8px">
+          <div style="color:#7c83fd;font-size:10px;margin-bottom:6px">RECENT POSTS</div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:#ccc;padding:3px 0;border-bottom:1px solid #1a1a2e">
+            <span>Building with LangGraph</span><span style="color:#4ade80">✓ published</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:#ccc;padding:3px 0">
+            <span>Python async patterns</span><span style="color:#60a5fa">draft</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Single Dashboard</h3>
+      <p>Everything on one page. Queue, submit form, and history visible at a glance. Best for a quick-check workflow.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="font-family:monospace;font-size:11px;background:#1a1a2e;color:#e0e0e0;padding:12px;border-radius:6px;min-height:160px">
+        <div style="background:#16213e;padding:8px 12px;margin:-12px -12px 10px;border-radius:6px 6px 0 0;display:flex;gap:16px;align-items:center">
+          <span style="color:#7c83fd;font-weight:bold">BlogForge</span>
+          <span style="color:#7c83fd;border-bottom:2px solid #7c83fd;padding-bottom:2px;font-size:10px">New Post</span>
+          <span style="color:#888;font-size:10px">Queue (3)</span>
+          <span style="color:#888;font-size:10px">History</span>
+          <span style="color:#888;font-size:10px">Settings</span>
+        </div>
+        <div style="background:#0f3460;padding:10px;border-radius:4px">
+          <div style="color:#7c83fd;font-size:10px;margin-bottom:8px">NEW POST</div>
+          <div style="background:#1a1a2e;border-radius:3px;padding:5px;margin-bottom:6px;color:#ccc;font-size:10px">Topic: ________________________</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+            <div style="background:#1a1a2e;border-radius:3px;padding:4px;font-size:10px;color:#888">Tone: informative ▾</div>
+            <div style="background:#1a1a2e;border-radius:3px;padding:4px;font-size:10px;color:#888">Words: 3500 ▾</div>
+          </div>
+          <div style="background:#1a1a2e;border-radius:3px;padding:4px;margin-bottom:8px;font-size:10px;color:#888;min-height:28px">Custom instructions (optional)...</div>
+          <div style="background:#7c83fd;border-radius:3px;padding:5px;text-align:center;font-size:10px">Generate Blog Post</div>
+        </div>
+        <div style="text-align:center;margin-top:8px;font-size:10px;color:#4ade80">⟳ 1 post generating in background</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Tabbed Interface</h3>
+      <p>Separate tabs for New Post, Queue, History, Settings. Focused view per task. Clean and familiar web-app feel.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="font-family:monospace;font-size:11px;background:#1a1a2e;color:#e0e0e0;padding:12px;border-radius:6px;min-height:160px;display:flex;gap:8px">
+        <div style="background:#16213e;padding:8px;border-radius:4px;width:70px;flex-shrink:0">
+          <div style="color:#7c83fd;font-size:10px;font-weight:bold;margin-bottom:10px">BlogForge</div>
+          <div style="color:#7c83fd;font-size:10px;padding:4px;background:#0f3460;border-radius:3px;margin-bottom:4px">✍ New Post</div>
+          <div style="color:#888;font-size:10px;padding:4px;margin-bottom:4px">⟳ Queue (3)</div>
+          <div style="color:#888;font-size:10px;padding:4px;margin-bottom:4px">📋 History</div>
+          <div style="color:#888;font-size:10px;padding:4px">⚙ Settings</div>
+          <div style="margin-top:16px;font-size:9px;color:#4ade80;padding:4px;background:#0f3460;border-radius:3px">● Generating...</div>
+        </div>
+        <div style="flex:1">
+          <div style="background:#0f3460;padding:8px;border-radius:4px;margin-bottom:6px">
+            <div style="color:#7c83fd;font-size:10px;margin-bottom:6px">NEW POST</div>
+            <div style="background:#1a1a2e;border-radius:3px;padding:4px;margin-bottom:4px;color:#ccc;font-size:10px">Topic...</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px">
+              <div style="background:#1a1a2e;border-radius:3px;padding:3px;font-size:9px;color:#888">Tone ▾</div>
+              <div style="background:#1a1a2e;border-radius:3px;padding:3px;font-size:9px;color:#888">Words ▾</div>
+            </div>
+            <div style="background:#7c83fd;border-radius:3px;padding:3px;text-align:center;font-size:10px">Generate →</div>
+          </div>
+          <div style="background:#0f3460;padding:6px;border-radius:4px;font-size:10px">
+            <div style="color:#7c83fd;margin-bottom:4px">NEXT IN QUEUE</div>
+            <div style="color:#ccc">React Server Components</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Sidebar Nav</h3>
+      <p>Persistent left sidebar with current status always visible. Easy to navigate between sections. Scales well if more features are added.</p>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:16px">Click your preferred layout, then tell me in the terminal.</p>

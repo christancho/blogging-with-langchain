@@ -12,6 +12,7 @@ eggs/
 .eggs/
 lib/
 lib64/
+!web/lib/
 parts/
 sdist/
 var/
@@ -45,6 +46,8 @@ output/
 *.log
 *.md
 !README.md
+!docs/**/*.md
+docs/superpowers/
 
 # Test coverage
 htmlcov/
