@@ -1,0 +1,161 @@
+<h2>Tab-by-Tab Wireframes</h2>
+<p class="subtitle">Four tabs, each focused on one task. Click a tab below to preview it.</p>
+
+<div style="max-width:680px;margin:0 auto">
+
+  <!-- Tab switcher -->
+  <div style="display:flex;gap:0;margin-bottom:0;border-bottom:2px solid #7c83fd">
+    <button onclick="showTab('new')" id="tab-new" style="background:#7c83fd;color:#fff;border:none;padding:8px 18px;font-size:12px;cursor:pointer;border-radius:6px 6px 0 0;font-family:monospace">New Post</button>
+    <button onclick="showTab('queue')" id="tab-queue" style="background:#16213e;color:#888;border:none;padding:8px 18px;font-size:12px;cursor:pointer;border-radius:6px 6px 0 0;font-family:monospace">Queue</button>
+    <button onclick="showTab('history')" id="tab-history" style="background:#16213e;color:#888;border:none;padding:8px 18px;font-size:12px;cursor:pointer;border-radius:6px 6px 0 0;font-family:monospace">History</button>
+    <button onclick="showTab('settings')" id="tab-settings" style="background:#16213e;color:#888;border:none;padding:8px 18px;font-size:12px;cursor:pointer;border-radius:6px 6px 0 0;font-family:monospace">Settings</button>
+  </div>
+
+  <!-- NEW POST tab -->
+  <div id="pane-new" style="background:#0f3460;border-radius:0 6px 6px 6px;padding:20px">
+    <div style="font-size:11px;color:#7c83fd;margin-bottom:14px;font-family:monospace">ADD TO QUEUE</div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:11px;color:#888;margin-bottom:4px;font-family:monospace">TOPIC *</div>
+      <div style="background:#1a1a2e;border-radius:4px;padding:8px 10px;font-size:12px;color:#ccc;font-family:monospace">e.g. "How to build a RAG pipeline with LangChain"</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div>
+        <div style="font-size:11px;color:#888;margin-bottom:4px;font-family:monospace">TONE</div>
+        <div style="background:#1a1a2e;border-radius:4px;padding:8px 10px;font-size:12px;color:#ccc;font-family:monospace;display:flex;justify-content:space-between">informative and insightful <span>▾</span></div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:#888;margin-bottom:4px;font-family:monospace">TARGET WORDS</div>
+        <div style="background:#1a1a2e;border-radius:4px;padding:8px 10px;font-size:12px;color:#ccc;font-family:monospace">3500</div>
+      </div>
+    </div>
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;color:#888;margin-bottom:4px;font-family:monospace">CUSTOM INSTRUCTIONS <span style="color:#555">(optional)</span></div>
+      <div style="background:#1a1a2e;border-radius:4px;padding:8px 10px;font-size:12px;color:#555;font-family:monospace;min-height:48px">Focus on practical examples, include code snippets...</div>
+    </div>
+    <div style="background:#7c83fd;border-radius:4px;padding:10px;text-align:center;font-size:12px;font-family:monospace;color:#fff">Add to Queue →</div>
+  </div>
+
+  <!-- QUEUE tab (hidden) -->
+  <div id="pane-queue" style="display:none;background:#0f3460;border-radius:0 6px 6px 6px;padding:20px">
+    <div style="font-size:11px;color:#7c83fd;margin-bottom:14px;font-family:monospace">QUEUE — 3 JOBS</div>
+    <!-- Running job -->
+    <div style="background:#16213e;border-radius:6px;padding:12px;margin-bottom:8px;border-left:3px solid #4ade80">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-size:12px;color:#fff;font-family:monospace">How to build a RAG pipeline with LangChain</span>
+        <span style="font-size:10px;color:#4ade80;font-family:monospace;background:#0f3460;padding:3px 8px;border-radius:3px">⟳ RUNNING</span>
+      </div>
+      <div style="font-size:10px;color:#888;font-family:monospace">informative · 3500 words · started 4 min ago</div>
+      <div style="margin-top:8px;background:#0f3460;border-radius:3px;height:4px;overflow:hidden">
+        <div style="background:#4ade80;width:45%;height:100%;border-radius:3px"></div>
+      </div>
+      <div style="font-size:10px;color:#4ade80;margin-top:4px;font-family:monospace">Writer node…</div>
+    </div>
+    <!-- Pending jobs -->
+    <div style="background:#16213e;border-radius:6px;padding:12px;margin-bottom:8px;border-left:3px solid #555">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-size:12px;color:#ccc;font-family:monospace">Python async patterns explained</span>
+        <span style="font-size:10px;color:#888;font-family:monospace;background:#0f3460;padding:3px 8px;border-radius:3px">PENDING</span>
+      </div>
+      <div style="display:flex;justify-content:space-between">
+        <span style="font-size:10px;color:#888;font-family:monospace">technical · 4000 words</span>
+        <span style="font-size:10px;color:#ef4444;cursor:pointer;font-family:monospace">remove</span>
+      </div>
+    </div>
+    <div style="background:#16213e;border-radius:6px;padding:12px;border-left:3px solid #555">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-size:12px;color:#ccc;font-family:monospace">LangSmith observability guide</span>
+        <span style="font-size:10px;color:#888;font-family:monospace;background:#0f3460;padding:3px 8px;border-radius:3px">PENDING</span>
+      </div>
+      <div style="display:flex;justify-content:space-between">
+        <span style="font-size:10px;color:#888;font-family:monospace">informative · 3500 words</span>
+        <span style="font-size:10px;color:#ef4444;cursor:pointer;font-family:monospace">remove</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORY tab (hidden) -->
+  <div id="pane-history" style="display:none;background:#0f3460;border-radius:0 6px 6px 6px;padding:20px">
+    <div style="font-size:11px;color:#7c83fd;margin-bottom:14px;font-family:monospace">HISTORY</div>
+    <!-- Ready to review -->
+    <div style="background:#16213e;border-radius:6px;padding:12px;margin-bottom:8px;border-left:3px solid #fbbf24">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-size:12px;color:#fff;font-family:monospace">Building with LangGraph</span>
+        <span style="font-size:10px;color:#fbbf24;font-family:monospace;background:#0f3460;padding:3px 8px;border-radius:3px">READY TO REVIEW</span>
+      </div>
+      <div style="font-size:10px;color:#888;font-family:monospace;margin-bottom:8px">completed 12 min ago · 3,847 words · score 8.4/10</div>
+      <div style="display:flex;gap:8px">
+        <div style="flex:1;background:#7c83fd;border-radius:3px;padding:6px;text-align:center;font-size:11px;font-family:monospace;color:#fff;cursor:pointer">Preview &amp; Publish →</div>
+        <div style="background:#1a1a2e;border-radius:3px;padding:6px 10px;font-size:11px;font-family:monospace;color:#888;cursor:pointer">Discard</div>
+      </div>
+    </div>
+    <!-- Published -->
+    <div style="background:#16213e;border-radius:6px;padding:12px;margin-bottom:8px;border-left:3px solid #4ade80">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-size:12px;color:#ccc;font-family:monospace">Python async patterns</span>
+        <span style="font-size:10px;color:#4ade80;font-family:monospace;background:#0f3460;padding:3px 8px;border-radius:3px">PUBLISHED</span>
+      </div>
+      <div style="font-size:10px;color:#888;font-family:monospace">published May 20 · <span style="color:#60a5fa;cursor:pointer">view on Ghost ↗</span></div>
+    </div>
+    <!-- Failed -->
+    <div style="background:#16213e;border-radius:6px;padding:12px;border-left:3px solid #ef4444">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-size:12px;color:#ccc;font-family:monospace">Docker networking deep dive</span>
+        <span style="font-size:10px;color:#ef4444;font-family:monospace;background:#0f3460;padding:3px 8px;border-radius:3px">FAILED</span>
+      </div>
+      <div style="font-size:10px;color:#888;font-family:monospace;margin-bottom:6px">Brave API rate limit exceeded</div>
+      <div style="display:flex;gap:8px">
+        <div style="background:#1a1a2e;border-radius:3px;padding:5px 10px;font-size:11px;font-family:monospace;color:#fbbf24;cursor:pointer">Retry</div>
+        <div style="background:#1a1a2e;border-radius:3px;padding:5px 10px;font-size:11px;font-family:monospace;color:#888;cursor:pointer">Dismiss</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS tab (hidden) -->
+  <div id="pane-settings" style="display:none;background:#0f3460;border-radius:0 6px 6px 6px;padding:20px">
+    <div style="font-size:11px;color:#7c83fd;margin-bottom:14px;font-family:monospace">SETTINGS</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div>
+        <div style="font-size:11px;color:#888;font-family:monospace;margin-bottom:4px">DEFAULT TONE</div>
+        <div style="background:#1a1a2e;border-radius:4px;padding:8px 10px;font-size:12px;color:#ccc;font-family:monospace">informative and insightful</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:#888;font-family:monospace;margin-bottom:4px">DEFAULT WORD COUNT</div>
+        <div style="background:#1a1a2e;border-radius:4px;padding:8px 10px;font-size:12px;color:#ccc;font-family:monospace">3500</div>
+      </div>
+      <div style="border-top:1px solid #16213e;padding-top:10px">
+        <div style="font-size:11px;color:#888;font-family:monospace;margin-bottom:4px">CHANGE PASSWORD</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div style="background:#1a1a2e;border-radius:4px;padding:8px 10px;font-size:12px;color:#555;font-family:monospace">New password</div>
+          <div style="background:#1a1a2e;border-radius:4px;padding:8px 10px;font-size:12px;color:#555;font-family:monospace">Confirm</div>
+        </div>
+      </div>
+      <div style="border-top:1px solid #16213e;padding-top:10px">
+        <div style="font-size:11px;color:#888;font-family:monospace;margin-bottom:8px">INTEGRATIONS</div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;font-family:monospace;padding:6px 0;border-bottom:1px solid #16213e">
+          <span style="color:#ccc">Ghost CMS</span><span style="color:#4ade80">● connected</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;font-family:monospace;padding:6px 0;border-bottom:1px solid #16213e">
+          <span style="color:#ccc">Brave Search</span><span style="color:#4ade80">● connected</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;font-family:monospace;padding:6px 0">
+          <span style="color:#ccc">Anthropic</span><span style="color:#4ade80">● connected</span>
+        </div>
+      </div>
+      <div style="background:#7c83fd;border-radius:4px;padding:8px;text-align:center;font-size:12px;font-family:monospace;color:#fff">Save Changes</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function showTab(name) {
+  ['new','queue','history','settings'].forEach(t => {
+    document.getElementById('pane-'+t).style.display = t === name ? 'block' : 'none';
+    const btn = document.getElementById('tab-'+t);
+    btn.style.background = t === name ? '#7c83fd' : '#16213e';
+    btn.style.color = t === name ? '#fff' : '#888';
+  });
+}
+</script>
+
+<p class="subtitle" style="margin-top:20px;text-align:center">Click through all four tabs. Let me know what to change in the terminal.</p>
