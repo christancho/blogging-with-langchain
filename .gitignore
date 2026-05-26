@@ -41,6 +41,10 @@ env/
 *~
 .DS_Store
 
+# Claude Code and Superpowers
+.claude/
+.superpowers/
+
 # Output files
 output/
 *.log
