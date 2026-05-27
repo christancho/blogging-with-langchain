@@ -6,8 +6,9 @@ COPY package*.json .
 RUN npm ci
 
 COPY . .
+ARG NEXT_PUBLIC_API_URL
 RUN npm run build
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "PORT=${PORT:-3000} npm start"]
+CMD ["sh", "-c", "npm start -- -p ${PORT:-3000}"]
