@@ -7,8 +7,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, text
-from alembic.config import Config as AlembicConfig
-from alembic import command as alembic_command
 from api.db import get_db, AsyncSessionLocal
 from api.models import Settings
 from api.auth import hash_password, verify_password, create_token, require_auth
@@ -19,36 +17,27 @@ logging.basicConfig(level=logging.INFO)
 _log = logging.getLogger("api.startup")
 
 
-def _run_migrations():
-    alembic_cfg = AlembicConfig(os.path.join(os.path.dirname(__file__), "alembic.ini"))
-    alembic_command.upgrade(alembic_cfg, "head")
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Run migrations, seed settings, and start background worker."""
+    """Seed settings and start background worker on startup."""
     try:
-        _log.info("STARTUP [1/4] running alembic migrations...")
-        _run_migrations()
-        _log.info("STARTUP [1/4] migrations complete")
-
-        _log.info("STARTUP [2/4] seeding settings...")
+        _log.info("STARTUP [1/3] seeding settings...")
         async with AsyncSessionLocal() as db:
             result = await db.execute(select(Settings))
             if not result.scalar_one_or_none():
                 initial_password = os.environ.get("UI_PASSWORD", "changeme")
                 db.add(Settings(password_hash=hash_password(initial_password)))
                 await db.commit()
-        _log.info("STARTUP [2/4] settings seeded")
+        _log.info("STARTUP [1/3] settings seeded")
 
         if os.environ.get("ENV") != "test":
-            _log.info("STARTUP [3/4] importing worker module...")
+            _log.info("STARTUP [2/3] importing worker module...")
             from api.worker import start_worker
-            _log.info("STARTUP [3/4] starting background worker...")
+            _log.info("STARTUP [2/3] starting background worker...")
             start_worker()
-            _log.info("STARTUP [3/4] background worker started")
+            _log.info("STARTUP [2/3] background worker started")
 
-        _log.info("STARTUP [4/4] complete — app ready")
+        _log.info("STARTUP [3/3] complete — app ready")
     except Exception:
         _log.error("STARTUP FAILED:\n" + traceback.format_exc())
         raise
