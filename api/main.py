@@ -1,4 +1,6 @@
+import logging
 import os
+import traceback
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,6 +15,9 @@ from api.auth import hash_password, verify_password, create_token, require_auth
 from api.routes import settings as settings_router
 from api.routes import jobs as jobs_router
 
+logging.basicConfig(level=logging.INFO)
+_log = logging.getLogger("api.startup")
+
 
 def _run_migrations():
     alembic_cfg = AlembicConfig(os.path.join(os.path.dirname(__file__), "alembic.ini"))
@@ -22,16 +27,31 @@ def _run_migrations():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Run migrations, seed settings, and start background worker."""
-    _run_migrations()
-    async with AsyncSessionLocal() as db:
-        result = await db.execute(select(Settings))
-        if not result.scalar_one_or_none():
-            initial_password = os.environ.get("UI_PASSWORD", "changeme")
-            db.add(Settings(password_hash=hash_password(initial_password)))
-            await db.commit()
-    if os.environ.get("ENV") != "test":
-        from api.worker import start_worker
-        start_worker()
+    try:
+        _log.info("STARTUP [1/4] running alembic migrations...")
+        _run_migrations()
+        _log.info("STARTUP [1/4] migrations complete")
+
+        _log.info("STARTUP [2/4] seeding settings...")
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(Settings))
+            if not result.scalar_one_or_none():
+                initial_password = os.environ.get("UI_PASSWORD", "changeme")
+                db.add(Settings(password_hash=hash_password(initial_password)))
+                await db.commit()
+        _log.info("STARTUP [2/4] settings seeded")
+
+        if os.environ.get("ENV") != "test":
+            _log.info("STARTUP [3/4] importing worker module...")
+            from api.worker import start_worker
+            _log.info("STARTUP [3/4] starting background worker...")
+            start_worker()
+            _log.info("STARTUP [3/4] background worker started")
+
+        _log.info("STARTUP [4/4] complete — app ready")
+    except Exception:
+        _log.error("STARTUP FAILED:\n" + traceback.format_exc())
+        raise
     yield
 
 
