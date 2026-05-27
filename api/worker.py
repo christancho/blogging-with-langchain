@@ -10,6 +10,8 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
+from agentic.graph import create_blog_graph  # noqa: E402 — must come after sys.path setup
+
 logger = logging.getLogger(__name__)
 
 
@@ -96,7 +98,6 @@ async def _run_job(job_id, session_factory) -> None:
         return
 
     try:
-        from agentic.graph import create_blog_graph
         graph = create_blog_graph()
         initial_state = {
             "topic": topic,
