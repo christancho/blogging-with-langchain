@@ -4,19 +4,25 @@ from fastapi import FastAPI, Depends, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from api.db import get_db, engine, Base, AsyncSessionLocal
+from sqlalchemy import select, text
+from alembic.config import Config as AlembicConfig
+from alembic import command as alembic_command
+from api.db import get_db, AsyncSessionLocal
 from api.models import Settings
 from api.auth import hash_password, verify_password, create_token, require_auth
 from api.routes import settings as settings_router
 from api.routes import jobs as jobs_router
 
 
+def _run_migrations():
+    alembic_cfg = AlembicConfig(os.path.join(os.path.dirname(__file__), "alembic.ini"))
+    alembic_command.upgrade(alembic_cfg, "head")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Create tables, seed settings, and start background worker."""
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    """Run migrations, seed settings, and start background worker."""
+    _run_migrations()
     async with AsyncSessionLocal() as db:
         result = await db.execute(select(Settings))
         if not result.scalar_one_or_none():
@@ -77,3 +83,10 @@ async def logout(response: Response):
 async def me(_: str = Depends(require_auth)):
     """Check if the current session is authenticated."""
     return {"authenticated": True}
+
+
+@app.get("/health")
+async def health(db: AsyncSession = Depends(get_db)):
+    """Liveness + DB connectivity check."""
+    await db.execute(text("SELECT 1"))
+    return {"status": "ok"}
