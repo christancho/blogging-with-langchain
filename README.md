@@ -158,8 +158,8 @@ Required variables:
 | `POSTGRES_PASSWORD` | Password for the PostgreSQL database |
 | `JWT_SECRET` | Secret key for signing JWT tokens |
 | `UI_PASSWORD` | Password to log into the web UI |
-| `WEB_URL` | Public URL of the web frontend (e.g. `http://localhost:3000`) |
-| `NEXT_PUBLIC_API_URL` | Public URL of the API (e.g. `http://localhost:8000`) — baked into the frontend build |
+| `WEB_URL` | Public URL of the web frontend (e.g. `http://localhost:3000`) — used by the API for CORS |
+| `API_URL` | Internal URL of the API service (e.g. `http://api:8000`) — used server-side by the web container to proxy browser requests |
 | `ANTHROPIC_API_KEY` | Your Anthropic API key |
 | `CLAUDE_MODEL` | Claude model to use (e.g. `claude-sonnet-4-6`) |
 | `CLAUDE_TEMPERATURE` | LLM temperature (e.g. `0.7`) |

@@ -19,8 +19,6 @@ services:
       context: .
       dockerfile: api/Dockerfile
     restart: unless-stopped
-    ports:
-      - "8000:8000"
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@db:5432/blogforge
       JWT_SECRET: ${JWT_SECRET}
@@ -51,13 +49,12 @@ services:
     build:
       context: web
       dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
       PORT: 3000
+      API_URL: ${API_URL}
     depends_on:
       - api
 

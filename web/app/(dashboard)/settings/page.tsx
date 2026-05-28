@@ -62,8 +62,6 @@ export default function SettingsPage() {
     }
   }
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
-
   return (
     <div className="max-w-lg space-y-8">
       <h1 className="text-xl font-semibold">Settings</h1>
@@ -142,7 +140,7 @@ export default function SettingsPage() {
       <div className="bg-white shadow rounded-lg p-5">
         <h2 className="text-sm font-semibold text-gray-700 mb-3">Integration Status</h2>
         <p className="text-xs text-gray-400">
-          API: <span className="font-mono">{apiUrl}</span>
+          API: <span className="font-mono">/api/proxy</span>
         </p>
         <p className="text-xs text-gray-400 mt-1">
           Ghost, Brave Search, and Anthropic status are managed via environment variables on the API service.
