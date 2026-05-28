@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -e
+
+# Start the database
+docker compose up -d db
+
+# Wait for db to be healthy
+echo "Waiting for database..."
+until docker compose exec db pg_isready -U postgres -d blogforge &>/dev/null; do
+  sleep 1
+done
+
+# Start API in background
+source .venv/bin/activate
+uvicorn api.main:app --reload &
+API_PID=$!
+
+# Start web in background
+cd web && npm run dev &
+WEB_PID=$!
+
+# Trap Ctrl+C and kill both
+trap "kill $API_PID $WEB_PID 2>/dev/null; docker compose stop db" INT TERM
+
+echo ""
+echo "API: http://localhost:8000"
+echo "Web: http://localhost:3000"
+echo ""
+echo "Press Ctrl+C to stop"
+
+wait
