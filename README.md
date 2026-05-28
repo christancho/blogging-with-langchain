@@ -173,7 +173,11 @@ Required variables:
 2. **Build and start all services**
 
 ```bash
+# Local development — builds images from source
 docker compose up -d --build
+
+# Production / Portainer — pulls pre-built images from GHCR
+docker compose -f docker-compose.yml up -d
 ```
 
 3. **Access the app**
