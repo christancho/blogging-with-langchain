@@ -10,6 +10,9 @@ until docker compose exec db pg_isready -U postgres -d blogforge &>/dev/null; do
   sleep 1
 done
 
+# Load env vars
+set -a; source .env; set +a
+
 # Start API in background
 source .venv/bin/activate
 uvicorn api.main:app --reload &
