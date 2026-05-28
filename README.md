@@ -186,7 +186,17 @@ docker compose up -d --build
 
 ### Portainer
 
-If deploying via Portainer, paste the contents of `docker-compose.yml` into the stack editor and set all environment variables in the **Environment variables** panel — no `.env` file needed.
+Pre-built images are published to GitHub Container Registry (GHCR) on every push to `main`. To deploy:
+
+1. In Portainer, create a new stack and paste the contents of `docker-compose.yml`
+2. Set all environment variables in the **Environment variables** panel — no `.env` file needed
+3. Deploy the stack — Portainer will pull the latest images from GHCR
+
+**To update a running stack** after pushing changes to `main`:
+1. Wait for the [GitHub Actions build](https://github.com/christancho/blogging-with-langchain/actions) to go green (~2-3 min)
+2. In Portainer, go to the stack → **Pull and redeploy**
+
+> Work in progress should stay on the `dev` branch. Only merge to `main` when you're ready to ship — that's what triggers a new image build.
 
 ### Stopping
 
