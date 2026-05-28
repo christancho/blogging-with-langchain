@@ -10,8 +10,9 @@ until docker compose exec db pg_isready -U postgres -d blogforge &>/dev/null; do
   sleep 1
 done
 
-# Load env vars
+# Load env vars and override DATABASE_URL for native (non-Docker) access
 set -a; source .env; set +a
+export DATABASE_URL="postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@localhost:5432/blogforge"
 
 # Start API in background
 source .venv/bin/activate
