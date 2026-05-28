@@ -19,6 +19,8 @@ services:
       context: .
       dockerfile: api/Dockerfile
     restart: unless-stopped
+    ports:
+      - "8000:8000"
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@db:5432/blogforge
       JWT_SECRET: ${JWT_SECRET}
@@ -26,15 +28,15 @@ services:
       WEB_URL: ${WEB_URL}
       ENV: production
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-      CLAUDE_MODEL: ${CLAUDE_MODEL:-claude-sonnet-4-6}
-      CLAUDE_TEMPERATURE: ${CLAUDE_TEMPERATURE:-0.7}
+      CLAUDE_MODEL: ${CLAUDE_MODEL}
+      CLAUDE_TEMPERATURE: ${CLAUDE_TEMPERATURE}
       BRAVE_SEARCH_API_KEY: ${BRAVE_SEARCH_API_KEY}
       GHOST_API_KEY: ${GHOST_API_KEY}
       GHOST_API_URL: ${GHOST_API_URL}
       GHOST_AUTHOR_ID: ${GHOST_AUTHOR_ID}
-      LANGCHAIN_TRACING_V2: ${LANGCHAIN_TRACING_V2:-false}
-      LANGCHAIN_API_KEY: ${LANGCHAIN_API_KEY:-}
-      LANGCHAIN_PROJECT: ${LANGCHAIN_PROJECT:-blog-generation}
+      LANGCHAIN_TRACING_V2: ${LANGCHAIN_TRACING_V2}
+      LANGCHAIN_API_KEY: ${LANGCHAIN_API_KEY}
+      LANGCHAIN_PROJECT: ${LANGCHAIN_PROJECT}
     depends_on:
       db:
         condition: service_healthy
@@ -52,6 +54,8 @@ services:
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     restart: unless-stopped
+    ports:
+      - "3000:3000"
     environment:
       PORT: 3000
     depends_on:

@@ -8,6 +8,7 @@ An automated blog post generation system built with LangGraph, LangChain, and Cl
 - [Architecture](#architecture)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
+- [Running with Docker](#running-with-docker)
 - [Usage (CLI)](#usage)
 - [Web Interface](#web-interface)
 - [API](#api)
@@ -132,6 +133,72 @@ GHOST_AUTHOR_ID=your_author_id
 WORD_COUNT_TARGET=3500
 MIN_INLINE_LINKS=10
 PUBLISH_AS_DRAFT=true
+```
+
+## Running with Docker
+
+The easiest way to run the full stack (API, web UI, and database) is with Docker Compose.
+
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) and Docker Compose (or [Portainer](https://www.portainer.io/))
+
+### Setup
+
+1. **Copy the example env file and fill in your values**
+
+```bash
+cp .env.example .env
+```
+
+Required variables:
+
+| Variable | Description |
+|----------|-------------|
+| `POSTGRES_PASSWORD` | Password for the PostgreSQL database |
+| `JWT_SECRET` | Secret key for signing JWT tokens |
+| `UI_PASSWORD` | Password to log into the web UI |
+| `WEB_URL` | Public URL of the web frontend (e.g. `http://localhost:3000`) |
+| `NEXT_PUBLIC_API_URL` | Public URL of the API (e.g. `http://localhost:8000`) — baked into the frontend build |
+| `ANTHROPIC_API_KEY` | Your Anthropic API key |
+| `CLAUDE_MODEL` | Claude model to use (e.g. `claude-sonnet-4-6`) |
+| `CLAUDE_TEMPERATURE` | LLM temperature (e.g. `0.7`) |
+| `BRAVE_SEARCH_API_KEY` | Brave Search API key |
+| `GHOST_API_KEY` | Ghost Admin API key |
+| `GHOST_API_URL` | Your Ghost instance URL (e.g. `https://yoursite.com`) |
+| `GHOST_AUTHOR_ID` | Ghost author ID for published posts |
+| `LANGCHAIN_TRACING_V2` | Enable LangSmith tracing (`true` / `false`) |
+| `LANGCHAIN_API_KEY` | LangSmith API key (required if tracing is enabled) |
+| `LANGCHAIN_PROJECT` | LangSmith project name (e.g. `blog-generation`) |
+
+2. **Build and start all services**
+
+```bash
+docker compose up -d --build
+```
+
+3. **Access the app**
+
+| Service | URL |
+|---------|-----|
+| Web UI | http://localhost:3000 |
+| API | http://localhost:8000 |
+| API docs | http://localhost:8000/docs |
+
+### Portainer
+
+If deploying via Portainer, paste the contents of `docker-compose.yml` into the stack editor and set all environment variables in the **Environment variables** panel — no `.env` file needed.
+
+### Stopping
+
+```bash
+docker compose down
+```
+
+To also remove the database volume:
+
+```bash
+docker compose down -v
 ```
 
 ## Usage
