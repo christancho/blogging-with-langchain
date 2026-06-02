@@ -23,7 +23,11 @@ const components: Components = {
   ),
   li: ({ children }) => <li className="leading-relaxed">{children}</li>,
   a: ({ href, children }) => (
-    <a href={href} className="text-blue-600 underline hover:text-blue-800" target="_blank" rel="noopener noreferrer">
+    <a
+      href={href}
+      className="text-blue-600 underline hover:text-blue-800"
+      {...(href ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+    >
       {children}
     </a>
   ),
