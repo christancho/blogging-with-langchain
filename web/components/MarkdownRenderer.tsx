@@ -42,9 +42,10 @@ const components: Components = {
     </pre>
   ),
   code: ({ children, className }) => {
-    if (className?.startsWith('language-')) {
+    const isBlock = className?.startsWith('language-') || String(children ?? '').includes('\n');
+    if (isBlock) {
       return (
-        <code className={`text-sm font-mono text-gray-800 ${className}`}>{children}</code>
+        <code className={`text-sm font-mono text-gray-800 ${className ?? ''}`}>{children}</code>
       );
     }
     return (
