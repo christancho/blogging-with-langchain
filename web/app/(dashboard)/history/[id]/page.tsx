@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { jobs, type Job } from '@/lib/api';
+import MarkdownRenderer from '@/components/MarkdownRenderer';
 
 export default function PreviewPage() {
   const router = useRouter();
@@ -114,9 +115,9 @@ export default function PreviewPage() {
 
       <div className="bg-white shadow rounded-lg p-5">
         <p className="text-xs text-gray-500 uppercase tracking-wide mb-3">Article</p>
-        <pre className="whitespace-pre-wrap text-sm text-gray-800 font-mono overflow-auto max-h-[60vh]">
-          {content}
-        </pre>
+        <div className="overflow-auto max-h-[60vh]">
+          <MarkdownRenderer content={content} />
+        </div>
       </div>
     </div>
   );
