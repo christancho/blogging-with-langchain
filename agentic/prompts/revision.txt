@@ -15,6 +15,16 @@ Revise and improve the following article to address the specific feedback provid
 **Editor Feedback (MUST ADDRESS ALL ISSUES):**
 {{ editor_feedback }}
 
+{% if is_fact_revision %}
+**FACT CORRECTION MODE — SURGICAL FIXES ONLY:**
+- Fix ONLY the specific claims listed in the feedback above
+- Do NOT expand word count, add new sections, or restructure content
+- Do NOT rewrite paragraphs that are unrelated to the corrections
+- Locate the exact sentence(s) containing each incorrect claim and replace only those sentences
+- If a correction requires surrounding context, edit only the immediate 1-2 sentences
+- Word count will naturally stay stable — do not compensate by adding content elsewhere
+{% endif %}
+
 {% if research_key_facts %}
 **VERIFIED FACTS — Numbered Reference List:**
 These facts were sourced and verified during research. Use them as your factual foundation when making specific claims.
