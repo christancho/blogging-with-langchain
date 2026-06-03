@@ -121,3 +121,26 @@ async def test_run_job_applies_llm_settings_from_db(db, seeded_settings):
 
     assert mock_config.OPENROUTER_TEMPERATURE == 1.3
     assert mock_config.OPENROUTER_MODEL == "openai/gpt-4o"
+
+
+async def test_run_job_uses_default_config_when_no_settings(db):
+    """Worker leaves Config unchanged when no Settings row exists."""
+    import agentic.config as config_module
+
+    job = Job(topic="Test topic", tone="informative", word_count=3500, status="pending")
+    db.add(job)
+    await db.flush()
+
+    mock_graph = MagicMock()
+    mock_graph.stream.return_value = iter([{"writer": {"article_content": "done"}}])
+
+    original_temp = config_module.Config.OPENROUTER_TEMPERATURE
+    original_model = config_module.Config.OPENROUTER_MODEL
+
+    with patch("api.worker.create_blog_graph", return_value=mock_graph):
+        from api.worker import _run_job
+        session_factory = make_session_factory(db)
+        await _run_job(job.id, session_factory)
+
+    assert config_module.Config.OPENROUTER_TEMPERATURE == original_temp
+    assert config_module.Config.OPENROUTER_MODEL == original_model
