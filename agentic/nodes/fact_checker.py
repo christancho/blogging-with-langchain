@@ -2,8 +2,9 @@
 Fact checker node - two-phase LLM pipeline for claim extraction and live verification
 """
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -16,8 +17,9 @@ from agentic.tools import BraveSearchTool, URLFetcherTool
 
 
 MAX_URLS_PER_CLAIM = 2
-MAX_CLAIMS = 30  # Cap to control cost on very long articles
+MAX_CLAIMS = 30      # Cap to control cost on very long articles
 MAX_EVIDENCE_CHARS_PER_URL = 3000
+MAX_VERIFY_WORKERS = 5  # Concurrent claim verifications (Brave + LLM rate-limit headroom)
 
 
 def fact_checker_node(state: BlogState, config: RunnableConfig) -> Dict[str, Any]:
@@ -109,32 +111,28 @@ def fact_checker_node(state: BlogState, config: RunnableConfig) -> Dict[str, Any
     print(f"  ✓ Extracted {len(claims)} claims")
 
     # =========================================================================
-    # PHASE 2: Verify each claim individually against live sources
+    # PHASE 2: Verify claims concurrently (search + fetch + LLM per claim)
     # =========================================================================
-    print("\n🔍 Phase 2: Verifying claims against live sources...")
+    print(f"\n🔍 Phase 2: Verifying {len(claims)} claims concurrently (workers={MAX_VERIFY_WORKERS})...")
 
     verify_template = PromptLoader.load("fact_checker_verify")
-    verdicts = []
 
-    for i, claim_item in enumerate(claims, 1):
+    def _verify_claim(index_and_item):
+        idx, claim_item = index_and_item
         claim_text = claim_item.get("claim", "")
         context_text = claim_item.get("context", "")
         query = claim_item.get("suggested_query", claim_text)
 
-        print(f"\n  [{i}/{len(claims)}] {claim_text[:80]}...")
-
         search_content = _gather_search_content(query, search_tool, url_fetcher)
 
         if not search_content:
-            verdicts.append({
+            return idx, {
                 "claim": claim_text,
                 "verdict": "unverifiable",
                 "correct_information": None,
                 "source_url": None,
                 "confidence": "low"
-            })
-            print(f"    → unverifiable (no search results)")
-            continue
+            }
 
         verify_prompt_text = verify_template.render(
             claim=claim_text,
@@ -159,18 +157,31 @@ def fact_checker_node(state: BlogState, config: RunnableConfig) -> Dict[str, Any
                 "source_url": None,
                 "confidence": "low"
             })
-            verdicts.append(verdict)
-            icon = "✓" if verdict.get("verdict") == "true" else ("✗" if verdict.get("verdict") == "false" else "~")
-            print(f"    → {icon} {verdict.get('verdict')} ({verdict.get('confidence', '?')} confidence)")
+            return idx, verdict
         except Exception as e:
-            print(f"    → ✗ Verification error: {e}")
-            verdicts.append({
+            print(f"    → ✗ Verification error for claim {idx}: {e}")
+            return idx, {
                 "claim": claim_text,
                 "verdict": "unverifiable",
                 "correct_information": None,
                 "source_url": None,
                 "confidence": "low"
-            })
+            }
+
+    results_by_index: Dict[int, Dict] = {}
+    with ThreadPoolExecutor(max_workers=MAX_VERIFY_WORKERS) as executor:
+        futures = {
+            executor.submit(_verify_claim, (i, claim_item)): i
+            for i, claim_item in enumerate(claims)
+        }
+        for future in as_completed(futures):
+            idx, verdict = future.result()
+            results_by_index[idx] = verdict
+            icon = "✓" if verdict.get("verdict") == "true" else ("✗" if verdict.get("verdict") == "false" else "~")
+            print(f"  [{idx + 1}/{len(claims)}] {icon} {verdict.get('verdict')} — {verdict.get('claim', '')[:70]}...")
+
+    # Restore original claim order
+    verdicts = [results_by_index[i] for i in range(len(claims))]
 
     # =========================================================================
     # DECISION
