@@ -159,6 +159,15 @@ async def _run_job(job_id, session_factory) -> None:
                     job.logs = (job.logs or "") + new_output
                 await db.commit()
 
+        if Config.is_langsmith_enabled():
+            try:
+                from agentic.tools import get_latest_run_cost, format_langsmith_cost_report
+                cost_info = get_latest_run_cost(Config.LANGCHAIN_PROJECT)
+                if cost_info:
+                    print(format_langsmith_cost_report(cost_info))
+            except Exception as cost_err:
+                print(f"⚠️  Could not fetch cost data: {cost_err}")
+
         async with session_factory() as db:
             job = await db.get(Job, job_id)
             job.status = "completed"
