@@ -61,7 +61,7 @@ export default function PreviewPage() {
   const content = String(r.final_content ?? r.article_content ?? '');
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="w-full space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Preview</h1>
         <div className="flex gap-3">
@@ -115,7 +115,7 @@ export default function PreviewPage() {
 
       <div className="bg-white shadow rounded-lg p-5">
         <p className="text-xs text-gray-500 uppercase tracking-wide mb-3">Article</p>
-        <div className="overflow-auto max-h-[60vh]">
+        <div>
           <MarkdownRenderer content={content} />
         </div>
       </div>
