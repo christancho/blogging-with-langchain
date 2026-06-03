@@ -23,6 +23,7 @@ export default function SettingsPage() {
   const [passwordError, setPasswordError] = useState('');
   const [savingSettings, setSavingSettings] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+  const [settingsLoadError, setSettingsLoadError] = useState('');
 
   useEffect(() => {
     settings.get().then(s => {
@@ -30,8 +31,10 @@ export default function SettingsPage() {
       setWordCount(s.default_word_count);
       setLlmTemperature(s.llm_temperature);
       setLlmModel(s.llm_model);
-      setModelSearch(s.llm_model);
-    }).catch((err) => console.error('Failed to load settings:', err));
+    }).catch((err) => {
+      console.error('Failed to load settings:', err);
+      setSettingsLoadError('Failed to load settings. Please refresh the page.');
+    });
 
     settings.getModels().then(ms => {
       setModels(ms);
@@ -47,21 +50,30 @@ export default function SettingsPage() {
         modelInputRef.current && !modelInputRef.current.contains(e.target as Node)
       ) {
         setShowModelDropdown(false);
-        setModelSearch(llmModel);
+        const selected = models.find(m => m.id === llmModel);
+        setModelSearch(selected ? selected.name : llmModel);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [llmModel]);
+  }, [llmModel, models]);
 
   const filteredModels = models.filter(m =>
     m.name.toLowerCase().includes(modelSearch.toLowerCase()) ||
     m.id.toLowerCase().includes(modelSearch.toLowerCase())
   );
 
+  // Once models are loaded, resolve the current model's display name
+  useEffect(() => {
+    if (models.length > 0 && llmModel) {
+      const selected = models.find(m => m.id === llmModel);
+      if (selected) setModelSearch(selected.name);
+    }
+  }, [models, llmModel]);
+
   function selectModel(model: OpenRouterModel) {
     setLlmModel(model.id);
-    setModelSearch(model.id);
+    setModelSearch(model.name);
     setShowModelDropdown(false);
   }
 
@@ -69,6 +81,10 @@ export default function SettingsPage() {
     e.preventDefault();
     setSettingsError('');
     setSettingsSaved(false);
+    if (!llmModel) {
+      setSettingsError('Please select a model before saving.');
+      return;
+    }
     setSavingSettings(true);
     try {
       await settings.update({
@@ -114,6 +130,12 @@ export default function SettingsPage() {
     <div className="max-w-lg space-y-8">
       <h1 className="text-xl font-semibold">Settings</h1>
 
+      {settingsLoadError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+          {settingsLoadError}
+        </div>
+      )}
+
       {/* Defaults */}
       <div className="bg-white shadow rounded-lg p-5">
         <h2 className="text-sm font-semibold text-gray-700 mb-4">Generation Defaults</h2>
@@ -121,9 +143,10 @@ export default function SettingsPage() {
 
           {/* Model selector */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
+            <label htmlFor="llm-model" className="block text-sm font-medium text-gray-700 mb-1">Model</label>
             <div className="relative">
               <input
+                id="llm-model"
                 ref={modelInputRef}
                 type="text"
                 value={modelSearch}
@@ -133,22 +156,26 @@ export default function SettingsPage() {
                 disabled={modelsLoading}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
               />
-              {showModelDropdown && filteredModels.length > 0 && (
+              {showModelDropdown && (
                 <div
                   ref={dropdownRef}
                   className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
                 >
-                  {filteredModels.map(m => (
-                    <button
-                      key={m.id}
-                      type="button"
-                      onClick={() => selectModel(m)}
-                      className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 ${m.id === llmModel ? 'bg-blue-50 font-medium' : ''}`}
-                    >
-                      <span className="block text-gray-900">{m.name}</span>
-                      <span className="block text-xs text-gray-400 font-mono">{m.id}</span>
-                    </button>
-                  ))}
+                  {filteredModels.length === 0 ? (
+                    <p className="px-3 py-2 text-sm text-gray-400">No models match your search.</p>
+                  ) : (
+                    filteredModels.map(m => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => selectModel(m)}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 ${m.id === llmModel ? 'bg-blue-50 font-medium' : ''}`}
+                      >
+                        <span className="block text-gray-900">{m.name}</span>
+                        <span className="block text-xs text-gray-400 font-mono">{m.id}</span>
+                      </button>
+                    ))
+                  )}
                 </div>
               )}
             </div>
@@ -156,11 +183,12 @@ export default function SettingsPage() {
 
           {/* Temperature */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="llm-temperature" className="block text-sm font-medium text-gray-700 mb-1">
               Temperature
               <span className="ml-2 font-normal text-gray-500">{llmTemperature.toFixed(2)}</span>
             </label>
             <input
+              id="llm-temperature"
               type="range"
               min={0}
               max={2}
