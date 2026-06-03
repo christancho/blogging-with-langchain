@@ -1,6 +1,7 @@
+import os
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from api.db import get_db
@@ -13,7 +14,7 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 class SettingsUpdate(BaseModel):
     default_tone: str | None = None
     default_word_count: int | None = None
-    llm_temperature: float | None = None
+    llm_temperature: float | None = Field(default=None, ge=0.0, le=2.0)
     llm_model: str | None = None
 
 
@@ -79,7 +80,6 @@ async def change_password(
 @router.get("/models")
 async def list_models(_: str = Depends(require_auth)):
     """Proxy OpenRouter model list. Returns [{id, name}] sorted by name."""
-    import os
     api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
         raise HTTPException(status_code=503, detail="OPENROUTER_API_KEY not configured")
