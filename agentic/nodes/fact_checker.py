@@ -184,7 +184,12 @@ def fact_checker_node(state: BlogState) -> Dict[str, Any]:
     print(f"   ✗ False: {len(false_verdicts)}")
 
     if not false_verdicts:
-        print("\n✅ PASSED — all claims verified or unverifiable")
+        true_count = len([v for v in verdicts if v.get("verdict") == "true"])
+        unverifiable_count = len([v for v in verdicts if v.get("verdict") == "unverifiable"])
+        parts = [f"{true_count} verified true"]
+        if unverifiable_count:
+            parts.append(f"{unverifiable_count} could not be verified (no sources found)")
+        print(f"\n✅ PASSED — {', '.join(parts)}")
         return {
             "fact_check_status": "passed",
             "fact_verdicts": verdicts,
