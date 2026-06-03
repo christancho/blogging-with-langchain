@@ -22,6 +22,18 @@ async def test_settings_model_insert(db):
 
 
 @pytest.mark.asyncio(loop_scope="function")
+async def test_settings_model_has_llm_fields(db):
+    from api.models import Settings
+    from api.auth import hash_password
+    s = Settings(password_hash=hash_password("secret"))
+    db.add(s)
+    await db.commit()
+    await db.refresh(s)
+    assert s.llm_temperature == 0.7
+    assert s.llm_model == "anthropic/claude-sonnet-4-5"
+
+
+@pytest.mark.asyncio(loop_scope="function")
 async def test_job_model_insert(db):
     from api.models import Job, Settings
     j = Job(topic="Test topic", tone="informative", word_count=3500, status="pending")
