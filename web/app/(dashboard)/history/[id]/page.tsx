@@ -13,10 +13,14 @@ export default function PreviewPage() {
   const [publishing, setPublishing] = useState(false);
   const [discarding, setDiscarding] = useState(false);
   const [error, setError] = useState('');
+  const [jobLogs, setJobLogs] = useState<string | null>(null);
 
   useEffect(() => {
-    jobs.get(id)
-      .then(setJob)
+    Promise.all([jobs.get(id), jobs.logs(id)])
+      .then(([jobData, logsData]) => {
+        setJob(jobData);
+        setJobLogs(logsData.logs);
+      })
       .catch((err) => { console.error('Failed to load job:', err); router.push('/history'); })
       .finally(() => setLoading(false));
   }, [id, router]);
@@ -119,6 +123,19 @@ export default function PreviewPage() {
           <MarkdownRenderer content={content} />
         </div>
       </div>
+
+      {jobLogs && (
+        <div className="bg-white shadow rounded-lg p-5">
+          <details>
+            <summary className="text-xs text-gray-500 uppercase tracking-wide cursor-pointer select-none font-medium">
+              Pipeline Logs
+            </summary>
+            <pre className="mt-3 text-xs font-mono bg-gray-950 text-gray-200 rounded p-3 overflow-y-auto whitespace-pre-wrap">
+              {jobLogs}
+            </pre>
+          </details>
+        </div>
+      )}
     </div>
   );
 }
