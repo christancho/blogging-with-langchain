@@ -17,6 +17,7 @@ export default function SettingsPage() {
   const [wordCount, setWordCount] = useState(3500);
   const [llmTemperature, setLlmTemperature] = useState(0.7);
   const [llmModel, setLlmModel] = useState('');
+  const [autoPublish, setAutoPublish] = useState(true);
   const [models, setModels] = useState<OpenRouterModel[]>([]);
   const [modelSearch, setModelSearch] = useState('');
   const [showModelDropdown, setShowModelDropdown] = useState(false);
@@ -46,6 +47,7 @@ export default function SettingsPage() {
       setWordCount(s.default_word_count);
       setLlmTemperature(s.llm_temperature);
       setLlmModel(s.llm_model);
+      setAutoPublish(s.auto_publish_to_ghost);
     }).catch((err) => {
       console.error('Failed to load settings:', err);
       setSettingsLoadError('Failed to load settings. Please refresh the page.');
@@ -113,6 +115,7 @@ export default function SettingsPage() {
         default_word_count: wordCount,
         llm_temperature: llmTemperature,
         llm_model: llmModel,
+        auto_publish_to_ghost: autoPublish,
       });
       setSettingsSaved(true);
       setTimeout(() => setSettingsSaved(false), 2000);
@@ -272,6 +275,27 @@ export default function SettingsPage() {
               max={10000}
               className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+          </div>
+
+          {/* Auto-publish toggle */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-700">Auto-publish to Ghost</p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                When off, the pipeline skips publishing and you trigger it manually from the preview page.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={autoPublish}
+              onClick={() => setAutoPublish(v => !v)}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${autoPublish ? 'bg-blue-600' : 'bg-gray-200'}`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ${autoPublish ? 'translate-x-5' : 'translate-x-0'}`}
+              />
+            </button>
           </div>
 
           {settingsError && <p className="text-red-600 text-sm">{settingsError}</p>}

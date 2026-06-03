@@ -35,6 +35,7 @@ export interface Settings {
   default_word_count: number;
   llm_temperature: number;
   llm_model: string;
+  auto_publish_to_ghost: boolean;
 }
 
 export interface SettingsUpdate {
@@ -42,6 +43,7 @@ export interface SettingsUpdate {
   default_word_count?: number;
   llm_temperature?: number;
   llm_model?: string;
+  auto_publish_to_ghost?: boolean;
 }
 
 export interface OpenRouterModel {

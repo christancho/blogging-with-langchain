@@ -1,6 +1,7 @@
 """
 Writer node for creating blog content
 """
+import json
 from datetime import datetime
 from typing import Dict, Any
 from langchain_core.prompts import ChatPromptTemplate
@@ -9,6 +10,7 @@ from langchain_core.output_parsers import StrOutputParser
 from agentic.state import BlogState
 from agentic.config import Config
 from agentic.nodes.prompt_loader import PromptLoader
+from agentic.tools import ContentAnalysisTool
 
 
 def writer_node(state: BlogState) -> Dict[str, Any]:
@@ -150,6 +152,61 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
     try:
         revised_content = chain.invoke({})
 
+        # Self-check mechanical requirements using the same method the editor uses
+        # (word count excludes code blocks, matching ContentAnalysisTool._count_words)
+        analyzer = ContentAnalysisTool()
+        MAX_SELF_CHECK_RETRIES = 1
+        for check_attempt in range(MAX_SELF_CHECK_RETRIES + 1):
+            check = json.loads(analyzer._run(revised_content))
+            check_words = check["word_count"]
+            check_links = check["links"]["total_links"]
+            check_h1 = check["structure"]["h1_count"]
+            check_h2 = check["structure"]["h2_count"]
+
+            issues = []
+            if check_words < min_word_count:
+                gap = min_word_count - check_words
+                issues.append(
+                    f"Word count is {check_words} (minimum is {min_word_count}). "
+                    f"Add ~{gap} more words by deepening examples or expanding key sections."
+                )
+            if check_links < Config.MIN_INLINE_LINKS:
+                issues.append(
+                    f"Only {check_links} inline links (minimum is {Config.MIN_INLINE_LINKS}). "
+                    f"Add more inline links to authoritative sources."
+                )
+            if check_h1 != 1:
+                issues.append(f"Found {check_h1} H1 headings — exactly 1 is required.")
+            if check_h2 < Config.NUM_SECTIONS:
+                issues.append(f"Only {check_h2} H2 sections (minimum is {Config.NUM_SECTIONS}).")
+
+            if not issues:
+                print(f"  ✓ Self-check passed — {check_words} words, {check_links} links, {check_h1} H1, {check_h2} H2")
+                break
+
+            print(f"\n  ⚠ Self-check ({check_attempt + 1}/{MAX_SELF_CHECK_RETRIES + 1}): {len(issues)} issue(s):")
+            for issue in issues:
+                print(f"    - {issue}")
+
+            if check_attempt >= MAX_SELF_CHECK_RETRIES:
+                print(f"  → Self-check limit reached, returning as-is")
+                break
+
+            print(f"  → Fixing issues before returning…")
+            feedback_lines = "\n".join(f"- {i}" for i in issues)
+            draft_escaped = revised_content.replace("{", "{{").replace("}", "}}")
+            expand_prompt = ChatPromptTemplate.from_messages([
+                ("system", (
+                    "You are revising a blog article draft. Fix ONLY the mechanical issues listed below. "
+                    "Do not change the topic, tone, or overall structure.\n\n"
+                    f"Issues to fix:\n{feedback_lines}\n\n"
+                    "Return the complete revised article with all fixes applied."
+                )),
+                ("human", draft_escaped)
+            ])
+            expand_chain = expand_prompt | llm | StrOutputParser()
+            revised_content = expand_chain.invoke({})
+
         # Extract inline links
         import re
         md_links = re.findall(r'\[([^\]]+)\]\(([^\)]+)\)', revised_content)
@@ -159,13 +216,13 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
         title_match = re.search(r'^#\s+(.+)$', revised_content, re.MULTILINE)
         article_title = title_match.group(1).strip() if title_match else topic
 
-        # Count words
-        word_count = len(revised_content.split())
+        # Use code-block-excluding word count for the final report (matches editor)
+        word_count = json.loads(analyzer._run(revised_content))["word_count"]
 
         mode = "Revised" if is_revision else "Generated"
         print(f"\n✓ Article {mode.lower()}")
         print(f"  - Title: {article_title}")
-        print(f"  - Word count: {word_count}")
+        print(f"  - Word count: {word_count} (excl. code blocks)")
         print(f"  - Inline links: {len(inline_links)}")
 
         return {

@@ -41,8 +41,11 @@ def route_editor_decision(state: BlogState) -> str:
     revision_count = state.get("revision_count", 0)
     max_revisions = state.get("max_revisions", 3)
 
-    # If approved or forced publish - route to publisher
+    # If approved or forced publish
     if approval_status in ["approved", "force_publish"]:
+        # Skip publisher when auto-publish is disabled — manual trigger via UI
+        if not state.get("auto_publish_to_ghost", True):
+            return "end"
         return "publisher"
 
     # If rejected and revisions available - route back to writer for revision
@@ -100,7 +103,8 @@ def create_blog_graph():
         route_editor_decision,
         {
             "publisher": "publisher",  # Approved/force_publish -> go to publisher
-            "writer": "writer"         # Rejected -> go back to writer for revision
+            "writer": "writer",        # Rejected -> go back to writer for revision
+            "end": END,                # Approved but auto_publish_to_ghost=False -> stop
         }
     )
 

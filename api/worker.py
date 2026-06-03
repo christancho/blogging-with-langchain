@@ -36,10 +36,6 @@ class TeeWriter:
     def getvalue(self) -> str:
         return self._buf.getvalue()
 
-    def clear(self) -> None:
-        self._buf.truncate(0)
-        self._buf.seek(0)
-
     def __getattr__(self, name: str):
         return getattr(self._real, name)
 
@@ -114,9 +110,11 @@ async def _run_job(job_id, session_factory) -> None:
 
             settings_result = await db.execute(select(Settings))
             settings = settings_result.scalar_one_or_none()
+            auto_publish = True
             if settings:
                 Config.OPENROUTER_TEMPERATURE = settings.llm_temperature
                 Config.OPENROUTER_MODEL = settings.llm_model
+                auto_publish = settings.auto_publish_to_ghost
                 # Safe: worker processes one job at a time; concurrent jobs would need a lock here
                 logger.info(f"LLM settings from DB: model={settings.llm_model}, temperature={settings.llm_temperature}")
     except Exception as e:
@@ -134,6 +132,41 @@ async def _run_job(job_id, session_factory) -> None:
         return
 
     tee = None
+    flush_stop = threading.Event()
+
+    def _start_log_flusher(tee_ref, jid, sf):
+        """Background thread that flushes the log buffer to DB every 2 seconds.
+
+        graph.stream() is synchronous and blocks the asyncio loop for the full
+        duration of each node, so in-flight logs would not reach the DB until
+        the node completes.  This thread runs its own asyncio event loop so it
+        can write to the DB independently.
+        """
+        import asyncio as _asyncio
+        from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker as _sm
+
+        async def flush_loop():
+            engine = create_async_engine(os.environ["DATABASE_URL"])
+            Session = _sm(engine, expire_on_commit=False)
+            try:
+                while not flush_stop.is_set():
+                    flush_stop.wait(2.0)
+                    current = tee_ref.getvalue()
+                    if not current:
+                        continue
+                    try:
+                        async with Session() as db:
+                            job = await db.get(Job, jid)
+                            if job:
+                                job.logs = current
+                                await db.commit()
+                    except Exception as flush_err:
+                        logger.debug(f"Log flush error (non-fatal): {flush_err}")
+            finally:
+                await engine.dispose()
+
+        _asyncio.run(flush_loop())
+
     try:
         tee = TeeWriter(sys.stdout)
         sys.stdout = tee
@@ -151,12 +184,21 @@ async def _run_job(job_id, session_factory) -> None:
         print(f"LangSmith Tracing: {'ENABLED (Project: ' + Config.LANGCHAIN_PROJECT + ')' if Config.is_langsmith_enabled() else 'DISABLED'}")
         print("=" * 80)
 
+        flush_thread = threading.Thread(
+            target=_start_log_flusher,
+            args=(tee, job_id, session_factory),
+            daemon=True,
+            name="log-flusher",
+        )
+        flush_thread.start()
+
         graph = create_blog_graph()
         initial_state = {
             "topic": topic,
             "tone": tone,
             "word_count_target": word_count,
             "instructions": instructions,
+            "auto_publish_to_ghost": auto_publish,
         }
         accumulated: dict = dict(initial_state)
 
@@ -164,13 +206,13 @@ async def _run_job(job_id, session_factory) -> None:
             node_name = next(iter(chunk))
             accumulated.update(chunk[node_name])
 
-            new_output = tee.getvalue()
-            tee.clear()
             async with session_factory() as db:
                 job = await db.get(Job, job_id)
+                if not job:
+                    logger.info(f"Job {job_id} was removed during execution, stopping worker")
+                    return
                 job.current_node = node_name
-                if new_output:
-                    job.logs = (job.logs or "") + new_output
+                job.logs = tee.getvalue()
                 await db.commit()
 
         if Config.is_langsmith_enabled():
@@ -182,27 +224,30 @@ async def _run_job(job_id, session_factory) -> None:
             except Exception as cost_err:
                 print(f"⚠️  Could not fetch cost data: {cost_err}")
 
+        flush_stop.set()
+
         async with session_factory() as db:
             job = await db.get(Job, job_id)
             job.status = "completed"
             job.result = accumulated
             job.current_node = None
+            job.logs = tee.getvalue()
             job.completed_at = datetime.now(timezone.utc)
             await db.commit()
 
         logger.info(f"Job {job_id} completed successfully")
 
     except Exception as e:
+        flush_stop.set()
         logger.error(f"Job {job_id} failed: {e}", exc_info=True)
-        remaining = tee.getvalue() if tee is not None else ""
         async with session_factory() as db:
             job = await db.get(Job, job_id)
             job.status = "failed"
             job.error = str(e)
             job.current_node = None
             job.completed_at = datetime.now(timezone.utc)
-            if remaining:
-                job.logs = (job.logs or "") + remaining
+            if tee is not None:
+                job.logs = tee.getvalue()
             await db.commit()
     finally:
         if tee is not None:

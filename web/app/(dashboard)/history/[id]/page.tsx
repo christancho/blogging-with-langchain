@@ -56,6 +56,7 @@ export default function PreviewPage() {
   if (!job?.result) return <p className="text-gray-500">No preview available.</p>;
 
   const r = job.result as Record<string, unknown>;
+  const alreadyPublished = typeof r.ghost_post_url === 'string' && r.ghost_post_url.length > 0;
   const title = String(r.seo_title ?? r.title ?? job.topic);
   const metaDescription = String(r.meta_description ?? '');
   const excerpt = String(r.excerpt ?? '');
@@ -76,13 +77,24 @@ export default function PreviewPage() {
           >
             {discarding ? 'Discarding…' : 'Discard'}
           </button>
-          <button
-            onClick={handlePublish}
-            disabled={publishing || discarding}
-            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-          >
-            {publishing ? 'Publishing…' : 'Publish to Ghost'}
-          </button>
+          {alreadyPublished ? (
+            <a
+              href={r.ghost_post_url as string}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700"
+            >
+              View on Ghost
+            </a>
+          ) : (
+            <button
+              onClick={handlePublish}
+              disabled={publishing || discarding}
+              className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+            >
+              {publishing ? 'Publishing…' : 'Publish to Ghost'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -130,7 +142,7 @@ export default function PreviewPage() {
             <summary className="text-xs text-gray-500 uppercase tracking-wide cursor-pointer select-none font-medium">
               Pipeline Logs
             </summary>
-            <pre className="mt-3 text-xs font-mono bg-gray-950 text-gray-200 rounded p-3 overflow-y-auto max-h-96 whitespace-pre-wrap">
+            <pre className="mt-3 text-xs font-mono bg-gray-950 text-gray-200 rounded p-3 overflow-y-auto max-h-[72rem] whitespace-pre-wrap">
               {jobLogs}
             </pre>
           </details>
