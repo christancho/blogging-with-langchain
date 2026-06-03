@@ -137,6 +137,20 @@ async def _run_job(job_id, session_factory) -> None:
     try:
         tee = TeeWriter(sys.stdout)
         sys.stdout = tee
+
+        print("=" * 80)
+        print("BLOG GENERATION SYSTEM")
+        print("=" * 80)
+        llm_info = Config.get_llm_info()
+        if "primary" in llm_info:
+            print(f"Primary LLM:       {llm_info['primary']['provider']} ({llm_info['primary']['model']})")
+        print(f"Topic:             {topic}")
+        print(f"Tone:              {tone}")
+        print(f"Target Word Count: {word_count}")
+        print(f"Instructions:      {instructions[:80] + '...' if instructions and len(instructions) > 80 else instructions or '(none)'}")
+        print(f"LangSmith Tracing: {'ENABLED (Project: ' + Config.LANGCHAIN_PROJECT + ')' if Config.is_langsmith_enabled() else 'DISABLED'}")
+        print("=" * 80)
+
         graph = create_blog_graph()
         initial_state = {
             "topic": topic,
