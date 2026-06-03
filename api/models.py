@@ -25,6 +25,7 @@ class Job(Base):
     current_node: Mapped[str | None] = mapped_column(Text, nullable=True)
     result: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    logs: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class Settings(Base):
