@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { jobs, type Job } from '@/lib/api';
 
@@ -16,6 +16,56 @@ function StatusBadge({ status }: { status: Job['status'] }) {
     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${classes[status] ?? ''}`}>
       {status.toUpperCase()}
     </span>
+  );
+}
+
+function LogPanel({ jobId }: { jobId: string }) {
+  const [logs, setLogs] = useState<string>('');
+  const preRef = useRef<HTMLPreElement>(null);
+  const userScrolledUp = useRef(false);
+
+  const fetchLogs = useCallback(async () => {
+    try {
+      const data = await jobs.logs(jobId);
+      if (data.logs !== null) setLogs(data.logs);
+    } catch {
+      // best-effort — don't surface log fetch errors in the UI
+    }
+  }, [jobId]);
+
+  useEffect(() => {
+    fetchLogs();
+    const interval = setInterval(fetchLogs, 2000);
+    return () => clearInterval(interval);
+  }, [fetchLogs]);
+
+  // Auto-scroll to bottom unless the user has manually scrolled up
+  useEffect(() => {
+    const el = preRef.current;
+    if (!el || userScrolledUp.current) return;
+    el.scrollTop = el.scrollHeight;
+  }, [logs]);
+
+  function handleScroll() {
+    const el = preRef.current;
+    if (!el) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+    userScrolledUp.current = !atBottom;
+  }
+
+  return (
+    <details open className="mt-4">
+      <summary className="text-xs font-medium text-gray-500 cursor-pointer select-none uppercase tracking-wide">
+        Logs
+      </summary>
+      <pre
+        ref={preRef}
+        onScroll={handleScroll}
+        className="mt-2 text-xs font-mono bg-gray-950 text-gray-200 rounded p-3 overflow-y-auto max-h-72 whitespace-pre-wrap"
+      >
+        {logs || 'Waiting for output…'}
+      </pre>
+    </details>
   );
 }
 
@@ -73,7 +123,9 @@ export default function QueuePage() {
 
   const NODE_LABELS: Record<string, string> = {
     research: 'Researching…',
+    audience_analysis: 'Analyzing audience…',
     writer: 'Writing…',
+    fact_checker: 'Checking facts…',
     formatter: 'Formatting…',
     seo: 'Optimizing SEO…',
     editor: 'Reviewing…',
@@ -97,10 +149,10 @@ export default function QueuePage() {
             </div>
             <StatusBadge status="running" />
           </div>
-          {/* Indeterminate progress bar */}
           <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
             <div className="h-full bg-blue-500 rounded-full animate-[pulse_1.5s_ease-in-out_infinite] w-1/2" />
           </div>
+          <LogPanel jobId={runningJob.id} />
         </div>
       )}
 
