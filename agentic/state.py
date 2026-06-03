@@ -19,6 +19,7 @@ class BlogState(TypedDict, total=False):
     instructions: Optional[str]  # Custom instructions for this article (optional)
     tone: str  # Blog tone (default: Config.BLOG_TONE)
     word_count_target: int  # Target word count (default: Config.WORD_COUNT_TARGET)
+    auto_publish_to_ghost: bool  # If False, skip publisher node; manual publish via UI
 
     # ============================================================================
     # Research Node Outputs

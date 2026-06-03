@@ -110,9 +110,11 @@ async def _run_job(job_id, session_factory) -> None:
 
             settings_result = await db.execute(select(Settings))
             settings = settings_result.scalar_one_or_none()
+            auto_publish = True
             if settings:
                 Config.OPENROUTER_TEMPERATURE = settings.llm_temperature
                 Config.OPENROUTER_MODEL = settings.llm_model
+                auto_publish = settings.auto_publish_to_ghost
                 # Safe: worker processes one job at a time; concurrent jobs would need a lock here
                 logger.info(f"LLM settings from DB: model={settings.llm_model}, temperature={settings.llm_temperature}")
     except Exception as e:
@@ -196,6 +198,7 @@ async def _run_job(job_id, session_factory) -> None:
             "tone": tone,
             "word_count_target": word_count,
             "instructions": instructions,
+            "auto_publish_to_ghost": auto_publish,
         }
         accumulated: dict = dict(initial_state)
 

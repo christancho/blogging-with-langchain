@@ -16,6 +16,7 @@ class SettingsUpdate(BaseModel):
     default_word_count: int | None = None
     llm_temperature: float | None = Field(default=None, ge=0.0, le=2.0)
     llm_model: str | None = None
+    auto_publish_to_ghost: bool | None = None
 
 
 class PasswordChange(BaseModel):
@@ -29,6 +30,7 @@ def _row_to_dict(s: Settings) -> dict:
         "default_word_count": s.default_word_count,
         "llm_temperature": s.llm_temperature,
         "llm_model": s.llm_model,
+        "auto_publish_to_ghost": s.auto_publish_to_ghost,
     }
 
 
@@ -56,6 +58,8 @@ async def update_settings(
         s.llm_temperature = body.llm_temperature
     if body.llm_model is not None:
         s.llm_model = body.llm_model
+    if body.auto_publish_to_ghost is not None:
+        s.auto_publish_to_ghost = body.auto_publish_to_ghost
     await db.commit()
     await db.refresh(s)
     return _row_to_dict(s)

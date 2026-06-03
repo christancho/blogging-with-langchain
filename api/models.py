@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import String, Integer, Text, DateTime, Float, func
+from sqlalchemy import String, Integer, Text, DateTime, Float, Boolean, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from api.db import Base
@@ -39,3 +39,4 @@ class Settings(Base):
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
     llm_temperature: Mapped[float] = mapped_column(Float, nullable=False, default=0.7)
     llm_model: Mapped[str] = mapped_column(Text, nullable=False, default="anthropic/claude-sonnet-4-5")
+    auto_publish_to_ghost: Mapped[bool] = mapped_column(Boolean(), nullable=False, default=True)
