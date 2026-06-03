@@ -2,6 +2,7 @@
 Configuration settings for the LangGraph Blog Generation System
 """
 import os
+from typing import Optional
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -153,7 +154,7 @@ class Config:
             )
 
     @classmethod
-    def get_llm(cls, temperature: float = None):
+    def get_llm(cls, temperature: Optional[float] = None):
         """
         Get LLM via OpenRouter.
 

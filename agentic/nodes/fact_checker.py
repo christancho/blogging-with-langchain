@@ -56,7 +56,7 @@ def fact_checker_node(state: BlogState) -> Dict[str, Any]:
             "fact_check_feedback": "",
         }
 
-    llm = Config.get_llm()
+    llm = Config.get_llm(temperature=Config.RESEARCH_TEMPERATURE)
     search_tool = BraveSearchTool()
     url_fetcher = URLFetcherTool()
 
