@@ -15,7 +15,7 @@ from agentic.tools import BraveSearchTool, URLFetcherTool
 
 
 MAX_URLS_PER_CLAIM = 2
-MAX_CLAIMS = 20  # Cap to control cost on very long articles
+MAX_CLAIMS = 30  # Cap to control cost on very long articles
 
 
 def fact_checker_node(state: BlogState) -> Dict[str, Any]:
