@@ -28,8 +28,8 @@ function LogPanel({ jobId }: { jobId: string }) {
     try {
       const data = await jobs.logs(jobId);
       if (data.logs !== null) setLogs(data.logs);
-    } catch {
-      // best-effort — don't surface log fetch errors in the UI
+    } catch (err) {
+      console.debug('[LogPanel] log fetch error (best-effort):', err);
     }
   }, [jobId]);
 
