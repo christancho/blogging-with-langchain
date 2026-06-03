@@ -51,7 +51,8 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
 
     if is_revision:
         # REVISION MODE - Use feedback from editor
-        print(f"REVISION MODE - Attempt {revision_count}")
+        attempt = fact_revision_count if fact_revision_count > 0 else revision_count
+        print(f"REVISION MODE - Attempt {attempt}")
         print(f"Topic: {topic}")
         print(f"Revising based on editor feedback...")
 
