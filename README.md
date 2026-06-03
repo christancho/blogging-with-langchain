@@ -108,18 +108,8 @@ pip install -r requirements.txt
 Create a `.env` file in the project root:
 
 ```env
-# LLM Configuration (with automatic fallback)
-# The system tries Anthropic first, falls back to OpenRouter if it fails
-# At least one API key is required
-
-# Primary: Anthropic Claude (recommended)
-ANTHROPIC_API_KEY=your_anthropic_api_key
-CLAUDE_MODEL=claude-3-5-sonnet-20241022
-CLAUDE_TEMPERATURE=0.7
-
-# Fallback: OpenRouter (used if Anthropic fails)
+# LLM Configuration (OpenRouter)
 OPENROUTER_API_KEY=your_openrouter_api_key
-OPENROUTER_MODEL=openai/gpt-4o
 
 # Brave Search API
 BRAVE_SEARCH_API_KEY=your_brave_search_api_key
@@ -159,9 +149,7 @@ Required variables:
 | `JWT_SECRET` | Secret key for signing JWT tokens |
 | `UI_PASSWORD` | Password to log into the web UI |
 | `WEB_URL` | Public URL of the web frontend (e.g. `http://localhost:3000`) — used by the API for CORS |
-| `ANTHROPIC_API_KEY` | Your Anthropic API key |
-| `CLAUDE_MODEL` | Claude model to use (e.g. `claude-sonnet-4-6`) |
-| `CLAUDE_TEMPERATURE` | LLM temperature (e.g. `0.7`) |
+| `OPENROUTER_API_KEY` | Your OpenRouter API key |
 | `BRAVE_SEARCH_API_KEY` | Brave Search API key |
 | `GHOST_API_KEY` | Ghost Admin API key |
 | `GHOST_API_URL` | Your Ghost instance URL (e.g. `https://yoursite.com`) |
@@ -547,7 +535,7 @@ MAILGUN_API_KEY=your_mailgun_api_key
 MAILGUN_DOMAIN=your_mailgun_domain
 EMAIL_FROM=noreply@yourdomain.com
 EMAIL_TO=you@youremail.com
-ANTHROPIC_API_KEY=your_anthropic_api_key
+OPENROUTER_API_KEY=your_openrouter_api_key
 ```
 
 ## Running Tests
@@ -672,10 +660,10 @@ Or simply remove/comment out the LangSmith variables.
 If you see configuration validation errors:
 ```
 Configuration validation failed:
-  - At least one LLM API key is required (ANTHROPIC_API_KEY or OPENROUTER_API_KEY)
+  - OPENROUTER_API_KEY is required
 ```
 
-Ensure your `.env` file has at least one LLM API key configured.
+Ensure your `.env` file has `OPENROUTER_API_KEY` configured.
 
 ### API Rate Limits
 

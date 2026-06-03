@@ -29,11 +29,20 @@ export interface JobCreate {
 export interface Settings {
   default_tone: string;
   default_word_count: number;
+  llm_temperature: number;
+  llm_model: string;
 }
 
 export interface SettingsUpdate {
   default_tone?: string;
   default_word_count?: number;
+  llm_temperature?: number;
+  llm_model?: string;
+}
+
+export interface OpenRouterModel {
+  id: string;
+  name: string;
 }
 
 export interface PasswordChange {
@@ -94,4 +103,5 @@ export const settings = {
       method: 'PUT',
       body: JSON.stringify(body),
     }),
+  getModels: () => apiFetch<OpenRouterModel[]>('/settings/models'),
 };

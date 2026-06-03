@@ -11,6 +11,8 @@ if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
 from agentic.graph import create_blog_graph  # noqa: E402 — must come after sys.path setup
+from agentic.config import Config  # noqa: E402 — must come after sys.path setup
+from sqlalchemy import select  # noqa: E402 — must come after sys.path setup
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +37,6 @@ def _worker_thread() -> None:
 async def _worker_loop() -> None:
     """Poll for pending jobs every 5 seconds and execute them."""
     from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-    from sqlalchemy import select
     from api.models import Job
 
     engine = create_async_engine(os.environ["DATABASE_URL"])
@@ -68,7 +69,7 @@ async def _run_job(job_id, session_factory) -> None:
         job_id: UUID of the Job row to execute.
         session_factory: SQLAlchemy async_sessionmaker used to open DB sessions.
     """
-    from api.models import Job
+    from api.models import Job, Settings
 
     try:
         async with session_factory() as db:
@@ -83,6 +84,14 @@ async def _run_job(job_id, session_factory) -> None:
             tone = job.tone
             word_count = job.word_count
             instructions = job.instructions or ""
+
+            settings_result = await db.execute(select(Settings))
+            settings = settings_result.scalar_one_or_none()
+            if settings:
+                Config.OPENROUTER_TEMPERATURE = settings.llm_temperature
+                Config.OPENROUTER_MODEL = settings.llm_model
+                # Safe: worker processes one job at a time; concurrent jobs would need a lock here
+                logger.info(f"LLM settings from DB: model={settings.llm_model}, temperature={settings.llm_temperature}")
     except Exception as e:
         logger.error(f"Job {job_id} failed to start: {e}", exc_info=True)
         try:

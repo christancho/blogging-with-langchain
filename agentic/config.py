@@ -12,18 +12,13 @@ class Config:
     """Main configuration class"""
 
     # ============================================================================
-    # LLM Provider Configuration (Claude Primary, OpenRouter Fallback)
+    # LLM Provider Configuration (OpenRouter)
     # ============================================================================
 
-    # Primary: Anthropic Claude
-    ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-    CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-3-5-sonnet-20241022")
-    CLAUDE_TEMPERATURE = float(os.getenv("CLAUDE_TEMPERATURE", "0.7"))
-
-    # Fallback: OpenRouter
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-    OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o")
+    OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "anthropic/claude-sonnet-4-5")
     OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+    OPENROUTER_TEMPERATURE = float(os.getenv("OPENROUTER_TEMPERATURE", "0.7"))
 
     # ============================================================================
     # LangSmith Configuration (Optional - for tracing and debugging)
@@ -138,9 +133,8 @@ class Config:
         """Validate that all required configuration is present"""
         errors = []
 
-        # Check LLM configuration - require at least one API key
-        if not cls.ANTHROPIC_API_KEY and not cls.OPENROUTER_API_KEY:
-            errors.append("At least one LLM API key is required (ANTHROPIC_API_KEY or OPENROUTER_API_KEY)")
+        if not cls.OPENROUTER_API_KEY:
+            errors.append("OPENROUTER_API_KEY is required")
 
         # Check required APIs
         if not cls.BRAVE_SEARCH_API_KEY:
@@ -160,66 +154,34 @@ class Config:
     @classmethod
     def get_llm(cls):
         """
-        Get LLM with automatic fallback support.
-
-        Returns an LLM that tries the primary provider (Anthropic Claude) first,
-        and automatically falls back to the secondary provider (OpenRouter) if it fails.
+        Get LLM via OpenRouter.
 
         Returns:
-            LLM with fallbacks configured
+            ChatOpenAI configured to use OpenRouter
         """
-        from langchain_anthropic import ChatAnthropic
         from langchain_openai import ChatOpenAI
 
-        llms = []
-
-        # Add Anthropic Claude as primary if available
-        if cls.ANTHROPIC_API_KEY:
-            llms.append(ChatAnthropic(
-                api_key=cls.ANTHROPIC_API_KEY,
-                model=cls.CLAUDE_MODEL,
-                temperature=cls.CLAUDE_TEMPERATURE,
-            ))
-
-        # Add OpenRouter as fallback if available
-        if cls.OPENROUTER_API_KEY:
-            llms.append(ChatOpenAI(
-                api_key=cls.OPENROUTER_API_KEY,
-                model=cls.OPENROUTER_MODEL,
-                base_url=cls.OPENROUTER_BASE_URL,
-                temperature=cls.CLAUDE_TEMPERATURE,
-            ))
-
-        # Return primary with fallback, or just the one available
-        if len(llms) > 1:
-            return llms[0].with_fallbacks(llms[1:])
-        else:
-            return llms[0]
+        return ChatOpenAI(
+            api_key=cls.OPENROUTER_API_KEY,
+            model=cls.OPENROUTER_MODEL,
+            base_url=cls.OPENROUTER_BASE_URL,
+            temperature=cls.OPENROUTER_TEMPERATURE,
+        )
 
     @classmethod
     def get_llm_info(cls) -> dict:
         """
-        Get information about configured LLMs for display purposes.
+        Get information about the configured LLM for display purposes.
 
         Returns:
-            Dict with primary and fallback provider info
+            Dict with provider info
         """
-        info = {}
-
-        if cls.ANTHROPIC_API_KEY:
-            info["primary"] = {
-                "provider": "Anthropic",
-                "model": cls.CLAUDE_MODEL
-            }
-
-        if cls.OPENROUTER_API_KEY:
-            key = "fallback" if cls.ANTHROPIC_API_KEY else "primary"
-            info[key] = {
+        return {
+            "primary": {
                 "provider": "OpenRouter",
-                "model": cls.OPENROUTER_MODEL
+                "model": cls.OPENROUTER_MODEL,
             }
-
-        return info
+        }
 
     @classmethod
     def setup_langsmith(cls) -> None:

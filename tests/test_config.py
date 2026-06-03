@@ -30,50 +30,11 @@ class TestConfig:
         assert Config.META_DESCRIPTION_MAX_LENGTH == 160
 
     @patch.dict(os.environ, {
-        "ANTHROPIC_API_KEY": "test_key",
-        "CLAUDE_MODEL": "claude-3-5-sonnet-20241022",
-    })
-    def test_get_llm_info_anthropic_only(self):
-        """Test LLM info when only Anthropic is configured"""
-        from importlib import reload
-        import agentic.config as config
-        reload(config)
-
-        llm_info = config.Config.get_llm_info()
-
-        assert "primary" in llm_info
-        assert llm_info["primary"]["provider"] == "Anthropic"
-        assert llm_info["primary"]["model"] == "claude-3-5-sonnet-20241022"
-        assert "fallback" not in llm_info
-
-    @patch.dict(os.environ, {
-        "ANTHROPIC_API_KEY": "test_anthropic_key",
-        "OPENROUTER_API_KEY": "test_openrouter_key",
-        "CLAUDE_MODEL": "claude-3-5-sonnet-20241022",
-        "OPENROUTER_MODEL": "openai/gpt-4o"
-    })
-    def test_get_llm_info_both_providers(self):
-        """Test LLM info when both providers are configured"""
-        from importlib import reload
-        import agentic.config as config
-        reload(config)
-
-        llm_info = config.Config.get_llm_info()
-
-        assert "primary" in llm_info
-        assert llm_info["primary"]["provider"] == "Anthropic"
-        assert llm_info["primary"]["model"] == "claude-3-5-sonnet-20241022"
-
-        assert "fallback" in llm_info
-        assert llm_info["fallback"]["provider"] == "OpenRouter"
-        assert llm_info["fallback"]["model"] == "openai/gpt-4o"
-
-    @patch.dict(os.environ, {
         "OPENROUTER_API_KEY": "test_key",
-        "OPENROUTER_MODEL": "openai/gpt-4o",
+        "OPENROUTER_MODEL": "anthropic/claude-sonnet-4-5",
     })
-    def test_get_llm_info_openrouter_only(self):
-        """Test LLM info when only OpenRouter is configured"""
+    def test_get_llm_info(self):
+        """Test LLM info returns OpenRouter provider"""
         from importlib import reload
         import agentic.config as config
         reload(config)
@@ -82,7 +43,7 @@ class TestConfig:
 
         assert "primary" in llm_info
         assert llm_info["primary"]["provider"] == "OpenRouter"
-        assert llm_info["primary"]["model"] == "openai/gpt-4o"
+        assert llm_info["primary"]["model"] == "anthropic/claude-sonnet-4-5"
         assert "fallback" not in llm_info
 
     def test_default_tags(self):
