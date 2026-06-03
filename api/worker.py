@@ -11,6 +11,7 @@ if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
 from agentic.graph import create_blog_graph  # noqa: E402 — must come after sys.path setup
+from agentic.config import Config  # noqa: E402 — must come after sys.path setup
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +69,7 @@ async def _run_job(job_id, session_factory) -> None:
         job_id: UUID of the Job row to execute.
         session_factory: SQLAlchemy async_sessionmaker used to open DB sessions.
     """
-    from api.models import Job
+    from api.models import Job, Settings
 
     try:
         async with session_factory() as db:
@@ -83,6 +84,13 @@ async def _run_job(job_id, session_factory) -> None:
             tone = job.tone
             word_count = job.word_count
             instructions = job.instructions or ""
+
+            from sqlalchemy import select
+            settings_result = await db.execute(select(Settings))
+            settings = settings_result.scalar_one_or_none()
+            if settings:
+                Config.OPENROUTER_TEMPERATURE = settings.llm_temperature
+                Config.OPENROUTER_MODEL = settings.llm_model
     except Exception as e:
         logger.error(f"Job {job_id} failed to start: {e}", exc_info=True)
         try:
