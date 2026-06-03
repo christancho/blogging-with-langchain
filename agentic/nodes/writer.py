@@ -91,7 +91,11 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
             max_word_count=max_word_count,
             current_date=current_date,
             research_key_facts=research_key_facts,
-            is_fact_revision=(fact_revision_count > 0 and bool(fact_check_feedback)),
+            is_fact_revision=(
+                fact_revision_count > 0
+                and fact_check_feedback
+                and state.get("fact_check_status") == "failed"
+            ),
         )
 
         prompt = ChatPromptTemplate.from_messages([

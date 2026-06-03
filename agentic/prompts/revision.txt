@@ -47,8 +47,8 @@ These facts were sourced and verified during research. Use them as your factual 
 
 **DO:**
 - Address EVERY specific issue mentioned in the editor feedback
-- Expand sections that are too short (word count issues)
-- Add missing inline citations/links where feedback indicates insufficient references
+{% if not is_fact_revision %}- Expand sections that are too short (word count issues)
+{% endif %}- Add missing inline citations/links where feedback indicates insufficient references
 - Improve article structure and flow if feedback mentions structural issues
 
 **IF HOOK SCORE IS LOW (below 7):**
@@ -95,6 +95,7 @@ These facts were sourced and verified during research. Use them as your factual 
 - Examples: python, javascript, bash, sql, json, yaml, etc.
 - Code blocks without language identifiers will appear as plain grey text with no highlighting
 
+{% if not is_fact_revision %}
 **Key Areas to Verify After Revision:**
 1. Word count meets minimum (at least {{ min_word_count }} words, with {{ word_count_target }} as target. Minimum -5% tolerance)
 2. Target: 10-15 inline links (minimum 5 recommended)
@@ -102,6 +103,7 @@ These facts were sourced and verified during research. Use them as your factual 
 4. Article has clear section structure with H2 headings
 5. Content flows logically and is well-organized
 6. All editor feedback has been explicitly addressed
+{% endif %}
 
 **IMPORTANT:**
 - This is a REVISION, not a complete rewrite
