@@ -205,6 +205,9 @@ async def _run_job(job_id, session_factory) -> None:
 
             async with session_factory() as db:
                 job = await db.get(Job, job_id)
+                if not job:
+                    logger.info(f"Job {job_id} was removed during execution, stopping worker")
+                    return
                 job.current_node = node_name
                 job.logs = tee.getvalue()
                 await db.commit()

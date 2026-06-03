@@ -61,7 +61,7 @@ function LogPanel({ jobId }: { jobId: string }) {
       <pre
         ref={preRef}
         onScroll={handleScroll}
-        className="mt-2 text-xs font-mono bg-gray-950 text-gray-200 rounded p-3 overflow-y-auto max-h-72 whitespace-pre-wrap"
+        className="mt-2 text-xs font-mono bg-gray-950 text-gray-200 rounded p-3 overflow-y-auto max-h-[54rem] whitespace-pre-wrap"
       >
         {logs || 'Waiting for output…'}
       </pre>
@@ -147,7 +147,16 @@ export default function QueuePage() {
                   : 'Starting…'}
               </p>
             </div>
-            <StatusBadge status="running" />
+            <div className="flex items-center gap-3">
+              <StatusBadge status="running" />
+              <button
+                onClick={() => handleDelete(runningJob.id)}
+                disabled={deletingId === runningJob.id}
+                className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50"
+              >
+                {deletingId === runningJob.id ? 'Removing…' : 'Remove'}
+              </button>
+            </div>
           </div>
           <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
             <div className="h-full bg-blue-500 rounded-full animate-[pulse_1.5s_ease-in-out_infinite] w-1/2" />

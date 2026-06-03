@@ -80,12 +80,10 @@ async def get_job_logs(job_id: uuid.UUID, db: AsyncSession = Depends(get_db), _:
 
 @router.delete("/{job_id}", status_code=204)
 async def delete_job(job_id: uuid.UUID, db: AsyncSession = Depends(get_db), _: str = Depends(require_auth)):
-    """Remove a pending job from the queue."""
+    """Remove a job from the queue. Running jobs are deleted immediately; the worker stops at the next node boundary."""
     job = await db.get(Job, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    if job.status != "pending":
-        raise HTTPException(status_code=409, detail="Only pending jobs can be deleted")
     await db.delete(job)
     await db.commit()
 
