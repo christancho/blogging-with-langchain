@@ -209,11 +209,25 @@ def fact_checker_node(state: BlogState) -> Dict[str, Any]:
     print(f"\n❌ FAILED — {len(false_verdicts)} false claim(s) found, routing back to writer")
     print(feedback)
 
+    # Promote verified corrections into research_key_facts so the writer has
+    # an authoritative anchor on next revision — not just a text memo.
+    new_facts = [
+        {"fact": v["correct_information"], "source": v["source_url"], "confidence": "high"}
+        for v in false_verdicts
+        if v.get("correct_information") and v.get("source_url")
+    ]
+    updated_facts = state.get("research_key_facts", []) + new_facts
+
+    # Accumulate feedback across passes so old corrections are never forgotten.
+    existing_feedback = state.get("fact_check_feedback", "")
+    accumulated_feedback = (existing_feedback.rstrip() + "\n\n" + feedback) if existing_feedback else feedback
+
     return {
         "fact_check_status": "failed",
         "fact_verdicts": verdicts,
-        "fact_check_feedback": feedback,
+        "fact_check_feedback": accumulated_feedback,
         "fact_revision_count": fact_revision_count + 1,
+        "research_key_facts": updated_facts,
     }
 
 
