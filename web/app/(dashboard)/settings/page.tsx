@@ -3,8 +3,17 @@
 import { useState, useEffect, useRef, FormEvent } from 'react';
 import { settings, OpenRouterModel } from '@/lib/api';
 
+const TONE_PRESETS = [
+  { name: 'Conversational', value: 'friendly, conversational, and approachable — like a knowledgeable friend explaining something they care about, while remaining authoritative and well-researched' },
+  { name: 'Expert Casual', value: 'knowledgeable yet informal — like a senior colleague sharing hard-won insights over coffee, mixing technical depth with relatable language' },
+  { name: 'Storyteller', value: 'narrative-driven and engaging — weaving real-world stories and examples throughout, making complex topics feel like compelling reads rather than textbooks' },
+  { name: 'Practical', value: 'direct, actionable, and results-focused — every paragraph earns its place by teaching the reader something they can use immediately, with minimal fluff' },
+  { name: 'Thought Leader', value: 'bold, opinionated, and forward-looking — taking clear positions on industry trends, challenging conventional wisdom, and backing claims with evidence' },
+];
+
 export default function SettingsPage() {
   const [tone, setTone] = useState('');
+  const [toneDisplay, setToneDisplay] = useState('');
   const [wordCount, setWordCount] = useState(3500);
   const [llmTemperature, setLlmTemperature] = useState(0.7);
   const [llmModel, setLlmModel] = useState('');
@@ -14,6 +23,10 @@ export default function SettingsPage() {
   const [modelsLoading, setModelsLoading] = useState(true);
   const modelInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const [showToneDropdown, setShowToneDropdown] = useState(false);
+  const toneInputRef = useRef<HTMLInputElement>(null);
+  const toneDropdownRef = useRef<HTMLDivElement>(null);
 
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -28,6 +41,8 @@ export default function SettingsPage() {
   useEffect(() => {
     settings.get().then(s => {
       setTone(s.default_tone);
+      const matched = TONE_PRESETS.find(p => p.value === s.default_tone);
+      setToneDisplay(matched ? matched.name : s.default_tone);
       setWordCount(s.default_word_count);
       setLlmTemperature(s.llm_temperature);
       setLlmModel(s.llm_model);
@@ -42,7 +57,7 @@ export default function SettingsPage() {
       .finally(() => setModelsLoading(false));
   }, []);
 
-  // Close dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (
@@ -52,6 +67,12 @@ export default function SettingsPage() {
         setShowModelDropdown(false);
         const selected = models.find(m => m.id === llmModel);
         setModelSearch(selected ? selected.name : llmModel);
+      }
+      if (
+        toneDropdownRef.current && !toneDropdownRef.current.contains(e.target as Node) &&
+        toneInputRef.current && !toneInputRef.current.contains(e.target as Node)
+      ) {
+        setShowToneDropdown(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -209,12 +230,35 @@ export default function SettingsPage() {
           {/* Tone */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Default tone</label>
-            <input
-              type="text"
-              value={tone}
-              onChange={e => setTone(e.target.value)}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <div className="relative">
+              <input
+                ref={toneInputRef}
+                type="text"
+                value={toneDisplay}
+                onChange={e => { setTone(e.target.value); setToneDisplay(e.target.value); setShowToneDropdown(true); }}
+                onFocus={() => setShowToneDropdown(true)}
+                placeholder="e.g. informative and insightful"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              {showToneDropdown && (
+                <div
+                  ref={toneDropdownRef}
+                  className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg overflow-hidden"
+                >
+                  {TONE_PRESETS.map(preset => (
+                    <button
+                      key={preset.name}
+                      type="button"
+                      onClick={() => { setTone(preset.value); setToneDisplay(preset.name); setShowToneDropdown(false); }}
+                      className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 ${tone === preset.value ? 'bg-blue-50 font-medium' : ''}`}
+                    >
+                      <span className="block text-gray-900 font-medium">{preset.name}</span>
+                      <span className="block text-xs text-gray-400">{preset.value}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Word count */}
