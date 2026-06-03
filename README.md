@@ -110,7 +110,6 @@ Create a `.env` file in the project root:
 ```env
 # LLM Configuration (OpenRouter)
 OPENROUTER_API_KEY=your_openrouter_api_key
-OPENROUTER_MODEL=anthropic/claude-sonnet-4-5
 
 # Brave Search API
 BRAVE_SEARCH_API_KEY=your_brave_search_api_key
@@ -151,7 +150,6 @@ Required variables:
 | `UI_PASSWORD` | Password to log into the web UI |
 | `WEB_URL` | Public URL of the web frontend (e.g. `http://localhost:3000`) — used by the API for CORS |
 | `OPENROUTER_API_KEY` | Your OpenRouter API key |
-| `OPENROUTER_MODEL` | Model to use via OpenRouter (e.g. `anthropic/claude-sonnet-4-5`) |
 | `BRAVE_SEARCH_API_KEY` | Brave Search API key |
 | `GHOST_API_KEY` | Ghost Admin API key |
 | `GHOST_API_URL` | Your Ghost instance URL (e.g. `https://yoursite.com`) |
