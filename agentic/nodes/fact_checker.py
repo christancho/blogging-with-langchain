@@ -17,7 +17,7 @@ from agentic.tools import BraveSearchTool, URLFetcherTool
 
 MAX_URLS_PER_CLAIM = 2
 MAX_CLAIMS = 30  # Cap to control cost on very long articles
-MAX_EVIDENCE_CHARS_PER_URL = 1500  # Reduced vs single-claim mode to keep batch prompt size manageable
+MAX_EVIDENCE_CHARS_PER_URL = 3000
 
 
 def fact_checker_node(state: BlogState, config: RunnableConfig) -> Dict[str, Any]:
@@ -109,65 +109,68 @@ def fact_checker_node(state: BlogState, config: RunnableConfig) -> Dict[str, Any
     print(f"  ✓ Extracted {len(claims)} claims")
 
     # =========================================================================
-    # PHASE 2a: Gather evidence for all claims (no LLM calls)
+    # PHASE 2: Verify each claim individually against live sources
     # =========================================================================
-    print("\n🔍 Phase 2: Gathering evidence for all claims...")
+    print("\n🔍 Phase 2: Verifying claims against live sources...")
 
-    claims_with_evidence = []
+    verify_template = PromptLoader.load("fact_checker_verify")
+    verdicts = []
+
     for i, claim_item in enumerate(claims, 1):
         claim_text = claim_item.get("claim", "")
         context_text = claim_item.get("context", "")
         query = claim_item.get("suggested_query", claim_text)
 
-        print(f"  [{i}/{len(claims)}] searching: {claim_text[:70]}...")
+        print(f"\n  [{i}/{len(claims)}] {claim_text[:80]}...")
+
         search_content = _gather_search_content(query, search_tool, url_fetcher)
-        claims_with_evidence.append({
-            "index": i,
-            "claim": claim_text,
-            "context": context_text,
-            "search_content": search_content,
-        })
 
-    # =========================================================================
-    # PHASE 2b: Single batch LLM call to verify all claims at once
-    # =========================================================================
-    print(f"\n🤖 Phase 2b: Batch verifying {len(claims_with_evidence)} claims in one LLM call...")
+        if not search_content:
+            verdicts.append({
+                "claim": claim_text,
+                "verdict": "unverifiable",
+                "correct_information": None,
+                "source_url": None,
+                "confidence": "low"
+            })
+            print(f"    → unverifiable (no search results)")
+            continue
 
-    verify_batch_template = PromptLoader.load("fact_checker_verify_batch")
-    verify_batch_prompt_text = verify_batch_template.render(
-        claims_with_evidence=claims_with_evidence,
-        current_date=current_date
-    )
-    verify_batch_prompt_text = verify_batch_prompt_text.replace("{", "{{").replace("}", "}}")
+        verify_prompt_text = verify_template.render(
+            claim=claim_text,
+            context=context_text,
+            search_content=search_content,
+            current_date=current_date
+        )
+        verify_prompt_text = verify_prompt_text.replace("{", "{{").replace("}", "}}")
 
-    verify_batch_prompt = ChatPromptTemplate.from_messages([
-        ("system", verify_batch_prompt_text),
-        ("human", "Verify all claims now.")
-    ])
-    verify_batch_chain = verify_batch_prompt | llm | StrOutputParser()
+        verify_prompt = ChatPromptTemplate.from_messages([
+            ("system", verify_prompt_text),
+            ("human", "Verify this claim now.")
+        ])
+        verify_chain = verify_prompt | llm | StrOutputParser()
 
-    try:
-        raw_verdicts = verify_batch_chain.invoke({}, config)
-        verdicts = _parse_json(raw_verdicts, fallback=[])
-
-        # Fallback: if parse failed or wrong length, mark all as unverifiable
-        if not isinstance(verdicts, list) or len(verdicts) != len(claims_with_evidence):
-            print(f"  ⚠ Batch response malformed (got {len(verdicts) if isinstance(verdicts, list) else 'non-list'}), marking all as unverifiable")
-            verdicts = [
-                {"claim": c["claim"], "verdict": "unverifiable", "correct_information": None, "source_url": None, "confidence": "low"}
-                for c in claims_with_evidence
-            ]
-
-        for v in verdicts:
-            icon = "✓" if v.get("verdict") == "true" else ("✗" if v.get("verdict") == "false" else "~")
-            print(f"  {icon} {v.get('verdict')} — {v.get('claim', '')[:70]}...")
-
-    except Exception as e:
-        print(f"  ✗ Batch verification failed: {e}")
-        verdicts = [
-            {"claim": c["claim"], "verdict": "unverifiable", "correct_information": None, "source_url": None, "confidence": "low"}
-            for c in claims_with_evidence
-        ]
+        try:
+            raw_verdict = verify_chain.invoke({}, config)
+            verdict = _parse_json(raw_verdict, fallback={
+                "claim": claim_text,
+                "verdict": "unverifiable",
+                "correct_information": None,
+                "source_url": None,
+                "confidence": "low"
+            })
+            verdicts.append(verdict)
+            icon = "✓" if verdict.get("verdict") == "true" else ("✗" if verdict.get("verdict") == "false" else "~")
+            print(f"    → {icon} {verdict.get('verdict')} ({verdict.get('confidence', '?')} confidence)")
+        except Exception as e:
+            print(f"    → ✗ Verification error: {e}")
+            verdicts.append({
+                "claim": claim_text,
+                "verdict": "unverifiable",
+                "correct_information": None,
+                "source_url": None,
+                "confidence": "low"
+            })
 
     # =========================================================================
     # DECISION
