@@ -40,3 +40,17 @@ def test_tee_writer_accumulates_between_clears():
     tee.clear()
     tee.write("c\n")
     assert tee.getvalue() == "c\n"
+
+
+def test_tee_writer_flush_delegates_to_real():
+    real = io.StringIO()
+    tee = TeeWriter(real)
+    tee.write("x")
+    tee.flush()  # should not raise
+
+
+def test_tee_writer_getattr_delegates_to_real():
+    real = io.StringIO()
+    tee = TeeWriter(real)
+    # StringIO has a 'readable' method — verify delegation works
+    assert callable(tee.readable)

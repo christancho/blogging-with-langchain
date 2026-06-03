@@ -133,9 +133,10 @@ async def _run_job(job_id, session_factory) -> None:
             logger.error(f"Could not mark job {job_id} as failed after startup error")
         return
 
-    tee = TeeWriter(sys.stdout)
-    sys.stdout = tee
+    tee = None
     try:
+        tee = TeeWriter(sys.stdout)
+        sys.stdout = tee
         graph = create_blog_graph()
         initial_state = {
             "topic": topic,
@@ -181,4 +182,5 @@ async def _run_job(job_id, session_factory) -> None:
                 job.logs = (job.logs or "") + remaining
             await db.commit()
     finally:
-        sys.stdout = tee._real
+        if tee is not None:
+            sys.stdout = tee._real
