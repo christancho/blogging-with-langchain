@@ -32,7 +32,7 @@ Analyze who would search for and benefit from a blog post about: {{ topic }}
 
 4. **Content Angle Recommendation**
    - What angle will resonate most with this reader?
-   - What tone will build trust (e.g., peer-to-peer expert, mentor, practical guide)?
+   {# Tone recommendation removed — voice tone is set globally via the tone setting #}
    - What should the article emphasize vs. skip based on this audience?
 
 5. **Engagement Hooks**
