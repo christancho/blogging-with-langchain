@@ -80,6 +80,7 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
         # Use revision prompt
         revision_template = PromptLoader.load("revision")
         current_date = datetime.now().strftime("%B %d, %Y")
+        research_key_facts = state.get("research_key_facts", [])
         revision_prompt = revision_template.render(
             topic=topic,
             article_content=article_content_escaped,
@@ -87,7 +88,8 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
             word_count_target=word_count_target,
             min_word_count=min_word_count,
             max_word_count=max_word_count,
-            current_date=current_date
+            current_date=current_date,
+            research_key_facts=research_key_facts,
         )
 
         prompt = ChatPromptTemplate.from_messages([
@@ -115,6 +117,7 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
         current_date = datetime.now().strftime("%B %d, %Y")
         headline_candidates = state.get("headline_candidates", [])
         audience_analysis = state.get("audience_analysis", "")
+        research_key_facts = state.get("research_key_facts", [])
         writer_prompt = writer_template.render(
             topic=topic,
             tone=state.get("tone", Config.BLOG_TONE),
@@ -125,7 +128,8 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
             word_count_target=word_count_target,
             min_word_count=min_word_count,
             max_word_count=max_word_count,
-            current_date=current_date
+            current_date=current_date,
+            research_key_facts=research_key_facts,
         )
 
         prompt = ChatPromptTemplate.from_messages([
