@@ -35,7 +35,7 @@ class ContentSynthesisTool:
                 "sources_by_priority": ["url1", "url2"]
             }
         """
-        llm = Config.get_llm()
+        llm = Config.get_llm(temperature=Config.RESEARCH_TEMPERATURE)
 
         # Build content section for prompt
         content_sections = []
