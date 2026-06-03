@@ -171,7 +171,7 @@ async def _run_job(job_id, session_factory) -> None:
 
     except Exception as e:
         logger.error(f"Job {job_id} failed: {e}", exc_info=True)
-        remaining = tee.getvalue()
+        remaining = tee.getvalue() if tee is not None else ""
         async with session_factory() as db:
             job = await db.get(Job, job_id)
             job.status = "failed"

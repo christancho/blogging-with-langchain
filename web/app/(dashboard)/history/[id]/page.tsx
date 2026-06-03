@@ -130,7 +130,7 @@ export default function PreviewPage() {
             <summary className="text-xs text-gray-500 uppercase tracking-wide cursor-pointer select-none font-medium">
               Pipeline Logs
             </summary>
-            <pre className="mt-3 text-xs font-mono bg-gray-950 text-gray-200 rounded p-3 overflow-y-auto whitespace-pre-wrap">
+            <pre className="mt-3 text-xs font-mono bg-gray-950 text-gray-200 rounded p-3 overflow-y-auto max-h-96 whitespace-pre-wrap">
               {jobLogs}
             </pre>
           </details>
