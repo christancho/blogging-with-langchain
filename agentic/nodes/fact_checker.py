@@ -197,7 +197,7 @@ def fact_checker_node(state: BlogState) -> Dict[str, Any]:
         feedback = _build_feedback(false_verdicts)
 
         existing_facts = state.get("research_key_facts", [])
-        existing_keys = {(f["fact"], f["source"]) for f in existing_facts}
+        existing_keys = {(f.get("fact", ""), f.get("source", "")) for f in existing_facts}
         new_facts = [
             {"fact": v["correct_information"], "source": v["source_url"], "confidence": "high"}
             for v in false_verdicts
@@ -227,7 +227,7 @@ def fact_checker_node(state: BlogState) -> Dict[str, Any]:
     # Promote verified corrections into research_key_facts so the writer has
     # an authoritative anchor on next revision — not just a text memo.
     existing_facts = state.get("research_key_facts", [])
-    existing_keys = {(f["fact"], f["source"]) for f in existing_facts}
+    existing_keys = {(f.get("fact", ""), f.get("source", "")) for f in existing_facts}
     new_facts = [
         {"fact": v["correct_information"], "source": v["source_url"], "confidence": "high"}
         for v in false_verdicts
