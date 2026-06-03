@@ -121,9 +121,10 @@ class URLFetcherTool:
                         "type": "github",
                         "error": None
                     }
-            except (subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError) as e:
-                print(f"  ℹ gh CLI unavailable or failed ({e}), falling back to web fetch")
-                pass
+            except FileNotFoundError:
+                pass  # gh not installed — silent fallback to web fetch
+            except (subprocess.TimeoutExpired, json.JSONDecodeError) as e:
+                print(f"  ℹ gh CLI failed ({e}), falling back to web fetch")
 
             # Fallback to web fetching
             return self._fetch_web_content(url)

@@ -50,7 +50,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen flex flex-col">
       <nav className="bg-white border-b border-gray-200 px-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between h-14">
+        <div className="max-w-7xl mx-auto flex items-center justify-between h-14">
           <div className="flex gap-1">
             {tabs.map(tab => (
               <Link
@@ -79,7 +79,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </button>
         </div>
       </nav>
-      <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-6">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-6">
         {children}
       </main>
     </div>

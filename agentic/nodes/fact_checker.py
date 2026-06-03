@@ -15,7 +15,7 @@ from agentic.tools import BraveSearchTool, URLFetcherTool
 
 
 MAX_URLS_PER_CLAIM = 2
-MAX_CLAIMS = 20  # Cap to control cost on very long articles
+MAX_CLAIMS = 30  # Cap to control cost on very long articles
 
 
 def fact_checker_node(state: BlogState) -> Dict[str, Any]:
@@ -56,7 +56,7 @@ def fact_checker_node(state: BlogState) -> Dict[str, Any]:
             "fact_check_feedback": "",
         }
 
-    llm = Config.get_llm()
+    llm = Config.get_llm(temperature=Config.RESEARCH_TEMPERATURE)
     search_tool = BraveSearchTool()
     url_fetcher = URLFetcherTool()
 
@@ -195,10 +195,25 @@ def fact_checker_node(state: BlogState) -> Dict[str, Any]:
     if fact_revision_count >= fact_max_revisions:
         print(f"\n⚠ FORCE PASSED — max fact revisions ({fact_max_revisions}) reached")
         feedback = _build_feedback(false_verdicts)
+
+        existing_facts = state.get("research_key_facts", [])
+        existing_keys = {(f.get("fact", ""), f.get("source", "")) for f in existing_facts}
+        new_facts = [
+            {"fact": v["correct_information"], "source": v["source_url"], "confidence": "high"}
+            for v in false_verdicts
+            if v.get("correct_information") and v.get("source_url")
+            and (v["correct_information"], v["source_url"]) not in existing_keys
+        ]
+        updated_facts = existing_facts + new_facts
+
+        existing_feedback = state.get("fact_check_feedback", "")
+        accumulated_feedback = (existing_feedback.rstrip() + "\n\n" + feedback) if existing_feedback else feedback
+
         return {
             "fact_check_status": "force_passed",
             "fact_verdicts": verdicts,
-            "fact_check_feedback": feedback,
+            "fact_check_feedback": accumulated_feedback,
+            "research_key_facts": updated_facts,
             "warnings": state.get("warnings", []) + [
                 f"Force-passed fact check after {fact_max_revisions} revisions. "
                 f"{len(false_verdicts)} false claim(s) remain."
@@ -209,11 +224,28 @@ def fact_checker_node(state: BlogState) -> Dict[str, Any]:
     print(f"\n❌ FAILED — {len(false_verdicts)} false claim(s) found, routing back to writer")
     print(feedback)
 
+    # Promote verified corrections into research_key_facts so the writer has
+    # an authoritative anchor on next revision — not just a text memo.
+    existing_facts = state.get("research_key_facts", [])
+    existing_keys = {(f.get("fact", ""), f.get("source", "")) for f in existing_facts}
+    new_facts = [
+        {"fact": v["correct_information"], "source": v["source_url"], "confidence": "high"}
+        for v in false_verdicts
+        if v.get("correct_information") and v.get("source_url")
+        and (v["correct_information"], v["source_url"]) not in existing_keys
+    ]
+    updated_facts = existing_facts + new_facts
+
+    # Accumulate feedback across passes so old corrections are never forgotten.
+    existing_feedback = state.get("fact_check_feedback", "")
+    accumulated_feedback = (existing_feedback.rstrip() + "\n\n" + feedback) if existing_feedback else feedback
+
     return {
         "fact_check_status": "failed",
         "fact_verdicts": verdicts,
-        "fact_check_feedback": feedback,
+        "fact_check_feedback": accumulated_feedback,
         "fact_revision_count": fact_revision_count + 1,
+        "research_key_facts": updated_facts,
     }
 
 

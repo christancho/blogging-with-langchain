@@ -1,4 +1,5 @@
 import asyncio
+import io
 import logging
 import os
 import sys
@@ -15,6 +16,32 @@ from agentic.config import Config  # noqa: E402 — must come after sys.path set
 from sqlalchemy import select  # noqa: E402 — must come after sys.path setup
 
 logger = logging.getLogger(__name__)
+
+
+class TeeWriter:
+    """Writes to both real stdout and an internal buffer for pipeline log capture."""
+
+    def __init__(self, real_stdout):
+        self._real = real_stdout
+        self._buf = io.StringIO()
+
+    def write(self, text: str) -> int:
+        self._real.write(text)
+        self._buf.write(text)
+        return len(text)
+
+    def flush(self) -> None:
+        self._real.flush()
+
+    def getvalue(self) -> str:
+        return self._buf.getvalue()
+
+    def clear(self) -> None:
+        self._buf.truncate(0)
+        self._buf.seek(0)
+
+    def __getattr__(self, name: str):
+        return getattr(self._real, name)
 
 
 def start_worker() -> threading.Thread:
@@ -106,7 +133,24 @@ async def _run_job(job_id, session_factory) -> None:
             logger.error(f"Could not mark job {job_id} as failed after startup error")
         return
 
+    tee = None
     try:
+        tee = TeeWriter(sys.stdout)
+        sys.stdout = tee
+
+        print("=" * 80)
+        print("BLOG GENERATION SYSTEM")
+        print("=" * 80)
+        llm_info = Config.get_llm_info()
+        if "primary" in llm_info:
+            print(f"Primary LLM:       {llm_info['primary']['provider']} ({llm_info['primary']['model']})")
+        print(f"Topic:             {topic}")
+        print(f"Tone:              {tone}")
+        print(f"Target Word Count: {word_count}")
+        print(f"Instructions:      {instructions[:80] + '...' if instructions and len(instructions) > 80 else instructions or '(none)'}")
+        print(f"LangSmith Tracing: {'ENABLED (Project: ' + Config.LANGCHAIN_PROJECT + ')' if Config.is_langsmith_enabled() else 'DISABLED'}")
+        print("=" * 80)
+
         graph = create_blog_graph()
         initial_state = {
             "topic": topic,
@@ -120,10 +164,23 @@ async def _run_job(job_id, session_factory) -> None:
             node_name = next(iter(chunk))
             accumulated.update(chunk[node_name])
 
+            new_output = tee.getvalue()
+            tee.clear()
             async with session_factory() as db:
                 job = await db.get(Job, job_id)
                 job.current_node = node_name
+                if new_output:
+                    job.logs = (job.logs or "") + new_output
                 await db.commit()
+
+        if Config.is_langsmith_enabled():
+            try:
+                from agentic.tools import get_latest_run_cost, format_langsmith_cost_report
+                cost_info = get_latest_run_cost(Config.LANGCHAIN_PROJECT)
+                if cost_info:
+                    print(format_langsmith_cost_report(cost_info))
+            except Exception as cost_err:
+                print(f"⚠️  Could not fetch cost data: {cost_err}")
 
         async with session_factory() as db:
             job = await db.get(Job, job_id)
@@ -137,10 +194,16 @@ async def _run_job(job_id, session_factory) -> None:
 
     except Exception as e:
         logger.error(f"Job {job_id} failed: {e}", exc_info=True)
+        remaining = tee.getvalue() if tee is not None else ""
         async with session_factory() as db:
             job = await db.get(Job, job_id)
             job.status = "failed"
             job.error = str(e)
             job.current_node = None
             job.completed_at = datetime.now(timezone.utc)
+            if remaining:
+                job.logs = (job.logs or "") + remaining
             await db.commit()
+    finally:
+        if tee is not None:
+            sys.stdout = tee._real

@@ -2,6 +2,7 @@
 Configuration settings for the LangGraph Blog Generation System
 """
 import os
+from typing import Optional
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -19,6 +20,7 @@ class Config:
     OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "anthropic/claude-sonnet-4-5")
     OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
     OPENROUTER_TEMPERATURE = float(os.getenv("OPENROUTER_TEMPERATURE", "0.7"))
+    RESEARCH_TEMPERATURE = float(os.getenv("RESEARCH_TEMPERATURE", "0.1"))
 
     # ============================================================================
     # LangSmith Configuration (Optional - for tracing and debugging)
@@ -152,9 +154,12 @@ class Config:
             )
 
     @classmethod
-    def get_llm(cls):
+    def get_llm(cls, temperature: Optional[float] = None):
         """
         Get LLM via OpenRouter.
+
+        Args:
+            temperature: Optional temperature override. Defaults to OPENROUTER_TEMPERATURE.
 
         Returns:
             ChatOpenAI configured to use OpenRouter
@@ -165,7 +170,7 @@ class Config:
             api_key=cls.OPENROUTER_API_KEY,
             model=cls.OPENROUTER_MODEL,
             base_url=cls.OPENROUTER_BASE_URL,
-            temperature=cls.OPENROUTER_TEMPERATURE,
+            temperature=temperature if temperature is not None else cls.OPENROUTER_TEMPERATURE,
         )
 
     @classmethod

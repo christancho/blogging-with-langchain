@@ -39,7 +39,7 @@ def audience_analysis_node(state: BlogState) -> Dict[str, Any]:
     audience_prompt_text = audience_template.render(
         topic=topic,
         instructions=instructions or "No specific instructions provided.",
-        research_summary=research_summary[:3000],  # Limit to avoid token overflow
+        research_summary=research_summary,
         current_date=current_date
     )
 

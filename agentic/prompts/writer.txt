@@ -15,6 +15,18 @@ Write a complete, publication-ready blog post on: {{ topic }}
 **Research Context:**
 {{ research_summary }}
 
+{% if research_key_facts %}
+**VERIFIED FACTS — Numbered Reference List:**
+These facts were sourced and verified during research. Use them as your factual foundation when making specific claims.
+
+{% for fact in research_key_facts %}
+[FACT {{ loop.index }}] {{ fact.fact }}
+  Source: {{ fact.source }}
+  Confidence: {{ fact.get('confidence', 'medium') }}
+
+{% endfor %}
+{% endif %}
+
 {% if audience_analysis %}
 **Target Audience Analysis:**
 Use this to shape your tone, examples, and content angle — write FOR this reader:
@@ -159,4 +171,11 @@ Choose the best headline below as your H1 title, or craft a better one inspired 
   * Create natural "stopping points" for easy scanning
   * Ensure readers can understand the main idea by skimming headings and bold text
 
+{% if research_key_facts %}
+**FACTUAL GROUNDING (Critical):**
+- Every specific claim — statistics, version numbers, percentages, benchmark results, named metrics — must trace back to one of the numbered VERIFIED FACTS above
+- Do not assert specific technical details from your training knowledge; use ONLY what is in the VERIFIED FACTS list
+- If a specific detail is NOT in the list, either omit it or hedge explicitly: "some sources suggest..." or "estimates vary..."
+
+{% endif %}
 Write the complete article now.

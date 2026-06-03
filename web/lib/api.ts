@@ -19,6 +19,10 @@ export interface Job {
   result?: Record<string, unknown> | null;
 }
 
+export interface JobLogs {
+  logs: string | null;
+}
+
 export interface JobCreate {
   topic: string;
   tone?: string;
@@ -90,6 +94,7 @@ export const jobs = {
   publish: (id: string) =>
     apiFetch<{ url: string; post_id: string }>(`/jobs/${id}/publish`, { method: 'POST' }),
   retry: (id: string) => apiFetch<Job>(`/jobs/${id}/retry`, { method: 'POST' }),
+  logs: (id: string) => apiFetch<JobLogs>(`/jobs/${id}/logs`),
 };
 
 // ─── Settings ─────────────────────────────────────────────────────────────────

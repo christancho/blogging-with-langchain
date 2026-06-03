@@ -69,6 +69,15 @@ async def get_job(job_id: uuid.UUID, db: AsyncSession = Depends(get_db), _: str 
     return _serialize(job, include_result=True)
 
 
+@router.get("/{job_id}/logs")
+async def get_job_logs(job_id: uuid.UUID, db: AsyncSession = Depends(get_db), _: str = Depends(require_auth)):
+    """Return the captured log output for a job."""
+    job = await db.get(Job, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return {"logs": job.logs}
+
+
 @router.delete("/{job_id}", status_code=204)
 async def delete_job(job_id: uuid.UUID, db: AsyncSession = Depends(get_db), _: str = Depends(require_auth)):
     """Remove a pending job from the queue."""
