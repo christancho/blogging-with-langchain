@@ -133,5 +133,31 @@ class TestFactCheckerStateUpdates:
 
             result = fact_checker_node(state)
 
-        # No source_url means it should not be added to research_key_facts
+        # Both correct_information and source_url must be present; either missing means excluded
         assert result.get("research_key_facts", []) == []
+
+    @patch("agentic.nodes.fact_checker.Config.get_llm")
+    @patch("agentic.nodes.fact_checker.BraveSearchTool")
+    @patch("agentic.nodes.fact_checker.URLFetcherTool")
+    def test_duplicate_corrections_not_added_twice(self, mock_url, mock_search, mock_llm):
+        from agentic.nodes.fact_checker import fact_checker_node
+
+        # Simulate a fact that was already added in a prior pass
+        existing_facts = [{"fact": "Y is actually Z", "source": "https://y.com", "confidence": "high"}]
+        state = self._make_state(existing_facts=existing_facts)
+
+        claims_json = '[{"claim": "Y is false", "context": "ctx", "suggested_query": "Y query"}]'
+        verdict_json = ('{"claim": "Y is false", "verdict": "false",'
+                        ' "correct_information": "Y is actually Z",'
+                        ' "source_url": "https://y.com", "confidence": "high"}')
+
+        with patch("agentic.nodes.fact_checker.PromptLoader") as mock_loader, \
+             patch("agentic.nodes.fact_checker._gather_search_content", return_value="some content"):
+
+            mock_loader.load.return_value.render.return_value = "prompt text"
+            self._make_llm_mock(mock_llm, claims_json, verdict_json)
+
+            result = fact_checker_node(state)
+
+        # Should still be 1 fact — deduplication prevented the append
+        assert len(result["research_key_facts"]) == 1
