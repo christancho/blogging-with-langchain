@@ -78,7 +78,7 @@ Each node performs a specific task and updates the shared state:
 
 **Required:**
 - Python 3.10+
-- Anthropic API key (Claude) or OpenRouter API key
+- OpenRouter API key
 - Brave Search API key
 - Ghost CMS instance with Admin API access
 
@@ -570,7 +570,7 @@ All settings can be customized in `.env`:
 
 ## LangSmith Tracing (Optional)
 
-LangSmith provides powerful tracing and debugging capabilities for your LangGraph workflows. With LangSmith, you can:
+LangSmith provides powerful tracing and debugging capabilities for your LangGraph workflows. The system uses the official `langchain-openrouter` package so LangSmith correctly identifies the provider and model name (e.g. `anthropic/claude-sonnet-4-5`) instead of labelling all runs as OpenAI. With LangSmith, you can:
 
 - 📊 **Visualize the entire workflow** - See each node execution in a timeline
 - 🔍 **Inspect LLM calls** - View prompts, responses, and token usage
@@ -681,8 +681,7 @@ If quality scores are consistently low:
 ## Cost Estimates
 
 **Per blog post:**
-- Claude 3.5 Sonnet via Anthropic: ~$0.15-0.30
-- OpenRouter (Claude 3.5 Sonnet): ~$0.15-0.30
+- OpenRouter (Claude Sonnet): ~$0.15-0.30
 - Brave Search: Free (within limits)
 - Ghost CMS: Varies by hosting
 
