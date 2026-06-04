@@ -4,8 +4,7 @@ langchain-core
 langchain-community
 
 # LLM Providers
-langchain-anthropic
-langchain-openai
+langchain-openrouter
 
 # LangGraph
 langgraph
@@ -45,7 +44,7 @@ psycopg2-binary>=2.9.0
 alembic>=1.13.0
 
 # Auth
-passlib[bcrypt]>=1.7.4
+bcrypt>=4.0.0
 python-jose[cryptography]>=3.3.0
 
 # Testing

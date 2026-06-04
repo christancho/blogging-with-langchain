@@ -162,14 +162,12 @@ class Config:
             temperature: Optional temperature override. Defaults to OPENROUTER_TEMPERATURE.
 
         Returns:
-            ChatOpenAI configured to use OpenRouter
+            ChatOpenRouter instance
         """
-        from langchain_openai import ChatOpenAI
+        from langchain_openrouter import ChatOpenRouter
 
-        return ChatOpenAI(
-            api_key=cls.OPENROUTER_API_KEY,
+        return ChatOpenRouter(
             model=cls.OPENROUTER_MODEL,
-            base_url=cls.OPENROUTER_BASE_URL,
             temperature=temperature if temperature is not None else cls.OPENROUTER_TEMPERATURE,
         )
 
