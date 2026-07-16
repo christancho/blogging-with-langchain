@@ -1,0 +1,29 @@
+name: gitleaks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # Weekly full-history scan (Mondays 06:00 UTC)
+    - cron: "0 6 * * 1"
+
+jobs:
+  scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history so the scan covers every commit, not just the tip.
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # gitleaks-action is free for personal accounts and public repos.
+          # For a repo owned by a GitHub *organization* you must add a license
+          # key: get one at https://gitleaks.io and store it as a secret, then
+          # uncomment the line below.
+          # GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
