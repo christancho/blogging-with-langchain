@@ -107,7 +107,11 @@ Output valid JSON only, no additional text."""),
             result_clean = result_clean.strip()
 
         try:
-            synthesis = json.loads(result_clean)
+            # strict=False: LLMs commonly emit a raw newline inside a JSON
+            # string value (e.g. between paragraphs of "summary") instead of
+            # an escaped \n; strict mode rejects that as an invalid control
+            # character even though the JSON is otherwise well-formed.
+            synthesis = json.loads(result_clean, strict=False)
         except json.JSONDecodeError as e:
             print(f"⚠️  JSON parse error: {e}")
             print(f"Raw result: {result[:500]}")
