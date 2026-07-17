@@ -1,4 +1,11 @@
 import json
+import logging
+import queue
+import threading
+
+import psycopg2
+
+logger = logging.getLogger(__name__)
 
 
 def channel_for(job_id) -> str:
@@ -65,3 +72,59 @@ def count_completed_lines(text: str | None) -> int:
 def done_payload(status: str) -> str:
     """Terminal event payload signaling the stream should close."""
     return json.dumps({"done": True, "status": status})
+
+
+_STOP = object()  # sentinel enqueued by stop()
+
+
+class LogPublisher:
+    """Drains published log lines from an in-process queue and NOTIFYs each on
+    the job's per-run Postgres channel. Runs its own thread + sync psycopg2
+    connection so it never blocks the (synchronous) pipeline."""
+
+    def __init__(self, job_id, dsn: str):
+        self._job_id = job_id
+        self._channel = channel_for(job_id)
+        self._dsn = dsn
+        self._q: "queue.Queue" = queue.Queue()
+        self._thread: threading.Thread | None = None
+        self._status = "completed"
+
+    def publish(self, seq: int, line: str) -> None:
+        self._q.put((seq, line))
+
+    def start(self) -> None:
+        self._thread = threading.Thread(target=self._run, daemon=True, name="log-publisher")
+        self._thread.start()
+
+    def stop(self, status: str = "completed") -> None:
+        self._status = status
+        self._q.put(_STOP)
+        if self._thread is not None:
+            self._thread.join(timeout=10)
+
+    def _run(self) -> None:
+        conn = None
+        try:
+            conn = psycopg2.connect(self._dsn)
+            conn.autocommit = True
+            cur = conn.cursor()
+            while True:
+                item = self._q.get()
+                if item is _STOP:
+                    self._notify(cur, done_payload(self._status))
+                    return
+                seq, line = item
+                for payload in build_payloads(seq, line):
+                    self._notify(cur, payload)
+        except Exception as e:  # never propagate to the pipeline
+            logger.error(f"LogPublisher error (non-fatal) for job {self._job_id}: {e}", exc_info=True)
+        finally:
+            if conn is not None:
+                conn.close()
+
+    def _notify(self, cur, payload: str) -> None:
+        try:
+            cur.execute("SELECT pg_notify(%s, %s)", (self._channel, payload))
+        except Exception as e:
+            logger.error(f"pg_notify failed (non-fatal) for job {self._job_id}: {e}")
