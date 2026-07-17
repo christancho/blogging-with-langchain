@@ -24,20 +24,29 @@ function LogPanel({ jobId }: { jobId: string }) {
   const preRef = useRef<HTMLPreElement>(null);
   const userScrolledUp = useRef(false);
 
-  const fetchLogs = useCallback(async () => {
-    try {
-      const data = await jobs.logs(jobId);
-      if (data.logs !== null) setLogs(data.logs);
-    } catch (err) {
-      console.debug('[LogPanel] log fetch error (best-effort):', err);
-    }
-  }, [jobId]);
-
   useEffect(() => {
-    fetchLogs();
-    const interval = setInterval(fetchLogs, 2000);
-    return () => clearInterval(interval);
-  }, [fetchLogs]);
+    const lines: string[] = [];
+    const flush = () => setLogs(lines.join('\n'));
+
+    const es = jobs.streamEvents(jobId, {
+      onReplay: (text) => {
+        // text already includes trailing newline structure; seed the buffer
+        lines.length = 0;
+        if (text) lines.push(...text.replace(/\n$/, '').split('\n'));
+        flush();
+      },
+      onLine: (_seq, line) => {
+        lines.push(line);
+        flush();
+      },
+      onError: () => {
+        // Fallback: one-shot fetch if the stream drops
+        jobs.logs(jobId).then((d) => { if (d.logs !== null) setLogs(d.logs); }).catch(() => {});
+      },
+    });
+
+    return () => es.close();
+  }, [jobId]);
 
   // Auto-scroll to bottom unless the user has manually scrolled up
   useEffect(() => {
