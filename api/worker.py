@@ -15,6 +15,8 @@ if _ROOT not in sys.path:
 from agentic.graph import create_blog_graph  # noqa: E402 — must come after sys.path setup
 from agentic.config import Config  # noqa: E402 — must come after sys.path setup
 from sqlalchemy import select  # noqa: E402 — must come after sys.path setup
+from api.pg_dsn import plain_dsn  # noqa: E402
+from api.log_stream import LogPublisher  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -149,6 +151,7 @@ async def _run_job(job_id, session_factory) -> None:
         return
 
     tee = None
+    publisher = None
     flush_stop = threading.Event()
 
     def _start_log_flusher(tee_ref, jid, sf):
@@ -185,7 +188,9 @@ async def _run_job(job_id, session_factory) -> None:
         _asyncio.run(flush_loop())
 
     try:
-        tee = TeeWriter(sys.stdout)
+        publisher = LogPublisher(job_id, plain_dsn(os.environ["DATABASE_URL"]))
+        publisher.start()
+        tee = TeeWriter(sys.stdout, on_line=publisher.publish)
         sys.stdout = tee
 
         print("=" * 80)
@@ -227,6 +232,8 @@ async def _run_job(job_id, session_factory) -> None:
                 job = await db.get(Job, job_id)
                 if not job:
                     logger.info(f"Job {job_id} was removed during execution, stopping worker")
+                    flush_stop.set()
+                    publisher.stop("failed")
                     return
                 job.current_node = node_name
                 job.logs = tee.getvalue()
@@ -252,10 +259,14 @@ async def _run_job(job_id, session_factory) -> None:
             job.completed_at = datetime.now(timezone.utc)
             await db.commit()
 
+        publisher.stop("completed")
+
         logger.info(f"Job {job_id} completed successfully")
 
     except Exception as e:
         flush_stop.set()
+        if publisher is not None:
+            publisher.stop("failed")
         logger.error(f"Job {job_id} failed: {e}", exc_info=True)
         async with session_factory() as db:
             job = await db.get(Job, job_id)
