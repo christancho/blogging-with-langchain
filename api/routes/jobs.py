@@ -119,6 +119,16 @@ async def stream_job_events(
     if exists is None:
         raise HTTPException(status_code=404, detail="Job not found")
 
+    # Release the pooled connection back to the pool now: FastAPI won't tear
+    # down this yield-based dependency until the whole StreamingResponse
+    # finishes sending, so without this the session (and its checked-out
+    # pool connection) would otherwise be held open for the SSE stream's
+    # entire lifetime. event_gen() below never touches `db` again -- the
+    # replay fetch and status poll already go through the dedicated asyncpg
+    # `conn`. The dependency's own generator-close call later becomes a
+    # no-op on an already-closed session, which is safe.
+    await db.close()
+
     channel = channel_for(job_id)
 
     async def event_gen():

@@ -363,6 +363,86 @@ async def test_events_disconnect_cleanup(db, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_events_releases_pooled_connection_before_streaming(test_engine, monkeypatch):
+    """Regression test: the injected SQLAlchemy session's pooled connection
+    must be released (via `db.close()`) right after the existence check,
+    BEFORE the StreamingResponse is returned -- not held open for the life
+    of the SSE stream.
+
+    FastAPI doesn't tear down a yield-based dependency (like `get_db`) until
+    the whole StreamingResponse finishes sending, so without an explicit
+    `db.close()`, a long-lived SSE viewer would keep its pooled connection
+    checked out the entire time it's connected. With the default pool
+    (5 + 10 overflow = 15), ~15 concurrent viewers would exhaust the pool
+    and stall every other DB-touching request app-wide.
+
+    Uses a session bound directly to `test_engine` (mirroring production's
+    `get_db`, which uses `async_sessionmaker(engine)`) rather than the `db`
+    fixture -- the `db` fixture's session is bound to a `Connection` it
+    already checked out itself for the whole test (to support transactional
+    rollback), so `pool.checkedout()` would read >=1 for the entire test
+    regardless of this fix. Binding directly to the engine means a
+    connection is only checked out lazily, on first query, so we can
+    observe the checkout appear and then verify it's released again.
+    """
+    import api.routes.jobs as jobs_module
+    from api.models import Job
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    # Seed a job via a throwaway engine-bound session, then close it, so the
+    # pool is back to a clean baseline before the real assertions start.
+    setup_session = AsyncSession(bind=test_engine, expire_on_commit=False)
+    job = Job(topic="t", tone="warm", word_count=100, status="running", logs="line one\n")
+    setup_session.add(job)
+    await setup_session.commit()
+    await setup_session.refresh(job)
+    job_id = job.id
+    await setup_session.close()
+
+    assert test_engine.pool.checkedout() == 0
+
+    route_session = AsyncSession(bind=test_engine, expire_on_commit=False)
+
+    class FakeConn:
+        async def add_listener(self, channel, callback):
+            pass
+
+        async def remove_listener(self, channel, callback):
+            pass
+
+        async def close(self):
+            pass
+
+        async def fetchrow(self, query, *args):
+            return {"logs": job.logs, "status": job.status}
+
+        async def fetchval(self, query, *args):
+            return job.status
+
+    async def fake_connect(dsn):
+        return FakeConn()
+
+    monkeypatch.setattr(jobs_module.asyncpg, "connect", fake_connect)
+
+    resp = await jobs_module.stream_job_events(job_id=job_id, db=route_session, _="user")
+
+    # By the time `stream_job_events` (a plain async function, not a
+    # generator) has returned, the existence check has run -- checking out a
+    # connection -- and, with the fix, `db.close()` has already released it
+    # back to the pool. This assertion happens BEFORE the SSE stream itself
+    # has even started iterating.
+    assert test_engine.pool.checkedout() == 0
+
+    # Keep proving it stays released while the stream is still open and
+    # actively iterating, not just eventually once everything tears down.
+    await resp.body_iterator.__anext__()  # replay frame
+    assert test_engine.pool.checkedout() == 0
+
+    await resp.body_iterator.aclose()
+    assert test_engine.pool.checkedout() == 0
+
+
+@pytest.mark.asyncio
 async def test_events_closes_on_already_terminal_job(authed_client, db):
     """If the job is already terminal when the client connects, the stream
     must emit `event: done` immediately without waiting on any NOTIFY. This
