@@ -70,6 +70,20 @@ async def _set_status(job_id: uuid.UUID, status: str) -> None:
     await conn.close()
 
 
+async def _append_log_and_notify(job_id: uuid.UUID, channel: str, seq: int, line: str) -> None:
+    """Mirrors production's write-then-NOTIFY publish shape (worker appends
+    to Job.logs; LogPublisher NOTIFYs the same line) as a single fast
+    back-to-back operation, so a line published this way is always
+    observable by a correctly-ordered endpoint via EITHER the replay SELECT
+    (if it lands before that SELECT runs) OR live forwarding (if the NOTIFY
+    arrives after the listener has subscribed) -- never neither.
+    """
+    conn = await asyncpg.connect(DSN)
+    await conn.execute("UPDATE jobs SET logs = COALESCE(logs, '') || $1 WHERE id = $2", line + "\n", job_id)
+    await conn.execute("SELECT pg_notify($1, $2)", channel, json.dumps({"seq": seq, "line": line}))
+    await conn.close()
+
+
 def _free_port() -> int:
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.bind(("127.0.0.1", 0))
@@ -174,6 +188,66 @@ async def test_events_replays_then_streams_live(authed_live_client):
     assert any(x.startswith("REPLAY:line one\nline two\n") for x in received_lines)
     assert "line three" in received_lines
     assert "DUP should drop" not in received_lines
+
+
+@pytest.mark.asyncio
+async def test_events_immediate_publish_not_lost_in_gap(authed_live_client):
+    """Regression test for the subscribe-vs-replay ordering bug: the
+    endpoint must `add_listener` on the dedicated asyncpg connection BEFORE
+    reading Job.logs for the replay snapshot, so nothing published in that
+    gap is ever lost.
+
+    Unlike test_events_replays_then_streams_live (which settles for 0.3s
+    before its first NOTIFY -- plenty of time for the listener to be up
+    even under the old, buggy code, so it doesn't actually exercise the
+    gap), this test publishes with NO settling sleep at all: the write+
+    NOTIFY fires the instant the stream connection is open, which is as
+    early as this HTTP/subprocess test infra can act. That is squarely
+    inside the old code's danger window, since Starlette sends the ASGI
+    response headers (`http.response.start`) BEFORE ever touching the body
+    iterator (see `StreamingResponse.stream_response`), meaning a client
+    that has just received headers has *no* guarantee event_gen() -- let
+    alone add_listener() -- has started running yet.
+
+    The publish helper writes to Job.logs and NOTIFYs together (mirroring
+    production's write-then-notify shape), so the line is guaranteed
+    observable via EITHER the replay snapshot or live forwarding as long as
+    subscribe-before-replay-read holds -- proving the fix rather than
+    just getting lucky on timing.
+    """
+    job_id = uuid.uuid4()
+    await _insert_job(job_id, "running", "")  # k = 0
+    channel = channel_for(job_id)
+
+    received_lines: list[str] = []
+    replay_text = ""
+    try:
+        async with authed_live_client.stream("GET", f"/jobs/{job_id}/events") as resp:
+            assert resp.status_code == 200
+
+            async def pump():
+                nonlocal replay_text
+                async for raw in resp.aiter_lines():
+                    if raw.startswith("data:"):
+                        obj = json.loads(raw[len("data:"):].strip())
+                        if "replay" in obj:
+                            replay_text = obj["replay"]
+                        elif obj.get("done"):
+                            return
+                        else:
+                            received_lines.append(obj["line"])
+
+            task = asyncio.create_task(pump())
+            # No settling sleep: publish as close to connection-initiation
+            # as this infra allows, to land inside the pre-fix gap window.
+            await _append_log_and_notify(job_id, channel, 1, "urgent line")
+            await asyncio.sleep(0.3)  # let live forwarding/replay settle
+            await _notify(channel, done_payload("completed"))
+            await asyncio.wait_for(task, timeout=5)
+    finally:
+        await _delete_job(job_id)
+
+    assert "urgent line" in replay_text or "urgent line" in received_lines
 
 
 @pytest.mark.asyncio
