@@ -102,20 +102,23 @@ async def stream_job_events(
     (the number of newline-completed lines already covered by the replay).
 
     Independently of the `done` NOTIFY, the job's `status` column is polled
-    periodically via the existing DB session: if the publisher's own DB
-    connection never came up (see LogPublisher's defensive connect-failure
-    handling), no `done` NOTIFY will ever be sent, and this fallback is what
-    keeps the stream from hanging forever. Whichever signal (NOTIFY or poll)
-    observes a terminal status first wins and closes the stream.
+    periodically via the same dedicated asyncpg connection used for LISTEN:
+    if the publisher's own DB connection never came up (see LogPublisher's
+    defensive connect-failure handling), no `done` NOTIFY will ever be sent,
+    and this fallback is what keeps the stream from hanging forever.
+    Whichever signal (NOTIFY or poll) observes a terminal status first wins
+    and closes the stream.
+
+    Only a minimal existence check is done here (via the injected session);
+    the replay snapshot and status are read AFTER the listener subscribes
+    (inside event_gen, via the dedicated asyncpg connection), so nothing
+    published during setup is lost and the SQLAlchemy session isn't held
+    open for the life of the stream.
     """
-    job = await db.get(Job, job_id)
-    if not job:
+    exists = await db.scalar(select(Job.id).where(Job.id == job_id))
+    if exists is None:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    replay = job.logs or ""
-    k = count_completed_lines(replay)
-    terminal_at_connect = job.status in _TERMINAL_STATUSES
-    status_at_connect = job.status
     channel = channel_for(job_id)
 
     async def event_gen():
@@ -130,7 +133,20 @@ async def stream_job_events(
             # Subscribe FIRST so nothing published during setup is lost.
             await conn.add_listener(channel, on_notify)
             try:
-                # Replay snapshot (up to 2s stale), then live with seq > k.
+                # Only now (listener is live) read the replay snapshot and
+                # status, via the same dedicated conn used for LISTEN.
+                row = await conn.fetchrow("SELECT logs, status FROM jobs WHERE id = $1", job_id)
+                if row is None:
+                    # Job was deleted between the existence check and here.
+                    yield f"data: {json.dumps({'replay': ''})}\n\n"
+                    return
+
+                replay = row["logs"] or ""
+                k = count_completed_lines(replay)
+                terminal_at_connect = row["status"] in _TERMINAL_STATUSES
+                status_at_connect = row["status"]
+
+                # Replay snapshot, then live with seq > k.
                 yield f"data: {json.dumps({'replay': replay})}\n\n"
                 if terminal_at_connect:
                     yield f"event: done\ndata: {json.dumps({'done': True, 'status': status_at_connect})}\n\n"
@@ -145,9 +161,10 @@ async def stream_job_events(
                         # check whether the job has already gone terminal (e.g.
                         # the publisher's connection never came up, so `done`
                         # will never be NOTIFYd) before deciding whether to send
-                        # a keep-alive comment and keep waiting.
-                        result = await db.execute(select(Job.status).where(Job.id == job_id))
-                        current_status = result.scalar_one_or_none()
+                        # a keep-alive comment and keep waiting. Uses the same
+                        # dedicated conn as LISTEN — no SQLAlchemy session is
+                        # held open for the stream's lifetime.
+                        current_status = await conn.fetchval("SELECT status FROM jobs WHERE id = $1", job_id)
                         if current_status in _TERMINAL_STATUSES:
                             yield f"event: done\ndata: {json.dumps({'done': True, 'status': current_status})}\n\n"
                             return

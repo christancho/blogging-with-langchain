@@ -220,28 +220,104 @@ async def test_events_requires_auth(client):
 
 
 @pytest.mark.asyncio
+async def test_events_disconnect_cleanup(db, monkeypatch):
+    """Verify that a client disconnect (the ASGI server tearing down the
+    generator early, which raises GeneratorExit at the current yield/await)
+    properly cleans up the dedicated asyncpg connection: add_listener is
+    called exactly once before any frame is yielded, and remove_listener +
+    close are each called exactly once during teardown.
+
+    This calls the route function directly, bypassing HTTP/ASGI entirely
+    (ASGITransport fully buffers responses and can't observe partial
+    streaming + early cancellation — see the NOTE at the top of this file),
+    and fakes asyncpg.connect so the calls can be observed without a real
+    LISTEN/NOTIFY connection.
+    """
+    import api.routes.jobs as jobs_module
+    from api.models import Job
+
+    job = Job(topic="t", tone="warm", word_count=100, status="running",
+              logs="line one\n")
+    db.add(job)
+    await db.commit()
+    await db.refresh(job)
+
+    calls: list[str] = []
+
+    class FakeConn:
+        async def add_listener(self, channel, callback):
+            calls.append("add_listener")
+
+        async def remove_listener(self, channel, callback):
+            calls.append("remove_listener")
+
+        async def close(self):
+            calls.append("close")
+
+        async def fetchrow(self, query, *args):
+            calls.append("fetchrow")
+            return {"logs": job.logs, "status": job.status}
+
+        async def fetchval(self, query, *args):
+            calls.append("fetchval")
+            return job.status
+
+    async def fake_connect(dsn):
+        calls.append("connect")
+        return FakeConn()
+
+    monkeypatch.setattr(jobs_module.asyncpg, "connect", fake_connect)
+
+    resp = await jobs_module.stream_job_events(job_id=job.id, db=db, _="user")
+
+    # event_gen() is an async generator: nothing inside it runs until the
+    # first __anext__() drives it, so no calls have happened yet.
+    assert calls == []
+    await resp.body_iterator.__anext__()  # replay frame
+    # add_listener must happen before the replay (fetchrow) is read.
+    assert calls.index("add_listener") < calls.index("fetchrow")
+    assert calls.count("add_listener") == 1
+
+    # Simulate the ASGI server tearing down the generator on client
+    # disconnect: this raises GeneratorExit at the generator's current
+    # await point (inside the live poll loop's asyncio.wait_for).
+    await resp.body_iterator.aclose()
+
+    assert calls.count("remove_listener") == 1
+    assert calls.count("close") == 1
+    assert calls.index("remove_listener") < calls.index("close")
+
+
+@pytest.mark.asyncio
 async def test_events_closes_on_already_terminal_job(authed_client, db):
     """If the job is already terminal when the client connects, the stream
     must emit `event: done` immediately without waiting on any NOTIFY. This
     doesn't require real concurrency (the generator returns on its own after
     one frame), so the ordinary buffering-but-in-process authed_client works
-    fine here."""
-    from api.models import Job
-    job = Job(topic="t", tone="warm", word_count=100, status="completed",
-              logs="done already\n")
-    db.add(job)
-    await db.commit()
-    await db.refresh(job)
+    fine here.
 
-    resp = await authed_client.get(f"/jobs/{job.id}/events")
-    assert resp.status_code == 200
-    saw_done = False
-    for raw_line in resp.text.splitlines():
-        if raw_line.startswith("event: done"):
-            saw_done = True
-        if raw_line.startswith("data:") and saw_done:
-            obj = json.loads(raw_line[len("data:"):].strip())
-            assert obj.get("done") is True
-            assert obj.get("status") == "completed"
-            break
-    assert saw_done
+    The Job row is inserted via raw asyncpg (autocommit), not the `db`
+    fixture, because the endpoint now reads its replay snapshot via a
+    dedicated asyncpg connection opened *after* the listener subscribes
+    (Finding 1/3 fix): that connection is a genuinely separate physical
+    connection from the `db` fixture's transactional session, so it can
+    only see rows that are actually committed to the database, not rows
+    only visible inside `db`'s test transaction.
+    """
+    job_id = uuid.uuid4()
+    await _insert_job(job_id, "completed", "done already\n")
+    try:
+        resp = await authed_client.get(f"/jobs/{job_id}/events")
+        assert resp.status_code == 200
+        saw_done = False
+        for raw_line in resp.text.splitlines():
+            if raw_line.startswith("event: done"):
+                saw_done = True
+            if raw_line.startswith("data:") and saw_done:
+                obj = json.loads(raw_line[len("data:"):].strip())
+                assert obj.get("done") is True
+                assert obj.get("status") == "completed"
+                break
+        assert saw_done
+    finally:
+        await _delete_job(job_id)
