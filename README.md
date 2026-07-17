@@ -326,6 +326,7 @@ The API runs at [http://localhost:8000](http://localhost:8000). Interactive docs
 | `POST` | `/login` | Authenticate and receive a JWT token |
 | `GET` | `/jobs` | List all jobs (newest first) |
 | `POST` | `/jobs` | Queue a new blog generation job |
+| `GET` | `/jobs/{id}/events` | Stream pipeline logs in real time (Server-Sent Events) |
 | `DELETE` | `/jobs/{id}` | Remove a pending job |
 | `GET` | `/settings` | Get default tone and word count |
 | `PATCH` | `/settings` | Update default tone and word count |

@@ -293,6 +293,28 @@ Publishing to Ghost requires:
 4. Set status: draft or published (based on `PUBLISH_AS_DRAFT`)
 5. Return post ID and URL
 
+## API Backend & Live Pipeline Logs
+
+The backend is a FastAPI application with a PostgreSQL database and a background worker for job execution.
+
+**Live log streaming:** Pipeline execution logs stream in real time to the web UI via `GET /jobs/{id}/events` (Server-Sent Events). The endpoint:
+- Replays completed log lines from `Job.logs` (the durable replay store)
+- Subscribes to live updates via Postgres LISTEN/NOTIFY on channel `blog_run_{id}` to capture logs emitted during execution
+- Falls back to periodic polling (via a dedicated DB connection) if the NOTIFY channel becomes unreachable
+- Closes the stream when the job reaches a terminal status (completed, failed, error)
+
+**Implementation details:**
+- **Replay + Live seam:** `Job.logs` is populated with newline-delimited JSON via `LogStreamBuilder.build_payloads()` as lines complete. The endpoint replays this first (skipping oversized or out-of-order lines via sequence numbers), then subscribes to live updates.
+- **Sequence tracking:** Each log line is tagged with a sequence number (`seq`). Lines with large payloads (>8 KB) are split into chunks and reassembled on the client.
+- **Publisher:** Worker publishes via `LogPublisher.publish_line(job_id, text)` when standard output is captured by `TeeWriter`, or manually via `publish_pipeline_log()` for state transitions and errors.
+
+**Key files:**
+- `api/routes/jobs.py`: `/jobs/{id}/events` endpoint with SSE streaming logic
+- `api/log_stream.py`: Log payload building and line splitting for large payloads
+- `api/log_stream_pubsub.py`: Postgres LISTEN/NOTIFY wrapper and concurrent listener management
+- `api/teewriter.py`: Dual output capture (logs to Job.logs and broadcasts via LogPublisher)
+- `api/models.py`: Job model with `logs` field (durable JSON-per-line replay store)
+
 ## Debugging Tips
 
 ### Enable Debug Mode
