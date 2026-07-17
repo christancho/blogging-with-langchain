@@ -4,6 +4,7 @@ import logging
 import os
 import sys
 import threading
+from collections.abc import Callable
 from datetime import datetime, timezone
 
 # Ensure the repo root is on sys.path so graph.py can be imported
@@ -25,7 +26,7 @@ class TeeWriter:
     emitted via on_line(seq, line) with a per-writer monotonic seq starting at 1.
     """
 
-    def __init__(self, real_stdout, on_line=None):
+    def __init__(self, real_stdout, on_line: Callable[[int, str], None] | None = None):
         self._real = real_stdout
         self._buf = io.StringIO()
         self._on_line = on_line
