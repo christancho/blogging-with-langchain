@@ -85,3 +85,14 @@ async def test_isolation_across_channels():
     await asyncio.sleep(0.5)
     await la.close()
     assert got_a == []  # A's listener never sees B's channel
+
+
+@pytest.mark.asyncio
+async def test_publish_survives_unreachable_db():
+    import uuid
+    from api.log_stream import LogPublisher
+    pub = LogPublisher(uuid.uuid4(), "postgresql://bad:bad@127.0.0.1:1/nope")
+    pub.start()
+    pub.publish(1, "line while db down")  # must not raise
+    pub.stop("failed")                    # must return, not hang
+    assert pub._thread is not None and not pub._thread.is_alive()

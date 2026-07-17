@@ -94,6 +94,8 @@ class LogPublisher:
         self._q.put((seq, line))
 
     def start(self) -> None:
+        if self._thread is not None:
+            return
         self._thread = threading.Thread(target=self._run, daemon=True, name="log-publisher")
         self._thread.start()
 
@@ -102,23 +104,34 @@ class LogPublisher:
         self._q.put(_STOP)
         if self._thread is not None:
             self._thread.join(timeout=10)
+            if self._thread.is_alive():
+                logger.warning(f"LogPublisher thread for job {self._job_id} did not terminate within timeout")
 
     def _run(self) -> None:
         conn = None
+        cur = None
         try:
-            conn = psycopg2.connect(self._dsn)
-            conn.autocommit = True
-            cur = conn.cursor()
+            try:
+                conn = psycopg2.connect(self._dsn, connect_timeout=10)
+                conn.autocommit = True
+                cur = conn.cursor()
+            except Exception as e:
+                logger.error(f"LogPublisher could not connect (non-fatal) for job {self._job_id}: {e}", exc_info=True)
+
             while True:
                 item = self._q.get()
                 if item is _STOP:
-                    self._notify(cur, done_payload(self._status))
+                    if cur is not None:
+                        self._notify(cur, done_payload(self._status))
                     return
+                if cur is None:
+                    continue  # no connection: drain & discard until _STOP
                 seq, line = item
-                for payload in build_payloads(seq, line):
-                    self._notify(cur, payload)
-        except Exception as e:  # never propagate to the pipeline
-            logger.error(f"LogPublisher error (non-fatal) for job {self._job_id}: {e}", exc_info=True)
+                try:
+                    for payload in build_payloads(seq, line):
+                        self._notify(cur, payload)
+                except Exception as e:  # never abort the drain loop
+                    logger.error(f"LogPublisher drain error (non-fatal) for job {self._job_id}: {e}", exc_info=True)
         finally:
             if conn is not None:
                 conn.close()
