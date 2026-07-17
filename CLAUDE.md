@@ -297,23 +297,25 @@ Publishing to Ghost requires:
 
 The backend is a FastAPI application with a PostgreSQL database and a background worker for job execution.
 
-**Live log streaming:** Pipeline execution logs stream in real time to the web UI via `GET /jobs/{id}/events` (Server-Sent Events). The endpoint:
-- Replays completed log lines from `Job.logs` (the durable replay store)
-- Subscribes to live updates via Postgres LISTEN/NOTIFY on channel `blog_run_{id}` to capture logs emitted during execution
-- Falls back to periodic polling (via a dedicated DB connection) if the NOTIFY channel becomes unreachable
-- Closes the stream when the job reaches a terminal status (completed, failed, error)
+**Live log streaming:** Pipeline execution logs stream in real time to the web UI via `GET /jobs/{id}/events` (Server-Sent Events, implemented as `stream_job_events` in `api/routes/jobs.py`). The endpoint:
+- Replays completed log lines from `Job.logs` (the durable replay store, written periodically by the existing log-flusher)
+- Subscribes to live updates via Postgres LISTEN/NOTIFY on a per-run channel `blog_run_{id}` — subscribing before reading the replay snapshot, so nothing published during setup is lost
+- Filters live events to `seq > k` (where `k` is the number of completed lines already covered by the replay) to avoid re-delivering lines the client already has
+- Independently polls the job's terminal status every ~2s via a dedicated DB connection, regardless of NOTIFY health — this is what catches the case where the publisher's own DB connection failed at startup and the `done` NOTIFY is never sent
+- Closes the stream (`event: done`) when the job reaches a terminal status: `completed`, `failed`, or `published`
 
 **Implementation details:**
-- **Replay + Live seam:** `Job.logs` is populated with newline-delimited JSON via `LogStreamBuilder.build_payloads()` as lines complete. The endpoint replays this first (skipping oversized or out-of-order lines via sequence numbers), then subscribes to live updates.
-- **Sequence tracking:** Each log line is tagged with a sequence number (`seq`). Lines with large payloads (>8 KB) are split into chunks and reassembled on the client.
-- **Publisher:** Worker publishes via `LogPublisher.publish_line(job_id, text)` when standard output is captured by `TeeWriter`, or manually via `publish_pipeline_log()` for state transitions and errors.
+- **Publishing:** `api/worker.py`'s `TeeWriter` class emits each completed (newline-terminated) stdout line, tagged with a monotonic `seq`, to an `on_line` callback. In `_run_job`, that callback is `LogPublisher.publish(seq, line)` (`api/log_stream.py`) — a thread-safe, non-blocking enqueue. A dedicated `LogPublisher` thread drains the queue and NOTIFYs each line on `blog_run_{job_id}` via its own psycopg2 connection, so publishing never blocks the pipeline. `LogPublisher.stop(status)` sends a final `done` event.
+- **Payload chunking:** `build_payloads(seq, line, max_bytes=7000)` in `api/log_stream.py` serializes each line to JSON for NOTIFY; a line whose serialized size exceeds `max_bytes` is split into character-boundary-safe fragments sharing the same `seq`, with `last: true` on the final fragment so the client can reassemble reliably (not by length).
+- **Replay/live seam:** `count_completed_lines(text)` (`api/log_stream.py`) counts newline-terminated lines in `Job.logs` to compute `k`; `Job.logs` itself is unchanged JSON-free plain text (the existing `_start_log_flusher` mechanism), so replay is just that raw text.
 
 **Key files:**
-- `api/routes/jobs.py`: `/jobs/{id}/events` endpoint with SSE streaming logic
-- `api/log_stream.py`: Log payload building and line splitting for large payloads
-- `api/log_stream_pubsub.py`: Postgres LISTEN/NOTIFY wrapper and concurrent listener management
-- `api/teewriter.py`: Dual output capture (logs to Job.logs and broadcasts via LogPublisher)
-- `api/models.py`: Job model with `logs` field (durable JSON-per-line replay store)
+- `api/routes/jobs.py`: `stream_job_events` — the `/jobs/{id}/events` SSE endpoint (replay, live forwarding, terminal-status fallback)
+- `api/log_stream.py`: `channel_for`, `build_payloads`, `count_completed_lines`, `done_payload`, and the `LogPublisher` thread (NOTIFY publishing)
+- `api/worker.py`: `TeeWriter` (captures pipeline stdout, tags lines with `seq`, invokes the `on_line` callback) and `_run_job` (wires `TeeWriter` to a `LogPublisher`)
+- `api/pg_dsn.py`: `plain_dsn()` — strips the SQLAlchemy `+driver` suffix so raw psycopg2/asyncpg connections can use `DATABASE_URL`
+- `web/lib/api.ts`: `streamJobEvents`/`parseEvent` — the browser `EventSource` client, including fragment reassembly by the `last` flag
+- `web/app/(dashboard)/queue/page.tsx`: `LogPanel` — the live log viewer consuming the SSE stream
 
 ## Debugging Tips
 
