@@ -1,0 +1,42 @@
+name: Move issues to In Review when PR targets dev
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+    branches:
+      - dev
+  workflow_dispatch:
+    inputs:
+      pr_body:
+        description: 'PR body containing Closes #N lines'
+        required: true
+
+jobs:
+  move-to-in-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Extract issue numbers from PR body
+        id: issues
+        env:
+          INPUT_BODY: ${{ github.event.inputs.pr_body }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "pull_request_target" ]; then
+            BODY=$(jq -r '.pull_request.body // empty' "$GITHUB_EVENT_PATH")
+          else
+            BODY="${INPUT_BODY}"
+          fi
+          ISSUES=$(echo "$BODY" | grep -oiP '(?:closes|fixes|resolves)\s+#\K\d+' | tr '\n' ' ')
+          echo "list=$ISSUES" >> "$GITHUB_OUTPUT"
+
+      - name: Move each issue to In Review
+        if: steps.issues.outputs.list != ''
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
+        run: |
+          for ISSUE in ${{ steps.issues.outputs.list }}; do
+            bash .github/scripts/move-issue.sh "$ISSUE" "In Review"
+          done

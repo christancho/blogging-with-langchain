@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const API_URL = process.env.API_URL ?? 'http://localhost:8000';
 
+export const dynamic = 'force-dynamic';
+
 async function handler(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
   const { path } = await params;
   const url = `${API_URL}/${path.join('/')}${req.nextUrl.search}`;
@@ -9,9 +11,8 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
   const headers = new Headers(req.headers);
   headers.delete('host');
 
-  const body = req.method === 'GET' || req.method === 'HEAD'
-    ? undefined
-    : await req.arrayBuffer();
+  const body =
+    req.method === 'GET' || req.method === 'HEAD' ? undefined : await req.arrayBuffer();
 
   const res = await fetch(url, {
     method: req.method,
@@ -21,6 +22,12 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
 
   const resHeaders = new Headers(res.headers);
   resHeaders.delete('transfer-encoding');
+  resHeaders.delete('content-encoding');
+
+  // Stream Server-Sent Events straight through instead of buffering.
+  if (res.headers.get('content-type')?.includes('text/event-stream')) {
+    return new NextResponse(res.body, { status: res.status, headers: resHeaders });
+  }
 
   return new NextResponse(await res.arrayBuffer(), {
     status: res.status,

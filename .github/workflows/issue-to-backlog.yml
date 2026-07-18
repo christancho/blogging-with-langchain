@@ -1,0 +1,49 @@
+name: Add new issue to project as Backlog
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  add-to-backlog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Add issue to project and set Backlog
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          ISSUE_NUMBER="${{ github.event.issue.number }}"
+          ISSUE_NODE_ID=$(gh api "repos/${{ github.repository }}/issues/$ISSUE_NUMBER" --jq '.node_id')
+
+          CONFIG=".github/project-config.json"
+          PROJECT_NODE_ID=$(jq -r '.project_node_id' "$CONFIG")
+          STATUS_FIELD_ID=$(jq -r '.status_field_id' "$CONFIG")
+          BACKLOG_OPTION_ID=$(jq -r '.options["Backlog"]' "$CONFIG")
+
+          # Add issue to project
+          ITEM_ID=$(gh api graphql -f query="
+          mutation {
+            addProjectV2ItemById(input: {
+              projectId: \"$PROJECT_NODE_ID\"
+              contentId: \"$ISSUE_NODE_ID\"
+            }) {
+              item { id }
+            }
+          }" --jq '.data.addProjectV2ItemById.item.id')
+
+          # Set status to Backlog
+          gh api graphql -f query="
+          mutation {
+            updateProjectV2ItemFieldValue(input: {
+              projectId: \"$PROJECT_NODE_ID\"
+              itemId: \"$ITEM_ID\"
+              fieldId: \"$STATUS_FIELD_ID\"
+              value: { singleSelectOptionId: \"$BACKLOG_OPTION_ID\" }
+            }) {
+              projectV2Item { id }
+            }
+          }" > /dev/null
+
+          echo "Added issue #$ISSUE_NUMBER to project as Backlog"
