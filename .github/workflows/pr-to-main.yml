@@ -1,0 +1,43 @@
+name: On merge to stg — create stg→main PR
+
+on:
+  pull_request_target:
+    types: [closed]
+    branches:
+      - stg
+
+jobs:
+  on-stg-merge:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Create stg→main PR if none open
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          REPO="${{ github.repository }}"
+          EXISTING=$(gh pr list \
+            --repo "$REPO" \
+            --base main \
+            --head stg \
+            --state open \
+            --json number \
+            --jq '.[0].number // empty')
+
+          if [ -z "$EXISTING" ]; then
+            COMMITS=$(git log origin/main..origin/stg --oneline | head -20)
+            BODY=$(printf 'Automated promotion PR — merge when ready to deploy to production.\n\n## Commits ahead of main\n```\n%s\n```' "$COMMITS")
+            gh pr create \
+              --repo "$REPO" \
+              --base main \
+              --head stg \
+              --title "promote: stg -> main" \
+              --body "$BODY"
+            echo "Created stg->main PR"
+          else
+            echo "PR #$EXISTING already open — no action needed"
+          fi

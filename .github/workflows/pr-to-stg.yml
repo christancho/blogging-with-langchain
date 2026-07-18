@@ -1,0 +1,61 @@
+name: On merge to dev — move to Done and create dev→stg PR
+
+on:
+  pull_request_target:
+    types: [closed]
+    branches:
+      - dev
+
+jobs:
+  on-dev-merge:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Extract issue numbers from merged PR body
+        id: issues
+        run: |
+          BODY=$(jq -r '.pull_request.body // empty' "$GITHUB_EVENT_PATH")
+          ISSUES=$(echo "$BODY" | grep -oiP '(?:closes|fixes|resolves)\s+#\K\d+' | tr '\n' ' ')
+          echo "list=$ISSUES" >> "$GITHUB_OUTPUT"
+
+      - name: Move issues to Done
+        if: steps.issues.outputs.list != ''
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
+        run: |
+          for ISSUE in ${{ steps.issues.outputs.list }}; do
+            bash .github/scripts/move-issue.sh "$ISSUE" "Done"
+          done
+
+      - name: Create dev→stg PR if none open
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          REPO="${{ github.repository }}"
+          EXISTING=$(gh pr list \
+            --repo "$REPO" \
+            --base stg \
+            --head dev \
+            --state open \
+            --json number \
+            --jq '.[0].number // empty')
+
+          if [ -z "$EXISTING" ]; then
+            COMMITS=$(git log origin/stg..origin/dev --oneline | head -20)
+            BODY=$(printf 'Automated promotion PR — merge when ready to deploy to staging.\n\n## Commits ahead of stg\n```\n%s\n```' "$COMMITS")
+            gh pr create \
+              --repo "$REPO" \
+              --base stg \
+              --head dev \
+              --title "promote: dev -> stg" \
+              --body "$BODY"
+            echo "Created dev->stg PR"
+          else
+            echo "PR #$EXISTING already open — no action needed"
+          fi

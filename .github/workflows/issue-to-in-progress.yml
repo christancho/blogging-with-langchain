@@ -1,0 +1,29 @@
+name: Move issue to In Progress on feature branch creation
+
+on:
+  create:
+    branches:
+      - 'feature/*'
+
+jobs:
+  move-to-in-progress:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Extract issue number from branch name
+        id: issue
+        run: |
+          BRANCH="${{ github.ref_name }}"
+          # feature/123-slug → 123; || true prevents grep exit code 1 on no match
+          ISSUE=$(echo "$BRANCH" | grep -oP 'feature/\K\d+' || true)
+          echo "number=$ISSUE" >> "$GITHUB_OUTPUT"
+
+      - name: Move issue to In Progress
+        if: steps.issue.outputs.number != ''
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
+        run: |
+          bash .github/scripts/move-issue.sh "${{ steps.issue.outputs.number }}" "In Progress"
