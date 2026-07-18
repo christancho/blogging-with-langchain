@@ -69,6 +69,11 @@ coverage.xml
 .dmypy.json
 dmypy.json
 
+# Local tooling scratch (not project source)
+.claude/
+.superpowers/
+graphify-out/
+
 # Generated media and visualizations
 *.svg
 !media/**/*.png
