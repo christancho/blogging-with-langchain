@@ -4,6 +4,7 @@ import logging
 import os
 import sys
 import threading
+from collections.abc import Callable
 from datetime import datetime, timezone
 
 # Ensure the repo root is on sys.path so graph.py can be imported
@@ -14,20 +15,38 @@ if _ROOT not in sys.path:
 from agentic.graph import create_blog_graph  # noqa: E402 — must come after sys.path setup
 from agentic.config import Config  # noqa: E402 — must come after sys.path setup
 from sqlalchemy import select  # noqa: E402 — must come after sys.path setup
+from api.pg_dsn import plain_dsn  # noqa: E402
+from api.log_stream import LogPublisher  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
 
 class TeeWriter:
-    """Writes to both real stdout and an internal buffer for pipeline log capture."""
+    """Writes to both real stdout and an internal buffer for pipeline log capture.
 
-    def __init__(self, real_stdout):
+    When `on_line` is provided, each completed (newline-terminated) line is
+    emitted via on_line(seq, line) with a per-writer monotonic seq starting at 1.
+    """
+
+    def __init__(self, real_stdout, on_line: Callable[[int, str], None] | None = None):
         self._real = real_stdout
         self._buf = io.StringIO()
+        self._on_line = on_line
+        self._seq = 0
+        self._pending = ""  # partial line not yet newline-terminated
 
     def write(self, text: str) -> int:
         self._real.write(text)
         self._buf.write(text)
+        if self._on_line is not None:
+            self._pending += text
+            while "\n" in self._pending:
+                line, self._pending = self._pending.split("\n", 1)
+                self._seq += 1
+                try:
+                    self._on_line(self._seq, line)
+                except Exception as e:  # never let publishing break the pipeline
+                    self._real.write(f"[log-stream] on_line error (non-fatal): {e}\n")
         return len(text)
 
     def flush(self) -> None:
@@ -132,6 +151,7 @@ async def _run_job(job_id, session_factory) -> None:
         return
 
     tee = None
+    publisher = None
     flush_stop = threading.Event()
 
     def _start_log_flusher(tee_ref, jid, sf):
@@ -168,7 +188,9 @@ async def _run_job(job_id, session_factory) -> None:
         _asyncio.run(flush_loop())
 
     try:
-        tee = TeeWriter(sys.stdout)
+        publisher = LogPublisher(job_id, plain_dsn(os.environ["DATABASE_URL"]))
+        publisher.start()
+        tee = TeeWriter(sys.stdout, on_line=publisher.publish)
         sys.stdout = tee
 
         print("=" * 80)
@@ -210,6 +232,8 @@ async def _run_job(job_id, session_factory) -> None:
                 job = await db.get(Job, job_id)
                 if not job:
                     logger.info(f"Job {job_id} was removed during execution, stopping worker")
+                    flush_stop.set()
+                    publisher.stop("failed")
                     return
                 job.current_node = node_name
                 job.logs = tee.getvalue()
@@ -235,10 +259,14 @@ async def _run_job(job_id, session_factory) -> None:
             job.completed_at = datetime.now(timezone.utc)
             await db.commit()
 
+        publisher.stop("completed")
+
         logger.info(f"Job {job_id} completed successfully")
 
     except Exception as e:
         flush_stop.set()
+        if publisher is not None:
+            publisher.stop("failed")
         logger.error(f"Job {job_id} failed: {e}", exc_info=True)
         async with session_factory() as db:
             job = await db.get(Job, job_id)

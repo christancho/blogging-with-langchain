@@ -1,13 +1,25 @@
+import asyncio
+import json
+import os
+import time
 import uuid
+import asyncpg
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from api.db import get_db
 from api.models import Job
 from api.auth import require_auth
+from api.pg_dsn import plain_dsn
+from api.log_stream import channel_for, count_completed_lines
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
+
+_TERMINAL_STATUSES = ("completed", "failed", "published")
+_KEEPALIVE_SECONDS = 15
+_POLL_SECONDS = 2
 
 
 class JobCreate(BaseModel):
@@ -76,6 +88,119 @@ async def get_job_logs(job_id: uuid.UUID, db: AsyncSession = Depends(get_db), _:
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return {"logs": job.logs}
+
+
+@router.get("/{job_id}/events")
+async def stream_job_events(
+    job_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(require_auth),
+):
+    """Server-Sent Events stream of a job's live pipeline log.
+
+    Replays Job.logs on connect, then forwards live NOTIFY events with seq > k
+    (the number of newline-completed lines already covered by the replay).
+
+    Independently of the `done` NOTIFY, the job's `status` column is polled
+    periodically via the same dedicated asyncpg connection used for LISTEN:
+    if the publisher's own DB connection never came up (see LogPublisher's
+    defensive connect-failure handling), no `done` NOTIFY will ever be sent,
+    and this fallback is what keeps the stream from hanging forever.
+    Whichever signal (NOTIFY or poll) observes a terminal status first wins
+    and closes the stream.
+
+    Only a minimal existence check is done here (via the injected session);
+    the replay snapshot and status are read AFTER the listener subscribes
+    (inside event_gen, via the dedicated asyncpg connection), so nothing
+    published during setup is lost and the SQLAlchemy session isn't held
+    open for the life of the stream.
+    """
+    exists = await db.scalar(select(Job.id).where(Job.id == job_id))
+    if exists is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # Release the pooled connection back to the pool now: FastAPI won't tear
+    # down this yield-based dependency until the whole StreamingResponse
+    # finishes sending, so without this the session (and its checked-out
+    # pool connection) would otherwise be held open for the SSE stream's
+    # entire lifetime. event_gen() below never touches `db` again -- the
+    # replay fetch and status poll already go through the dedicated asyncpg
+    # `conn`. The dependency's own generator-close call later becomes a
+    # no-op on an already-closed session, which is safe.
+    await db.close()
+
+    channel = channel_for(job_id)
+
+    async def event_gen():
+        conn = await asyncpg.connect(plain_dsn(os.environ["DATABASE_URL"]))
+        q: asyncio.Queue = asyncio.Queue()
+        loop = asyncio.get_running_loop()
+
+        def on_notify(_conn, _pid, _ch, payload):
+            loop.call_soon_threadsafe(q.put_nowait, payload)
+
+        try:
+            # Subscribe FIRST so nothing published during setup is lost.
+            await conn.add_listener(channel, on_notify)
+            try:
+                # Only now (listener is live) read the replay snapshot and
+                # status, via the same dedicated conn used for LISTEN.
+                row = await conn.fetchrow("SELECT logs, status FROM jobs WHERE id = $1", job_id)
+                if row is None:
+                    # Job was deleted between the existence check and here.
+                    yield f"data: {json.dumps({'replay': ''})}\n\n"
+                    return
+
+                replay = row["logs"] or ""
+                k = count_completed_lines(replay)
+                terminal_at_connect = row["status"] in _TERMINAL_STATUSES
+                status_at_connect = row["status"]
+
+                # Replay snapshot, then live with seq > k.
+                yield f"data: {json.dumps({'replay': replay})}\n\n"
+                if terminal_at_connect:
+                    yield f"event: done\ndata: {json.dumps({'done': True, 'status': status_at_connect})}\n\n"
+                    return
+
+                last_keepalive = time.monotonic()
+                while True:
+                    try:
+                        payload = await asyncio.wait_for(q.get(), timeout=_POLL_SECONDS)
+                    except asyncio.TimeoutError:
+                        # No NOTIFY arrived within the poll window. Independently
+                        # check whether the job has already gone terminal (e.g.
+                        # the publisher's connection never came up, so `done`
+                        # will never be NOTIFYd) before deciding whether to send
+                        # a keep-alive comment and keep waiting. Uses the same
+                        # dedicated conn as LISTEN — no SQLAlchemy session is
+                        # held open for the stream's lifetime.
+                        current_status = await conn.fetchval("SELECT status FROM jobs WHERE id = $1", job_id)
+                        if current_status in _TERMINAL_STATUSES:
+                            yield f"event: done\ndata: {json.dumps({'done': True, 'status': current_status})}\n\n"
+                            return
+
+                        now = time.monotonic()
+                        if now - last_keepalive >= _KEEPALIVE_SECONDS:
+                            yield ": keep-alive\n\n"
+                            last_keepalive = now
+                        continue
+
+                    obj = json.loads(payload)
+                    if obj.get("done"):
+                        yield f"event: done\ndata: {payload}\n\n"
+                        return
+                    if obj.get("seq", 0) > k:
+                        yield f"data: {payload}\n\n"
+            finally:
+                await conn.remove_listener(channel, on_notify)
+        finally:
+            await conn.close()
+
+    return StreamingResponse(
+        event_gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.delete("/{job_id}", status_code=204)
