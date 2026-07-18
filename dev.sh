@@ -16,7 +16,10 @@ export DATABASE_URL="postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@localhos
 
 # Start API in background
 source .venv/bin/activate
-uvicorn api.main:app --reload &
+# Scope --reload to the Python source only. Without --reload-dir, uvicorn
+# watches the whole cwd tree (incl. web/.next/, which `next dev` rewrites
+# constantly) and spams "changes detected" / churns reloads.
+uvicorn api.main:app --reload --reload-dir api --reload-dir agentic &
 API_PID=$!
 
 # Start web in background
