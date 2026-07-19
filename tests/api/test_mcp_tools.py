@@ -125,3 +125,84 @@ async def test_get_job_logs(session_factory, seeded_settings):
         job_id = str(job.id)
     out = await get_job_logs_impl(session_factory, job_id)
     assert out["logs"] == "line1\nline2\n"
+
+
+from api.mcp_server import publish_blog_impl, retry_blog_impl
+
+
+async def test_publish_non_completed_rejected(session_factory, seeded_settings):
+    async with session_factory() as db:
+        job = Job(topic="P", tone="t", word_count=100, status="pending")
+        db.add(job)
+        await db.commit()
+        job_id = str(job.id)
+    with pytest.raises(ValueError, match="Only completed jobs can be published"):
+        await publish_blog_impl(session_factory, job_id)
+
+
+async def test_publish_completed_calls_publisher(session_factory, seeded_settings, monkeypatch):
+    async with session_factory() as db:
+        job = Job(
+            topic="P", tone="t", word_count=100, status="completed",
+            result={"final_content": "# T\n\nB", "seo_title": "T"},
+        )
+        db.add(job)
+        await db.commit()
+        job_id = str(job.id)
+
+    def fake_publisher(state):
+        return {
+            "publication_status": "published",
+            "ghost_post_url": "https://ghost.test/p/1",
+            "ghost_post_id": "abc123",
+        }
+    monkeypatch.setattr("agentic.nodes.publisher.publisher_node", fake_publisher)
+
+    out = await publish_blog_impl(session_factory, job_id)
+    assert out["url"] == "https://ghost.test/p/1"
+    assert out["post_id"] == "abc123"
+    async with session_factory() as db:
+        job = await db.get(Job, uuid.UUID(job_id))
+        assert job.status == "published"
+
+
+async def test_publish_surfaces_ghost_failure(session_factory, seeded_settings, monkeypatch):
+    async with session_factory() as db:
+        job = Job(
+            topic="P", tone="t", word_count=100, status="completed",
+            result={"final_content": "# T"},
+        )
+        db.add(job)
+        await db.commit()
+        job_id = str(job.id)
+
+    def fake_publisher(state):
+        return {"publication_status": "failed", "errors": ["Ghost 401 Unauthorized"]}
+    monkeypatch.setattr("agentic.nodes.publisher.publisher_node", fake_publisher)
+
+    with pytest.raises(ValueError, match="Ghost 401 Unauthorized"):
+        await publish_blog_impl(session_factory, job_id)
+
+
+async def test_retry_failed_job(session_factory, seeded_settings):
+    async with session_factory() as db:
+        job = Job(topic="Failed", tone="t", word_count=100, status="failed", error="boom")
+        db.add(job)
+        await db.commit()
+        job_id = str(job.id)
+    out = await retry_blog_impl(session_factory, job_id)
+    assert out["status"] == "pending"
+    async with session_factory() as db:
+        new_job = await db.get(Job, uuid.UUID(out["job_id"]))
+        assert new_job.topic == "Failed"
+        assert new_job.id != uuid.UUID(job_id)
+
+
+async def test_retry_non_failed_rejected(session_factory, seeded_settings):
+    async with session_factory() as db:
+        job = Job(topic="Pending", tone="t", word_count=100, status="pending")
+        db.add(job)
+        await db.commit()
+        job_id = str(job.id)
+    with pytest.raises(ValueError, match="Only failed jobs can be retried"):
+        await retry_blog_impl(session_factory, job_id)

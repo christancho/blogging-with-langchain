@@ -152,3 +152,79 @@ async def get_job_logs_impl(session_factory, job_id) -> dict:
         if not job:
             raise ValueError(f"Job not found: {job_id}")
         return {"logs": job.logs or ""}
+
+
+async def publish_blog_impl(session_factory, job_id) -> dict:
+    """Publish a completed job's article to Ghost CMS.
+
+    Args:
+        session_factory: An async_sessionmaker (or compatible factory) used
+            to open a database session.
+        job_id: The job's UUID (as a string or UUID instance).
+
+    Returns:
+        A dict with the published post's "url" and "post_id" (as returned
+        by publisher_node's state updates).
+
+    Raises:
+        ValueError: If no job exists with the given id, the job is not in
+            "completed" status, the job has no result to publish, or the
+            Ghost publish itself fails (message is the last recorded error).
+    """
+    async with session_factory() as db:
+        job = await db.get(Job, uuid.UUID(str(job_id)))
+        if not job:
+            raise ValueError(f"Job not found: {job_id}")
+        if job.status != "completed":
+            raise ValueError("Only completed jobs can be published")
+        if not job.result:
+            raise ValueError("Job has no result to publish")
+
+        from agentic.nodes.publisher import publisher_node
+        state_updates = publisher_node(job.result)
+
+        if state_updates.get("publication_status") == "failed":
+            errors = state_updates.get("errors", ["Ghost publish failed"])
+            raise ValueError(errors[-1])
+
+        job.status = "published"
+        job.result = {**job.result, **state_updates}
+        await db.commit()
+        return {
+            "url": state_updates.get("ghost_post_url"),
+            "post_id": state_updates.get("ghost_post_id"),
+        }
+
+
+async def retry_blog_impl(session_factory, job_id) -> dict:
+    """Re-queue a failed job as a new pending job.
+
+    Args:
+        session_factory: An async_sessionmaker (or compatible factory) used
+            to open a database session.
+        job_id: The failed job's UUID (as a string or UUID instance).
+
+    Returns:
+        A dict with the new job's "job_id" and initial "status" ("pending").
+
+    Raises:
+        ValueError: If no job exists with the given id, or the job is not
+            in "failed" status.
+    """
+    async with session_factory() as db:
+        original = await db.get(Job, uuid.UUID(str(job_id)))
+        if not original:
+            raise ValueError(f"Job not found: {job_id}")
+        if original.status != "failed":
+            raise ValueError("Only failed jobs can be retried")
+        new_job = Job(
+            topic=original.topic,
+            tone=original.tone,
+            word_count=original.word_count,
+            instructions=original.instructions,
+            status="pending",
+        )
+        db.add(new_job)
+        await db.commit()
+        await db.refresh(new_job)
+        return {"job_id": str(new_job.id), "status": new_job.status}
