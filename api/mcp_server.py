@@ -228,3 +228,80 @@ async def retry_blog_impl(session_factory, job_id) -> dict:
         await db.commit()
         await db.refresh(new_job)
         return {"job_id": str(new_job.id), "status": new_job.status}
+
+
+def _settings_dict(s: Settings) -> dict:
+    """Convert a Settings ORM instance to a dict, excluding sensitive fields.
+
+    Args:
+        s: The Settings ORM instance to convert.
+
+    Returns:
+        A dict with all public Settings fields (default_tone, default_word_count,
+        llm_temperature, llm_model, auto_publish_to_ghost), excluding
+        password_hash and other sensitive data.
+    """
+    return {
+        "default_tone": s.default_tone,
+        "default_word_count": s.default_word_count,
+        "llm_temperature": s.llm_temperature,
+        "llm_model": s.llm_model,
+        "auto_publish_to_ghost": s.auto_publish_to_ghost,
+    }
+
+
+async def get_settings_impl(session_factory) -> dict:
+    """Fetch the application settings.
+
+    Args:
+        session_factory: An async_sessionmaker (or compatible factory) used
+            to open a database session.
+
+    Returns:
+        A dict with all public Settings fields (default_tone, default_word_count,
+        llm_temperature, llm_model, auto_publish_to_ghost).
+    """
+    async with session_factory() as db:
+        s = (await db.execute(select(Settings))).scalar_one()
+        return _settings_dict(s)
+
+
+async def update_settings_impl(
+    session_factory,
+    default_tone=None,
+    default_word_count=None,
+    llm_temperature=None,
+    llm_model=None,
+    auto_publish_to_ghost=None,
+) -> dict:
+    """Update application settings with partial changes.
+
+    Only fields that are not None are updated. All other fields remain unchanged.
+
+    Args:
+        session_factory: An async_sessionmaker (or compatible factory) used
+            to open a database session.
+        default_tone: Optional new default tone for blog generation.
+        default_word_count: Optional new default target word count.
+        llm_temperature: Optional new LLM temperature setting.
+        llm_model: Optional new LLM model name.
+        auto_publish_to_ghost: Optional new auto-publish setting.
+
+    Returns:
+        A dict with all public Settings fields after the update.
+    """
+    async with session_factory() as db:
+        s = (await db.execute(select(Settings))).scalar_one()
+        if default_tone is not None:
+            s.default_tone = default_tone
+        if default_word_count is not None:
+            s.default_word_count = default_word_count
+        if llm_temperature is not None:
+            s.llm_temperature = llm_temperature
+        if llm_model is not None:
+            s.llm_model = llm_model
+        if auto_publish_to_ghost is not None:
+            s.auto_publish_to_ghost = auto_publish_to_ghost
+        await db.commit()
+        await db.refresh(s)
+        return _settings_dict(s)

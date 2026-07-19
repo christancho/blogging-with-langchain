@@ -206,3 +206,20 @@ async def test_retry_non_failed_rejected(session_factory, seeded_settings):
         job_id = str(job.id)
     with pytest.raises(ValueError, match="Only failed jobs can be retried"):
         await retry_blog_impl(session_factory, job_id)
+
+
+from api.mcp_server import get_settings_impl, update_settings_impl
+
+
+async def test_get_settings(session_factory, seeded_settings):
+    out = await get_settings_impl(session_factory)
+    assert out["default_tone"] == "informative and insightful"
+    assert out["default_word_count"] == 3500
+    assert "password_hash" not in out
+
+
+async def test_update_settings_partial(session_factory, seeded_settings):
+    out = await update_settings_impl(session_factory, default_tone="snarky", auto_publish_to_ghost=False)
+    assert out["default_tone"] == "snarky"
+    assert out["auto_publish_to_ghost"] is False
+    assert out["default_word_count"] == 3500  # untouched field unchanged
