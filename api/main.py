@@ -13,12 +13,14 @@ from api.auth import hash_password, verify_password, create_token, require_auth
 from api.routes import settings as settings_router
 from api.routes import jobs as jobs_router
 from api.mcp_server import build_mcp
-from api.mcp_auth import build_token_verifier, build_auth_settings
+from api.mcp_auth import build_token_verifier, build_auth_settings, require_auth_config_or_warn
 
 logging.basicConfig(level=logging.INFO)
 _log = logging.getLogger("api.startup")
 
-mcp = build_mcp(AsyncSessionLocal, build_token_verifier(), build_auth_settings())
+_token_verifier = build_token_verifier()
+_auth_settings = build_auth_settings()
+mcp = build_mcp(AsyncSessionLocal, _token_verifier, _auth_settings)
 mcp_app = mcp.streamable_http_app()  # creates the session manager; serves /mcp + metadata
 
 
@@ -27,6 +29,8 @@ async def lifespan(app: FastAPI):
     """Seed settings, start the worker, and run the MCP session manager."""
     async with mcp.session_manager.run():
         try:
+            require_auth_config_or_warn(os.environ.get("ENV"), _token_verifier, _auth_settings)
+
             _log.info("STARTUP [1/3] seeding settings...")
             async with AsyncSessionLocal() as db:
                 result = await db.execute(select(Settings))

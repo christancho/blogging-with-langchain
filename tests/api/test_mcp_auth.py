@@ -4,7 +4,7 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 
-from api.mcp_auth import JwksTokenVerifier
+from api.mcp_auth import JwksTokenVerifier, require_auth_config_or_warn
 
 
 @pytest.fixture
@@ -91,3 +91,21 @@ async def test_bad_signature_rejected(verifier):
     )
     token = _make_token(other_pem)  # signed by a key the verifier won't accept
     assert await verifier.verify_token(token) is None
+
+
+def test_require_auth_config_production_raises_when_verifier_missing():
+    with pytest.raises(RuntimeError):
+        require_auth_config_or_warn("production", None, object())
+
+
+def test_require_auth_config_production_raises_when_settings_missing():
+    with pytest.raises(RuntimeError):
+        require_auth_config_or_warn("production", object(), None)
+
+
+def test_require_auth_config_production_ok_when_both_present():
+    require_auth_config_or_warn("production", object(), object())  # should not raise
+
+
+def test_require_auth_config_development_does_not_raise():
+    require_auth_config_or_warn("development", None, None)  # warns only

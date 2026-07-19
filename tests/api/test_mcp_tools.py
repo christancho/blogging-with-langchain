@@ -226,6 +226,19 @@ async def test_update_settings_partial(session_factory, seeded_settings):
     assert out["default_word_count"] == 3500  # untouched field unchanged
 
 
+async def test_update_settings_rejects_out_of_range_temperature(session_factory, seeded_settings):
+    with pytest.raises(ValueError, match="between 0.0 and 2.0"):
+        await update_settings_impl(session_factory, llm_temperature=999)
+
+
+async def test_update_settings_accepts_valid_temperature(session_factory, seeded_settings):
+    out = await update_settings_impl(session_factory, llm_temperature=1.2)
+    assert out["llm_temperature"] == 1.2
+    async with session_factory() as db:
+        s = (await db.execute(select(Settings))).scalar_one()
+        assert s.llm_temperature == 1.2
+
+
 from mcp.shared.memory import create_connected_server_and_client_session
 from api.mcp_server import build_mcp
 

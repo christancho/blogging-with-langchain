@@ -298,6 +298,8 @@ async def update_settings_impl(
         if default_word_count is not None:
             s.default_word_count = default_word_count
         if llm_temperature is not None:
+            if not (0.0 <= llm_temperature <= 2.0):
+                raise ValueError("llm_temperature must be between 0.0 and 2.0")
             s.llm_temperature = llm_temperature
         if llm_model is not None:
             s.llm_model = llm_model

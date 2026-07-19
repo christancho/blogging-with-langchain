@@ -1,3 +1,4 @@
+import logging
 import os
 
 import jwt
@@ -5,6 +6,8 @@ from jwt import PyJWKClient
 
 from mcp.server.auth.provider import TokenVerifier, AccessToken
 from mcp.server.auth.settings import AuthSettings
+
+_log = logging.getLogger("api.mcp_auth")
 
 
 class JwksTokenVerifier(TokenVerifier):
@@ -66,3 +69,24 @@ def build_auth_settings() -> AuthSettings | None:
         resource_server_url=resource,
         required_scopes=[],
     )
+
+
+def require_auth_config_or_warn(env, token_verifier, auth_settings) -> None:
+    """Enforce OAuth config at startup.
+
+    In production ('production'), raise RuntimeError if either the token
+    verifier or auth settings is missing (OAuth env incomplete), so a
+    misconfigured deploy fails closed instead of serving /mcp unauthenticated.
+    In any other env, log a loud warning but allow the server to run
+    unauthenticated (convenient for local/dev/test).
+    """
+    configured = token_verifier is not None and auth_settings is not None
+    if configured:
+        return
+    if env == "production":
+        _log.critical("MCP OAuth is not fully configured in production — refusing to start.")
+        raise RuntimeError(
+            "MCP OAuth env incomplete in production: set OAUTH_ISSUER, OAUTH_AUDIENCE, "
+            "OAUTH_JWKS_URL, and MCP_RESOURCE_URL."
+        )
+    _log.warning("MCP server running UNAUTHENTICATED — OAuth env not fully configured (fine for local/dev).")
