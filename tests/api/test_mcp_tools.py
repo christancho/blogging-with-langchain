@@ -1,3 +1,4 @@
+import json
 import uuid
 import pytest
 import pytest_asyncio
@@ -223,3 +224,36 @@ async def test_update_settings_partial(session_factory, seeded_settings):
     assert out["default_tone"] == "snarky"
     assert out["auto_publish_to_ghost"] is False
     assert out["default_word_count"] == 3500  # untouched field unchanged
+
+
+from mcp.shared.memory import create_connected_server_and_client_session
+from api.mcp_server import build_mcp
+
+
+async def test_tools_listed_and_callable_in_memory(session_factory, seeded_settings):
+    mcp = build_mcp(session_factory)  # no auth for the in-memory client
+
+    async with create_connected_server_and_client_session(mcp._mcp_server) as client:
+        await client.initialize()
+
+        tools = {t.name for t in (await client.list_tools()).tools}
+        assert {
+            "generate_blog", "get_job", "list_jobs", "get_job_logs",
+            "publish_blog", "retry_blog", "get_settings", "update_settings",
+        } <= tools
+
+        # NOTE: the tool wrappers are annotated `-> dict` (unparameterized), which
+        # FastMCP's func_metadata cannot turn into an output schema (bare `dict`
+        # has no type hints to build a Pydantic model from), so `structuredContent`
+        # is None. The payload is still available as JSON text in `content[0]`.
+        created = await client.call_tool("generate_blog", {"topic": "End to end"})
+        assert created.isError is False
+        assert created.structuredContent is None
+        job_id = json.loads(created.content[0].text)["job_id"]
+
+        fetched = await client.call_tool("get_job", {"job_id": job_id})
+        assert fetched.isError is False
+        assert json.loads(fetched.content[0].text)["status"] == "pending"
+
+        missing = await client.call_tool("get_job", {"job_id": str(uuid.uuid4())})
+        assert missing.isError is True  # ValueError becomes a tool error

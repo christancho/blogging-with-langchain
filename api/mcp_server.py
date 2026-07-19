@@ -1,5 +1,6 @@
 import uuid
 
+from mcp.server.fastmcp import FastMCP
 from sqlalchemy import select, desc
 
 from api.models import Job, Settings
@@ -305,3 +306,76 @@ async def update_settings_impl(
         await db.commit()
         await db.refresh(s)
         return _settings_dict(s)
+
+
+def build_mcp(session_factory, token_verifier=None, auth_settings=None) -> "FastMCP":
+    """Build the BlogForge MCP server. Tools bind to the given session factory.
+
+    When both token_verifier and auth_settings are provided, all tools require a
+    valid bearer token; otherwise the server runs unauthenticated (tests only).
+    """
+    kwargs = {"name": "BlogForge", "streamable_http_path": "/mcp"}
+    if token_verifier is not None and auth_settings is not None:
+        kwargs["token_verifier"] = token_verifier
+        kwargs["auth"] = auth_settings
+    mcp = FastMCP(**kwargs)
+
+    @mcp.tool()
+    async def generate_blog(
+        topic: str,
+        tone: str | None = None,
+        word_count: int | None = None,
+        instructions: str | None = None,
+    ) -> dict:
+        """Queue a new blog-generation job. Returns a job_id to poll with get_job."""
+        return await generate_blog_impl(session_factory, topic, tone, word_count, instructions)
+
+    @mcp.tool()
+    async def get_job(job_id: str) -> dict:
+        """Get a job's status and, once completed, the finished article for review."""
+        return await get_job_impl(session_factory, job_id)
+
+    @mcp.tool()
+    async def list_jobs(limit: int = 20) -> list[dict]:
+        """List recent blog jobs, newest first."""
+        return await list_jobs_impl(session_factory, limit)
+
+    @mcp.tool()
+    async def get_job_logs(job_id: str) -> dict:
+        """Get the captured pipeline log output for a job."""
+        return await get_job_logs_impl(session_factory, job_id)
+
+    @mcp.tool()
+    async def publish_blog(job_id: str) -> dict:
+        """Publish a completed job's article to Ghost CMS."""
+        return await publish_blog_impl(session_factory, job_id)
+
+    @mcp.tool()
+    async def retry_blog(job_id: str) -> dict:
+        """Re-queue a failed job as a new pending job."""
+        return await retry_blog_impl(session_factory, job_id)
+
+    @mcp.tool()
+    async def get_settings() -> dict:
+        """Get current generation defaults and settings."""
+        return await get_settings_impl(session_factory)
+
+    @mcp.tool()
+    async def update_settings(
+        default_tone: str | None = None,
+        default_word_count: int | None = None,
+        llm_temperature: float | None = None,
+        llm_model: str | None = None,
+        auto_publish_to_ghost: bool | None = None,
+    ) -> dict:
+        """Update one or more generation settings."""
+        return await update_settings_impl(
+            session_factory,
+            default_tone,
+            default_word_count,
+            llm_temperature,
+            llm_model,
+            auto_publish_to_ghost,
+        )
+
+    return mcp
