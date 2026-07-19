@@ -12,36 +12,42 @@ from api.models import Settings
 from api.auth import hash_password, verify_password, create_token, require_auth
 from api.routes import settings as settings_router
 from api.routes import jobs as jobs_router
+from api.mcp_server import build_mcp
+from api.mcp_auth import build_token_verifier, build_auth_settings
 
 logging.basicConfig(level=logging.INFO)
 _log = logging.getLogger("api.startup")
 
+mcp = build_mcp(AsyncSessionLocal, build_token_verifier(), build_auth_settings())
+mcp_app = mcp.streamable_http_app()  # creates the session manager; serves /mcp + metadata
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Seed settings and start background worker on startup."""
-    try:
-        _log.info("STARTUP [1/3] seeding settings...")
-        async with AsyncSessionLocal() as db:
-            result = await db.execute(select(Settings))
-            if not result.scalar_one_or_none():
-                initial_password = os.environ.get("UI_PASSWORD", "changeme")
-                db.add(Settings(password_hash=hash_password(initial_password)))
-                await db.commit()
-        _log.info("STARTUP [1/3] settings seeded")
+    """Seed settings, start the worker, and run the MCP session manager."""
+    async with mcp.session_manager.run():
+        try:
+            _log.info("STARTUP [1/3] seeding settings...")
+            async with AsyncSessionLocal() as db:
+                result = await db.execute(select(Settings))
+                if not result.scalar_one_or_none():
+                    initial_password = os.environ.get("UI_PASSWORD", "changeme")
+                    db.add(Settings(password_hash=hash_password(initial_password)))
+                    await db.commit()
+            _log.info("STARTUP [1/3] settings seeded")
 
-        if os.environ.get("ENV") != "test":
-            _log.info("STARTUP [2/3] importing worker module...")
-            from api.worker import start_worker
-            _log.info("STARTUP [2/3] starting background worker...")
-            start_worker()
-            _log.info("STARTUP [2/3] background worker started")
+            if os.environ.get("ENV") != "test":
+                _log.info("STARTUP [2/3] importing worker module...")
+                from api.worker import start_worker
+                _log.info("STARTUP [2/3] starting background worker...")
+                start_worker()
+                _log.info("STARTUP [2/3] background worker started")
 
-        _log.info("STARTUP [3/3] complete — app ready")
-    except Exception:
-        _log.error("STARTUP FAILED:\n" + traceback.format_exc())
-        raise
-    yield
+            _log.info("STARTUP [3/3] complete — app ready")
+        except Exception:
+            _log.error("STARTUP FAILED:\n" + traceback.format_exc())
+            raise
+        yield
 
 
 app = FastAPI(lifespan=lifespan)
@@ -99,3 +105,8 @@ async def health(db: AsyncSession = Depends(get_db)):
     """Liveness + DB connectivity check."""
     await db.execute(text("SELECT 1"))
     return {"status": "ok"}
+
+
+# Mount the MCP ASGI app at root LAST so specific REST routes match first.
+# It serves POST /mcp and the OAuth protected-resource metadata.
+app.mount("/", mcp_app)
