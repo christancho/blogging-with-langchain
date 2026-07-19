@@ -43,6 +43,7 @@ mypy==1.19.0
 # Web API
 fastapi==0.136.3
 uvicorn[standard]==0.48.0
+mcp==1.28.1
 
 # Database
 sqlalchemy[asyncio]==2.0.44
