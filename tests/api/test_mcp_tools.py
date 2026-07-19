@@ -45,11 +45,21 @@ async def test_generate_blog_inserts_pending(session_factory, seeded_settings):
 
 
 async def test_generate_blog_uses_settings_defaults(session_factory, seeded_settings):
+    # Seed values that DIVERGE from Config.BLOG_TONE / Config.WORD_COUNT_TARGET so
+    # this test can actually distinguish "read from the Settings row" from
+    # "fell through to the Config default" (the two happen to share values
+    # in seeded_settings's plain default row).
+    async with session_factory() as db:
+        settings = (await db.execute(select(Settings))).scalar_one()
+        settings.default_tone = "editorial voice"
+        settings.default_word_count = 2000
+        await db.commit()
+
     out = await generate_blog_impl(session_factory, topic="Defaults test")
     async with session_factory() as db:
         job = await db.get(Job, uuid.UUID(out["job_id"]))
-        assert job.tone == "informative and insightful"   # Settings default
-        assert job.word_count == 3500                       # Settings default
+        assert job.tone == "editorial voice"
+        assert job.word_count == 2000
 
 
 async def test_generate_blog_explicit_args_win(session_factory, seeded_settings):
@@ -64,13 +74,15 @@ async def test_generate_blog_explicit_args_win(session_factory, seeded_settings)
 
 
 async def test_get_job_returns_curated_result(session_factory, seeded_settings):
+    final_content = "# Title\n\nBody text here"
+    expected_word_count = len(final_content.split())
     async with session_factory() as db:
         job = Job(
             topic="Done", tone="informative", word_count=3500, status="completed",
             result={
-                "final_content": "# Title\n\nBody",
+                "final_content": final_content,
                 "seo_title": "SEO Title",
-                "seo_description": "desc",
+                "meta_description": "desc",
                 "tags": ["ai", "health"],
                 "warnings": ["force_published"],
                 "secret_internal_field": "should not leak",
@@ -82,9 +94,11 @@ async def test_get_job_returns_curated_result(session_factory, seeded_settings):
 
     out = await get_job_impl(session_factory, job_id)
     assert out["status"] == "completed"
-    assert out["result"]["final_content"] == "# Title\n\nBody"
+    assert out["result"]["final_content"] == final_content
     assert out["result"]["seo_title"] == "SEO Title"
+    assert out["result"]["meta_description"] == "desc"
     assert out["result"]["tags"] == ["ai", "health"]
+    assert out["result"]["word_count"] == expected_word_count
     assert out["result"]["warnings"] == ["force_published"]
     assert "secret_internal_field" not in out["result"]
 
