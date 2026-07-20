@@ -15,7 +15,9 @@ services:
       retries: 10
 
   api:
-    image: ghcr.io/christancho/blogging-with-langchain-api:latest
+    build:
+      context: .
+      dockerfile: api/Dockerfile
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@db:5432/blogforge
@@ -48,7 +50,9 @@ services:
       start_period: 30s
 
   web:
-    image: ghcr.io/christancho/blogging-with-langchain-web:latest
+    build:
+      context: web
+      dockerfile: Dockerfile
     restart: unless-stopped
     ports:
       - "3000:3000"
