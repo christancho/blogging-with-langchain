@@ -2,13 +2,3 @@ services:
   db:
     ports:
       - "5432:5432"
-
-  api:
-    build:
-      context: .
-      dockerfile: api/Dockerfile
-
-  web:
-    build:
-      context: web
-      dockerfile: Dockerfile

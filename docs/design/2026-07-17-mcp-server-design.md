@@ -106,8 +106,8 @@ get_job(job_id) → {
   error,                             // present when failed
   result: {                          // present once completed
     final_content,                   // full article Markdown — for review
-    seo_title, seo_description, tags,
-    word_count,
+    seo_title, meta_description, tags,
+    word_count,                        // computed from final_content
     warnings                         // e.g. force-published / fact-check notes
   }
 }
