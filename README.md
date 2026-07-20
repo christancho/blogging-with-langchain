@@ -12,6 +12,7 @@ An automated blog post generation system built with LangGraph, LangChain, and Cl
 - [Usage (CLI)](#usage)
 - [Web Interface](#web-interface)
 - [API](#api)
+- [MCP Server (Claude Desktop)](#mcp-server-claude-desktop)
 - [Project Structure](#project-structure)
 - [Workflow Details](#workflow-details)
 - [Social Media Notifications](#social-media-notification-system)
@@ -38,6 +39,7 @@ An automated blog post generation system built with LangGraph, LangChain, and Cl
 - **Quality Assurance**: Built-in content quality checks (word count, inline links, structure, headings, sections)
 - **Date-Aware Prompts**: All prompts receive the current date for timely, relevant content
 - **Modular Architecture**: Clean, maintainable codebase using LangGraph
+- **Claude Desktop (MCP)**: Built-in remote MCP server to generate, review, and publish posts straight from Claude Desktop (OAuth-secured)
 - **LangSmith Tracing**: Optional integration for debugging and monitoring
 
 ## Architecture
@@ -131,7 +133,7 @@ The easiest way to run the full stack (API, web UI, and database) is with Docker
 
 ### Prerequisites
 
-- [Docker](https://docs.docker.com/get-docker/) and Docker Compose (or [Portainer](https://www.portainer.io/))
+- [Docker](https://docs.docker.com/get-docker/) and Docker Compose (or a Compose-compatible PaaS such as [Dokploy](https://dokploy.com))
 
 ### Setup
 
@@ -157,16 +159,18 @@ Required variables:
 | `LANGCHAIN_TRACING_V2` | Enable LangSmith tracing (`true` / `false`) |
 | `LANGCHAIN_API_KEY` | LangSmith API key (required if tracing is enabled) |
 | `LANGCHAIN_PROJECT` | LangSmith project name (e.g. `blog-generation`) |
+| `OAUTH_ISSUER` | MCP OAuth provider issuer URL — required in production ([details](#mcp-server-claude-desktop)) |
+| `OAUTH_AUDIENCE` | MCP token audience (your `/mcp` URL) — required in production |
+| `OAUTH_JWKS_URL` | MCP OAuth provider JWKS endpoint — required in production |
+| `MCP_RESOURCE_URL` | Public URL of the MCP resource (your `/mcp` URL) — required in production |
 
 2. **Build and start all services**
 
 ```bash
-# Local development — builds images from source
 docker compose up -d --build
-
-# Production / Portainer — pulls pre-built images from GHCR
-docker compose -f docker-compose.yml up -d
 ```
+
+Both `api` and `web` are built from their Dockerfiles (`api/Dockerfile`, `web/Dockerfile`); `db` uses the official Postgres image. The stack always builds from source — there are no pre-built registry images.
 
 3. **Access the app**
 
@@ -176,19 +180,16 @@ docker compose -f docker-compose.yml up -d
 | API | http://localhost:8000 |
 | API docs | http://localhost:8000/docs |
 
-### Portainer
+### Dokploy (production)
 
-Pre-built images are published to GitHub Container Registry (GHCR) on every push to `main`. To deploy:
+Production is deployed with [Dokploy](https://dokploy.com), which **builds the images from source** on the server (from `api/Dockerfile` / `web/Dockerfile`) — there is no registry to push to.
 
-1. In Portainer, create a new stack and paste the contents of `docker-compose.yml`
-2. Set all environment variables in the **Environment variables** panel — no `.env` file needed
-3. Deploy the stack — Portainer will pull the latest images from GHCR
+1. Create a **Docker Compose** service in Dokploy pointing at this repo (using `docker-compose.yml`).
+2. Set all environment variables — including the four `OAUTH_*` vars — in Dokploy's **Environment** panel; no `.env` file needed. The `api` runs with `ENV=production` and refuses to start if any `OAUTH_*` var is missing (see [MCP Server](#mcp-server-claude-desktop)).
+3. Add a domain for the `api` service (→ container port `8000`) and for `web` (→ `3000`); Dokploy provisions HTTPS via Traefik/Let's Encrypt. The api's HTTPS URL is your MCP endpoint (`https://<api-host>/mcp`).
+4. Enable **auto-deploy**: copy the service's Webhook URL from the Deployments tab into the GitHub repo's webhooks (push events), so merges rebuild and redeploy.
 
-**To update a running stack** after pushing changes to `main`:
-1. Wait for the [GitHub Actions build](https://github.com/christancho/blogging-with-langchain/actions) to go green (~2-3 min)
-2. In Portainer, go to the stack → **Pull and redeploy**
-
-> Work in progress should stay on the `dev` branch. Only merge to `main` when you're ready to ship — that's what triggers a new image build.
+> Work in progress stays on the `dev` branch and promotes `dev → stg → main`. Point Dokploy at whichever branch is your production line.
 
 ### Stopping
 
@@ -348,6 +349,48 @@ Set `DATABASE_URL` in your `.env`:
 ```env
 DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/blogforge
 ```
+
+## MCP Server (Claude Desktop)
+
+The API includes a built-in **remote MCP server** (Model Context Protocol) that lets you generate, review, and publish blog posts directly from **Claude Desktop** — no CLI or web UI needed. It mounts into the same FastAPI app (sharing the process, database, and background worker) and exposes the pipeline as MCP tools at `/mcp` over streamable HTTP.
+
+### Tools
+
+| Tool | Description |
+|------|-------------|
+| `generate_blog` | Queue a new job (`topic`, optional `tone` / `word_count` / `instructions`); returns a `job_id` |
+| `get_job` | Job status and, once complete, the finished article (content + SEO metadata) for review |
+| `list_jobs` | Recent jobs, newest first |
+| `get_job_logs` | Captured pipeline logs for a job |
+| `publish_blog` | Publish a completed job to Ghost CMS |
+| `retry_blog` | Re-queue a failed job |
+| `get_settings` / `update_settings` | Read/update default tone, word count, model, temperature, auto-publish |
+
+Because generation takes minutes, `generate_blog` is **fire-and-poll**: it queues the job and returns a `job_id`; Claude polls `get_job` and shows you the finished article so you can review it before calling `publish_blog`.
+
+### Authentication
+
+The MCP endpoint is secured with **OAuth 2.1**, which Claude Desktop's custom connectors require. Auth is **verification-only** — a managed provider (e.g. **Stytch** or **WorkOS AuthKit**) owns login, consent, and token issuance; the server just validates the provider's JWT against its JWKS (issuer + audience). There is no auth-server code of our own, and this is separate from the web UI's password/JWT.
+
+Set these in your environment (all four required in production):
+
+| Variable | Description |
+|----------|-------------|
+| `OAUTH_ISSUER` | OAuth provider issuer URL |
+| `OAUTH_AUDIENCE` | Expected token audience (your `/mcp` URL) |
+| `OAUTH_JWKS_URL` | Provider JWKS endpoint |
+| `MCP_RESOURCE_URL` | Public URL of the MCP resource (your `/mcp` URL) |
+
+> **Fails closed in production:** when `ENV=production`, the API refuses to start if any of these are unset — it will not silently serve `/mcp` unauthenticated. Outside production it runs unauthenticated with a warning (convenient for local dev).
+
+### Connecting Claude Desktop
+
+1. Deploy the API behind a public HTTPS URL (e.g. `https://mcp.yourdomain.com`) routing to the api container's port `8000`.
+2. Create an app in your OAuth provider and enable **dynamic client registration**; set the four `OAUTH_*` variables above.
+3. In Claude Desktop → **Settings → Connectors → Add custom connector**, enter `https://mcp.yourdomain.com/mcp` and sign in once.
+4. Ask Claude to write a post (e.g. *"Write a blog about X"*), then review and publish right from the chat.
+
+See [`docs/design/2026-07-17-mcp-server-design.md`](docs/design/2026-07-17-mcp-server-design.md) for the full design.
 
 ## Project Structure
 
