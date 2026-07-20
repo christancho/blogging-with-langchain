@@ -133,7 +133,7 @@ The easiest way to run the full stack (API, web UI, and database) is with Docker
 
 ### Prerequisites
 
-- [Docker](https://docs.docker.com/get-docker/) and Docker Compose (or [Portainer](https://www.portainer.io/))
+- [Docker](https://docs.docker.com/get-docker/) and Docker Compose (or a Compose-compatible PaaS such as [Dokploy](https://dokploy.com))
 
 ### Setup
 
@@ -167,12 +167,10 @@ Required variables:
 2. **Build and start all services**
 
 ```bash
-# Local development — builds images from source
 docker compose up -d --build
-
-# Production / Portainer — pulls pre-built images from GHCR
-docker compose -f docker-compose.yml up -d
 ```
+
+Both `api` and `web` are built from their Dockerfiles (`api/Dockerfile`, `web/Dockerfile`); `db` uses the official Postgres image. The stack always builds from source — there are no pre-built registry images.
 
 3. **Access the app**
 
@@ -182,19 +180,16 @@ docker compose -f docker-compose.yml up -d
 | API | http://localhost:8000 |
 | API docs | http://localhost:8000/docs |
 
-### Portainer
+### Dokploy (production)
 
-Pre-built images are published to GitHub Container Registry (GHCR) on every push to `main`. To deploy:
+Production is deployed with [Dokploy](https://dokploy.com), which **builds the images from source** on the server (from `api/Dockerfile` / `web/Dockerfile`) — there is no registry to push to.
 
-1. In Portainer, create a new stack and paste the contents of `docker-compose.yml`
-2. Set all environment variables in the **Environment variables** panel — no `.env` file needed
-3. Deploy the stack — Portainer will pull the latest images from GHCR
+1. Create a **Docker Compose** service in Dokploy pointing at this repo (using `docker-compose.yml`).
+2. Set all environment variables — including the four `OAUTH_*` vars — in Dokploy's **Environment** panel; no `.env` file needed. The `api` runs with `ENV=production` and refuses to start if any `OAUTH_*` var is missing (see [MCP Server](#mcp-server-claude-desktop)).
+3. Add a domain for the `api` service (→ container port `8000`) and for `web` (→ `3000`); Dokploy provisions HTTPS via Traefik/Let's Encrypt. The api's HTTPS URL is your MCP endpoint (`https://<api-host>/mcp`).
+4. Enable **auto-deploy**: copy the service's Webhook URL from the Deployments tab into the GitHub repo's webhooks (push events), so merges rebuild and redeploy.
 
-**To update a running stack** after pushing changes to `main`:
-1. Wait for the [GitHub Actions build](https://github.com/christancho/blogging-with-langchain/actions) to go green (~2-3 min)
-2. In Portainer, go to the stack → **Pull and redeploy**
-
-> Work in progress should stay on the `dev` branch. Only merge to `main` when you're ready to ship — that's what triggers a new image build.
+> Work in progress stays on the `dev` branch and promotes `dev → stg → main`. Point Dokploy at whichever branch is your production line.
 
 ### Stopping
 
