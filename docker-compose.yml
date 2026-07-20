@@ -31,6 +31,12 @@ services:
       LANGCHAIN_TRACING_V2: ${LANGCHAIN_TRACING_V2}
       LANGCHAIN_API_KEY: ${LANGCHAIN_API_KEY}
       LANGCHAIN_PROJECT: ${LANGCHAIN_PROJECT}
+      # Remote MCP server OAuth (required in production — the app fails closed
+      # and refuses to start if any of these are unset while ENV=production).
+      OAUTH_ISSUER: ${OAUTH_ISSUER}
+      OAUTH_AUDIENCE: ${OAUTH_AUDIENCE}
+      OAUTH_JWKS_URL: ${OAUTH_JWKS_URL}
+      MCP_RESOURCE_URL: ${MCP_RESOURCE_URL}
     depends_on:
       db:
         condition: service_healthy
