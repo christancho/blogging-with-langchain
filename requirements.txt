@@ -3,13 +3,13 @@
 
 # LangChain Core
 langchain==1.3.14
-langchain-core==1.4.9
+langchain-core==1.5.0
 langchain-community==0.4.2
 
 # LLM Providers
 # langchain-openrouter requires langchain-core>=1.4.7, which in turn requires
 # the langgraph 1.2.x / checkpoint 4.x generation pinned below.
-langchain-openrouter==0.2.6
+langchain-openrouter==0.2.7
 
 # LangGraph
 langgraph==1.2.9
