@@ -9,9 +9,9 @@
     "test": "jest"
   },
   "dependencies": {
-    "next": "16.2.10",
-    "react": "19.2.7",
-    "react-dom": "19.2.7",
+    "next": "16.2.11",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1"
   },
@@ -23,7 +23,7 @@
     "@types/react-dom": "^19",
     "jest": "^30.4.2",
     "tailwindcss": "^4",
-    "ts-jest": "^29.4.11",
+    "ts-jest": "^29.4.12",
     "ts-node": "^10.9.2",
     "typescript": "^7"
   }
