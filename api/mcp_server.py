@@ -1,6 +1,8 @@
 import uuid
+import warnings
 
 from mcp.server.fastmcp import FastMCP
+from pydantic_settings.exceptions import IncompleteFieldDefinitionWarning
 from sqlalchemy import select, desc
 
 from api.models import Job, Settings
@@ -320,7 +322,12 @@ def build_mcp(session_factory, token_verifier=None, auth_settings=None) -> "Fast
     if token_verifier is not None and auth_settings is not None:
         kwargs["token_verifier"] = token_verifier
         kwargs["auth"] = auth_settings
-    mcp = FastMCP(**kwargs)
+    with warnings.catch_warnings():
+        # mcp SDK's own Settings model has a `lifespan` field with an unresolved
+        # generic type annotation; pydantic-settings warns on every FastMCP()
+        # call regardless of whether lifespan is used. We never set it.
+        warnings.filterwarnings("ignore", category=IncompleteFieldDefinitionWarning)
+        mcp = FastMCP(**kwargs)
 
     @mcp.tool()
     async def generate_blog(
