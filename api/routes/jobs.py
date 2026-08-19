@@ -205,10 +205,12 @@ async def stream_job_events(
 
 @router.delete("/{job_id}", status_code=204)
 async def delete_job(job_id: uuid.UUID, db: AsyncSession = Depends(get_db), _: str = Depends(require_auth)):
-    """Remove a job from the queue. Running jobs are deleted immediately; the worker stops at the next node boundary."""
+    """Remove a job from the queue. Rejects jobs the worker currently has in flight."""
     job = await db.get(Job, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    if job.status == "running":
+        raise HTTPException(status_code=409, detail="Cannot delete a running job")
     await db.delete(job)
     await db.commit()
 

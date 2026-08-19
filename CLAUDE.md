@@ -6,364 +6,157 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a LangGraph-based blog generation system that creates comprehensive, SEO-optimized articles and publishes them to Ghost CMS. The system uses a state graph workflow with 8 nodes, a fact-check gate, an editor approval gate, and two revision loops (max 3 attempts each).
 
+- Setup, usage, and workflow/node behavior (including the editor's actual approval criteria): [`README.md`](README.md)
+- Implementation-level reference for extending the codebase — node internals, extension procedures, state fields, SSE log-streaming internals: [`docs/architecture.md`](docs/architecture.md)
+
 ## Important Guidelines for Claude Code
 
 **Git Operations:**
+
 - **Do NOT automatically commit changes** unless explicitly requested by the user
 - **Do NOT automatically push to remote** unless explicitly requested by the user
 - Always ask for confirmation before creating commits or pushing code
 - If the user asks for changes, make the changes but let them decide when to commit
 
-## Development Commands
+## Git Workflow
 
-### Environment Setup
+Full reference: [`docs/git-strategy.md`](docs/git-strategy.md).
+
+**Branch model:** `main` (production) ← `stg` (staging) ← `dev` (integration) ← `feature/{issue-number}-{slug}` (all feature work).
+
+- Branch from `dev`, target `dev`. Never branch from or PR directly into `stg`/`main` — promotion between them is automated (see below).
+- Never commit directly to `dev`, `stg`, or `main`.
+
+**Starting work:**
+
 ```bash
-# Create and activate virtual environment
-python -m venv .venv
-source .venv/bin/activate  # On macOS/Linux
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Configure environment variables
-cp .env.example .env
-# Edit .env with your API keys
+git checkout dev && git pull
+git checkout -b feature/42-add-login
 ```
 
-### Running the System
-```bash
-# Generate a blog post
-python main.py "Your blog topic here"
+On an existing branch, run `git merge dev` first to pick up anything merged since the branch was cut.
 
-# With custom tone
-python main.py "Topic" --tone "conversational and engaging"
+**Commits:** Conventional commits, no emojis (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`).
 
-# With custom word count target
-python main.py "Topic" --word-count 5000
+**Pull requests:** Target `dev` only. Body must include a Summary, a Test plan, and one `Closes #N` (or `Fixes`/`Resolves`) line per issue resolved — this drives the GitHub Projects automation in Task Management below. Title short and imperative, under 70 characters. Merging into `main`, `stg`, or `dev` requires 1 approving code-owner review (`.github/CODEOWNERS`).
 
-# With custom instructions
-python main.py "Topic" --instructions "Focus on practical examples for beginners"
+**Promotion (fully automated — never open these by hand):** once a feature PR merges to `dev`, `.github/workflows/pr-to-stg.yml` auto-creates a `dev → stg` PR, and merging that triggers `pr-to-main.yml` to auto-create `stg → main`. Both are titled `promote: {from} -> {to}`. Merge them when ready to advance a release.
 
-# Combine options
-python main.py "Topic" --tone "technical and detailed" --word-count 4000 --instructions "Include code examples"
+## Behavioral Guidelines
 
-# Enable debug mode
-python main.py "Topic" --debug
+> Inspired by [andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills)
 
-# Visualize the workflow graph
-python main.py --visualize
+### 1. Think before coding
 
-# Interactive mode (prompts for all options)
-python main.py
+Before implementing anything:
+
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them — don't pick one silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+
+### 2. Simplicity first
+
+Write the minimum code that solves the problem. Nothing speculative.
+
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
+
+Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+
+### 3. Surgical changes
+
+Touch only what you must. Clean up only your own mess.
+
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code, mention it — don't delete it.
+- Remove imports/variables/functions that **your** changes made unused. Don't remove pre-existing dead code unless asked.
+
+Every changed line should trace directly to the user's request.
+
+### 4. Goal-driven execution
+
+Transform tasks into verifiable goals before starting:
+
+- "Add validation" → "Write tests for invalid inputs, then make them pass"
+- "Fix the bug" → "Write a test that reproduces it, then make it pass"
+- "Refactor X" → "Ensure tests pass before and after"
+
+For multi-step tasks, state a brief plan upfront:
+
+```
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+3. [Step] → verify: [check]
 ```
 
-### Testing
-```bash
-# Run all tests
-pytest
-
-# Run specific test file
-pytest tests/test_tools.py
-
-# Run with coverage
-pytest --cov=. --cov-report=html
-
-# Run with verbose output
-pytest -v
-
-# Run golden tests (regression tests with saved outputs)
-pytest tests/golden_tests/
-```
-
-## Architecture
-
-### State Graph Workflow
-The system uses LangGraph's StateGraph with conditional routing:
-
-```
-Research → Audience Analysis → Writer → Fact Checker → Formatter → SEO → Editor → Publisher
-                                  ↑           |                               |
-                                  └───────────┘ (fact check loop, max 3x)    | (if rejected)
-                                  └───────────────────────────────────────────┘
-                                                  (revision loop, max 3x)
-```
-
-**Key Files:**
-- `agentic/graph.py`: StateGraph definition, conditional routing logic, and workflow orchestration
-- `agentic/state.py`: BlogState TypedDict defining all state fields
-- `agentic/config.py`: Configuration management with automatic LLM fallback (Anthropic → OpenRouter)
-
-### Node Architecture
-All nodes follow a consistent pattern:
-1. Receive current `BlogState`
-2. Perform specific task (research, write, format, etc.)
-3. Return dict updates to merge into state
-4. Never mutate state directly
-
-**Node files** (`agentic/nodes/` directory):
-- `research.py`: Web search via Brave API, generates research summary
-- `audience_analysis.py`: Identifies target reader persona, pain points, and content angle
-- `writer.py`: Handles both initial writing and revisions (checks `revision_count` to decide which prompt to use)
-- `fact_checker.py`: Verifies factual claims against web sources, sets `fact_check_status` and routes back to writer if failed
-- `formatter.py`: Normalizes Markdown, fixes heading hierarchy (ensures 1 H1)
-- `seo.py`: Generates SEO metadata (title, description, excerpt, tags, keywords)
-- `editor.py`: LLM-based quality gate evaluating editorial quality and mechanical requirements, sets `approval_status` and `revision_count`
-- `publisher.py`: Saves locally and publishes to Ghost CMS
-
-### Prompt System
-Prompts are Jinja2 templates stored in `agentic/prompts/*.txt` and loaded via `PromptLoader` utility:
-
-- `research.txt`: Research planning and source gathering
-- `writer.txt`: Initial article generation (3500+ words)
-- `revision.txt`: Article revision based on editor feedback
-- `formatter.txt`: Content formatting and cleanup
-- `seo.txt`: SEO optimization
-- `editor.txt`: LLM-based editorial review with mechanical awareness (cohesiveness, flow, word count, structure)
-
-**Loading prompts:**
-```python
-from agentic.nodes.prompt_loader import PromptLoader
-
-template = PromptLoader.load("writer")
-prompt = template.render(
-    topic=state["topic"],
-    tone=Config.BLOG_TONE,
-    research=state["research_summary"],
-    # ... other context variables
-)
-```
-
-### Tools Architecture
-Tools in `agentic/tools/` provide utilities for each node:
-
-- `brave_search.py`: Web search integration
-- `content_analyzer.py`: Quality analysis (word count, link count, structure)
-- `seo_analyzer.py`: SEO metrics calculation
-- `tag_extractor.py`: Tag extraction from content
-- `html_formatter.py`: Markdown/HTML formatting
-- `ghost_cms.py`: Ghost Publishing API integration
-
-## Conditional Routing Logic
-
-The editor node acts as an approval gate with three possible outcomes:
-
-1. **Approved** (`approval_status: "approved"`): All quality checks pass → route to Publisher
-2. **Rejected** (`approval_status: "rejected"`): Checks fail, revisions available → route back to Writer
-3. **Force Publish** (`approval_status: "force_publish"`): Checks fail, max revisions reached → route to Publisher with warning note
-
-**Quality Assessment** (LLM-based with mechanical awareness):
-
-**Editorial Criteria** (scored 0-10, must score ≥ 7):
-- Cohesiveness & Flow - clear narrative thread, logical transitions
-- Content Consistency - consistent tone, terminology, style
-- Logical Structure - intro/body/conclusion alignment, no gaps
-- Engagement & Readability - compelling hooks, concrete examples
-- Technical Quality - supported claims, accurate information
-
-**Mechanical Requirements** (must all pass):
-- Word count ≥ word_count_target * 0.95 (default: 3325, configurable via --word-count)
-- Inline links ≥ 10
-- Exactly 1 H1 heading
-- At least 4 H2 sections
-
-**Note**: Code blocks and inline code are excluded from word count calculations
-
-**Implementation**: See `editor_node()` in `agentic/nodes/editor.py` and `agentic/prompts/editor.txt`
-
-## Configuration System
-
-The `Config` class in `agentic/config.py` handles all settings with automatic fallback:
-
-**LLM Fallback Chain:**
-1. Try Anthropic Claude (primary)
-2. Fall back to OpenRouter if Anthropic fails
-3. Requires at least one API key
-
-**Key Settings:**
-- `WORD_COUNT_TARGET`: 3500 (default, override with --word-count parameter)
-- `MIN_INLINE_LINKS`: 10
-- `NUM_SECTIONS`: 4
-- `BLOG_TONE`: "informative and insightful" (default, override with --tone parameter)
-- `PUBLISH_AS_DRAFT`: true
-- `MAX_REVISIONS`: 3
-
-**Runtime Parameters** (passed in state, override Config defaults):
-- `tone`: Blog tone (CLI: --tone, Interactive: prompted)
-- `word_count_target`: Target word count (CLI: --word-count, Interactive: prompted)
-
-**Environment Variables:** All loaded from `.env` (see .env.example for template)
-
-## LangSmith Integration
-
-Optional tracing/debugging via LangSmith:
-
-**Enable:**
-```env
-LANGCHAIN_TRACING_V2=true
-LANGCHAIN_API_KEY=your_key
-LANGCHAIN_PROJECT=blog-generation
-```
-
-**What gets traced:**
-- Each node execution with inputs/outputs
-- All LLM calls with prompts and responses
-- Token usage and costs
-- Execution timeline and duration
-
-## Common Development Tasks
-
-### Adding a New Quality Check
-1. Update `agentic/prompts/editor.txt`: Add new criteria to the assessment section
-2. Update the scoring guide if needed to reflect new criteria weighting
-3. Update `agentic/prompts/revision.txt`: Include new check in revision guidance
-4. Test with sample articles to ensure LLM understands the new criteria
-5. Optional: Update fallback mechanical checks in `agentic/nodes/editor.py` if adding quantitative metrics
-
-### Modifying a Prompt
-1. Edit the corresponding `.txt` file in `agentic/prompts/`
-2. Templates use Jinja2 syntax: `{{ variable }}`, `{% if %}`, etc.
-3. Clear cache in development: `PromptLoader.clear_cache()`
-4. Test changes with `python main.py "test topic" --debug`
-
-### Adding a New Node
-1. Create `agentic/nodes/new_node.py` with function signature: `def new_node(state: BlogState) -> dict`
-2. Add to `agentic/nodes/__init__.py`
-3. Update workflow in `agentic/graph.py`: `workflow.add_node("new_node", new_node)`
-4. Add edges: `workflow.add_edge("previous", "new_node")`
-5. Update `agentic/state.py` with new output fields
-
-### Changing the Workflow Order
-**Current:** Research → Writer → Formatter → SEO → Editor → Publisher
-
-To modify:
-1. Update edges in `agentic/graph.py`: `workflow.add_edge(source, target)`
-2. Update conditional routing if needed: `route_editor_decision()`
-3. Regenerate visualization: `python main.py --visualize`
-4. Update documentation and diagrams
-
-## Testing Guidelines
-
-### Unit Tests
-- Test files mirror source structure: `tests/test_tools.py` tests `agentic/tools/*.py`
-- Use pytest fixtures for common setup
-- Mock external APIs (Brave, Anthropic, Ghost)
-- Test each tool independently
-
-### Golden Tests
-Located in `tests/golden_tests/`:
-- Store expected outputs for regression testing
-- Verify workflow produces consistent results
-- Update golden files when intentionally changing output format
-
-### Testing a Workflow Change
-1. Add unit tests for new node/tool logic
-2. Run full workflow with test topic: `python main.py "test topic"`
-3. Verify output in `output/` directory
-4. Check all quality checks pass (word count, links, structure)
-
-## State Management
-
-The `BlogState` TypedDict flows through the entire graph. Key principles:
-
-- **Immutable updates**: Nodes return dicts that merge into state
-- **Typed fields**: All fields defined in `agentic/state.py` with type hints
-- **Optional fields**: Uses `total=False` to allow partial state
-- **No direct mutation**: Never modify state in-place
-
-**Critical state fields:**
-- `approval_status`: Controls routing ("approved", "rejected", "force_publish")
-- `revision_count`: Tracks revision attempts (0-3)
-- `editor_feedback`: Passed to writer during revisions
-- `final_content`: Set by editor after approval
-- `errors` / `warnings`: Accumulate throughout workflow
-
-## Ghost CMS Integration
-
-Publishing to Ghost requires:
-- Admin API key (content management)
-- API URL (your Ghost instance)
-- Author ID (for attribution)
-
-**Implementation:** `agentic/tools/ghost_cms.py`
-
-**Publishing logic:**
-1. Remove H1 from content (sent separately as title)
-2. Prepend forced publish note if applicable
-3. Create post with metadata (title, excerpt, meta description, tags)
-4. Set status: draft or published (based on `PUBLISH_AS_DRAFT`)
-5. Return post ID and URL
-
-## API Backend & Live Pipeline Logs
-
-The backend is a FastAPI application with a PostgreSQL database and a background worker for job execution.
-
-**Live log streaming:** Pipeline execution logs stream in real time to the web UI via `GET /jobs/{id}/events` (Server-Sent Events, implemented as `stream_job_events` in `api/routes/jobs.py`). The endpoint:
-- Replays completed log lines from `Job.logs` (the durable replay store, written periodically by the existing log-flusher)
-- Subscribes to live updates via Postgres LISTEN/NOTIFY on a per-run channel `blog_run_{id}` — subscribing before reading the replay snapshot, so nothing published during setup is lost
-- Filters live events to `seq > k` (where `k` is the number of completed lines already covered by the replay) to avoid re-delivering lines the client already has
-- Independently polls the job's terminal status every ~2s via a dedicated DB connection, regardless of NOTIFY health — this is what catches the case where the publisher's own DB connection failed at startup and the `done` NOTIFY is never sent
-- Closes the stream (`event: done`) when the job reaches a terminal status: `completed`, `failed`, or `published`
-
-**Implementation details:**
-- **Publishing:** `api/worker.py`'s `TeeWriter` class emits each completed (newline-terminated) stdout line, tagged with a monotonic `seq`, to an `on_line` callback. In `_run_job`, that callback is `LogPublisher.publish(seq, line)` (`api/log_stream.py`) — a thread-safe, non-blocking enqueue. A dedicated `LogPublisher` thread drains the queue and NOTIFYs each line on `blog_run_{job_id}` via its own psycopg2 connection, so publishing never blocks the pipeline. `LogPublisher.stop(status)` sends a final `done` event.
-- **Payload chunking:** `build_payloads(seq, line, max_bytes=7000)` in `api/log_stream.py` serializes each line to JSON for NOTIFY; a line whose serialized size exceeds `max_bytes` is split into character-boundary-safe fragments sharing the same `seq`, with `last: true` on the final fragment so the client can reassemble reliably (not by length).
-- **Replay/live seam:** `count_completed_lines(text)` (`api/log_stream.py`) counts newline-terminated lines in `Job.logs` to compute `k`; `Job.logs` itself is unchanged JSON-free plain text (the existing `_start_log_flusher` mechanism), so replay is just that raw text.
-
-**Key files:**
-- `api/routes/jobs.py`: `stream_job_events` — the `/jobs/{id}/events` SSE endpoint (replay, live forwarding, terminal-status fallback)
-- `api/log_stream.py`: `channel_for`, `build_payloads`, `count_completed_lines`, `done_payload`, and the `LogPublisher` thread (NOTIFY publishing)
-- `api/worker.py`: `TeeWriter` (captures pipeline stdout, tags lines with `seq`, invokes the `on_line` callback) and `_run_job` (wires `TeeWriter` to a `LogPublisher`)
-- `api/pg_dsn.py`: `plain_dsn()` — strips the SQLAlchemy `+driver` suffix so raw psycopg2/asyncpg connections can use `DATABASE_URL`
-- `web/lib/api.ts`: `streamJobEvents`/`parseEvent` — the browser `EventSource` client, including fragment reassembly by the `last` flag
-- `web/app/(dashboard)/queue/page.tsx`: `LogPanel` — the live log viewer consuming the SSE stream
-
-## Debugging Tips
-
-### Enable Debug Mode
-```bash
-python main.py "topic" --debug
-```
-Shows detailed error traces and execution flow.
-
-### Check Intermediate Outputs
-Set in .env:
-```env
-SAVE_INTERMEDIATE_OUTPUTS=true
-```
-Saves state after each node execution.
-
-### LangSmith Tracing
-Essential for debugging LLM calls:
-- View exact prompts sent to LLM
-- See full responses and token usage
-- Identify which node is causing issues
-- Replay failed runs
-
-### Common Issues
-
-**"Configuration validation failed":**
-- Missing required API keys in .env
-- At least one of ANTHROPIC_API_KEY or OPENROUTER_API_KEY required
-- Check .env.example for template
-
-**Articles rejected repeatedly:**
-- Check editorial feedback in console output (includes cohesiveness score and specific issues)
-- Verify word count target is reasonable (default 3500, configurable via --word-count)
-- Ensure research provides enough sources for inline links
-- Review editorial criteria in `agentic/prompts/editor.txt`
-- Check LLM assessment in LangSmith traces (if enabled)
-- If LLM evaluation fails, system falls back to mechanical checks only
-
-**Ghost publishing fails:**
-- Verify Ghost Admin API key is valid (not Content API key)
-- Check GHOST_API_URL format (https://yoursite.com)
-- Ensure GHOST_AUTHOR_ID is correct
-
-## Code Style and Conventions
+##  Code Style and Conventions
 
 - **No silent error swallowing**: Never use bare `except: pass` or `except Exception: pass` (or equivalent) that silently discard errors. Every `except` block must at minimum log or print the error. If a fallback is used, the error must still be visible in the output. Errors that are caught and hidden are bugs waiting to happen.
+- **No fabricated metrics**: Quality signals (editor cohesiveness score, SEO metrics, content-analyzer stats, etc.) must come from the LLM assessment or a real computation — never hardcode or guess a plausible-looking number. If a value can't be computed yet, return `None`/`null` rather than a magic number. This doesn't apply to `Config` thresholds (`WORD_COUNT_TARGET`, `MIN_INLINE_LINKS`, etc.) — those are deliberately-set configuration, not computed output.
 - **Docstrings**: All functions have docstrings explaining args, returns, and purpose
 - **Type hints**: Used throughout (BlogState, Config, node functions)
 - **Error handling**: Accumulate errors in state rather than raising exceptions
 - **Logging**: Use print statements for user feedback (not logging module)
 - **File structure**: Organized by responsibility (agentic/nodes, agentic/tools, agentic/prompts, tests)
+
+## Task Management
+
+Tracked in **GitHub Projects** (board #13 — [https://github.com/christancho/blogging-with-langchain/projects](https://github.com/christancho/blogging-with-langchain/projects)). Full flow: `docs/git-strategy.md`.
+
+- Use `gh issue create` for new work. New issues are auto-added to the board as **Backlog** by `.github/workflows/issue-to-backlog.yml`.
+- Status moves are automated end-to-end — don't hand-drag cards, and don't hand-set an item to Done and assume the issue closed:
+  - **Backlog → Ready**: manual, during triage/grooming (the one human step in the flow)
+  - **Ready → In Progress**: automatic when a `feature/{issue}-{slug}` branch is pushed (`issue-to-in-progress.yml`)
+  - **In Progress → In Review**: automatic when a PR targeting `dev` includes a `Closes #N` line (`issue-to-in-review.yml`)
+  - **In Review → Done**: automatic when that PR merges into `dev` (`pr-to-stg.yml`)
+- Every PR body must include `Closes #N` for each issue it resolves — this is what the board automation keys off of; omitting it breaks the board regardless of whether GitHub's native issue-closing also fires.
+- `.github/project-config.json` holds the board's GraphQL node IDs and must stay in sync across `main`, `dev`, and `stg`. Don't hand-edit it — regenerate via the GraphQL calls in the PR that first wired it up if it ever needs to change.
+- Do NOT use TodoWrite, task files, or in-session task lists as a substitute for tracking multi-step feature work — GitHub Issues is the source of truth.
+
+##  Self-Correcting Rules Engine
+
+This file contains a growing ruleset that improves over time. **At session start, read the entire "Learned Rules" section before doing anything.**
+
+### How it works
+
+1. When the user corrects you or you make a mistake, **immediately append a new rule** to the "Learned Rules" section at the bottom of this file.
+2. Rules are numbered sequentially and written as clear, imperative instructions.
+3. Format: `N. [CATEGORY] Never/Always do X — because Y.`
+4. Categories: `[STYLE]`, `[CODE]`, `[ARCH]`, `[TOOL]`, `[PROCESS]`, `[DATA]`, `[UX]`, `[OTHER]`
+5. Before starting any task, scan all rules below for relevant constraints.
+6. If two rules conflict, the higher-numbered (newer) rule wins.
+7. Never delete rules. If a rule becomes obsolete, append a new rule that supersedes it.
+
+### When to add a rule
+
+- User explicitly corrects your output ("no, do it this way")
+- User rejects a file, approach, or pattern
+- You hit a bug caused by a wrong assumption about this codebase
+- User states a preference ("always use X", "never do Y")
+
+### Rule format example
+
+```
+14. [CODE] Always use `bun` instead of `npm` — user preference, bun is installed globally.
+15. [STYLE] Never add emojis to commit messages — project convention.
+16. [ARCH] API routes live in `src/server/routes/`, not `src/api/` — existing codebase pattern.
+```
+
+---
+
+## Learned Rules
+
+<!-- New rules are appended below this line. Do not edit above this section. -->
+
+1. [PROCESS] Never commit non-trivial logic (algorithms, calculations, data transformations) without first verifying it against real output — passing tests are not sufficient if the logic was never actually run.
+2. [CODE] Never write empty or silent error handlers — every caught error must either re-throw, be logged with explicit source attribution, or be stored somewhere visible. If an error is genuinely safe to ignore, add a comment explaining the invariant that guarantees it.
+3. [CODE] Never suppress compiler or runtime warnings — always fix the root cause. Warnings exist for a reason; silencing them hides real problems.
+4. [CODE] Never fire-and-forget operations that can fail — background tasks must persist their result (success or error) somewhere the user can see it. Logging to console alone is not enough for user-facing operations.
+5. [PROCESS] Always choose Subagent-Driven execution (never Inline Execution) when the writing-plans skill's handoff offers a choice — user default preference, stated explicitly. Proceed with it directly without asking again.
+
