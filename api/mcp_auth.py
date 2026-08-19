@@ -1,3 +1,4 @@
+import hmac
 import logging
 import os
 
@@ -8,6 +9,23 @@ from mcp.server.auth.provider import TokenVerifier, AccessToken
 from mcp.server.auth.settings import AuthSettings
 
 _log = logging.getLogger("api.mcp_auth")
+
+
+class StaticTokenVerifier(TokenVerifier):
+    """Verify a single pre-shared bearer token — no OAuth authorization server involved.
+
+    For personal use, where the same fixed token is configured once on the client
+    (e.g. `claude mcp add --header "Authorization: Bearer <token>"`) and sent on
+    every request.
+    """
+
+    def __init__(self, token: str):
+        self._token = token
+
+    async def verify_token(self, token: str) -> AccessToken | None:
+        if not hmac.compare_digest(token, self._token):
+            return None
+        return AccessToken(token=token, client_id="static", scopes=[], expires_at=None)
 
 
 class JwksTokenVerifier(TokenVerifier):
@@ -47,21 +65,35 @@ class JwksTokenVerifier(TokenVerifier):
         )
 
 
-def build_token_verifier() -> JwksTokenVerifier | None:
-    """Build the verifier from env, or None if OAuth is not configured."""
+def build_token_verifier() -> TokenVerifier | None:
+    """Build the verifier from env, or None if no auth is configured.
+
+    Prefers MCP_STATIC_TOKEN (a pre-shared secret, for personal/CLI use with no
+    OAuth authorization server). Falls back to JWKS-based OAuth verification when
+    OAUTH_JWKS_URL/OAUTH_ISSUER/OAUTH_AUDIENCE are set instead.
+    """
+    static_token = os.environ.get("MCP_STATIC_TOKEN")
+    if static_token:
+        return StaticTokenVerifier(static_token)
+
     jwks_url = os.environ.get("OAUTH_JWKS_URL")
     issuer = os.environ.get("OAUTH_ISSUER")
     audience = os.environ.get("OAUTH_AUDIENCE")
     if not (jwks_url and issuer and audience):
-        print("[mcp-auth] OAuth env not fully set — MCP server will run UNAUTHENTICATED")
+        print("[mcp-auth] no auth configured (MCP_STATIC_TOKEN or OAuth env) — MCP server will run UNAUTHENTICATED")
         return None
     return JwksTokenVerifier(jwks_url, issuer, audience)
 
 
 def build_auth_settings() -> AuthSettings | None:
-    """Build AuthSettings (advertised discovery metadata) from env, or None."""
-    issuer = os.environ.get("OAUTH_ISSUER")
+    """Build AuthSettings (advertised discovery metadata) from env, or None.
+
+    issuer_url falls back to MCP_RESOURCE_URL when only a static token is
+    configured — there's no real OAuth authorization server in that mode, and a
+    client using a fixed bearer token never dereferences it.
+    """
     resource = os.environ.get("MCP_RESOURCE_URL")
+    issuer = os.environ.get("OAUTH_ISSUER") or resource
     if not (issuer and resource):
         return None
     return AuthSettings(
