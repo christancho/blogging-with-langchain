@@ -127,7 +127,7 @@ async def test_update_llm_model(authed_client, seeded_settings):
 
 @pytest.mark.asyncio(loop_scope="function")
 async def test_list_models(authed_client, seeded_settings):
-    fake_response = AsyncMock()
+    fake_response = MagicMock()
     fake_response.status_code = 200
     fake_response.json.return_value = {
         "data": [
