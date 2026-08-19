@@ -11,6 +11,8 @@ if config.config_file_name is not None:
 # Use DATABASE_URL from environment, converting asyncpg to sync driver for alembic
 _db_url = os.environ.get("DATABASE_URL", config.get_main_option("sqlalchemy.url"))
 _db_url = _db_url.replace("postgresql+asyncpg://", "postgresql://")
+if _db_url.startswith("postgres://"):
+    _db_url = "postgresql://" + _db_url[len("postgres://"):]
 config.set_main_option("sqlalchemy.url", _db_url)
 
 # Import models so Alembic can detect them
