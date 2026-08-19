@@ -15,7 +15,7 @@ if _ROOT not in sys.path:
 from agentic.graph import create_blog_graph  # noqa: E402 — must come after sys.path setup
 from agentic.config import Config  # noqa: E402 — must come after sys.path setup
 from sqlalchemy import select  # noqa: E402 — must come after sys.path setup
-from api.pg_dsn import plain_dsn  # noqa: E402
+from api.pg_dsn import async_dsn, plain_dsn  # noqa: E402
 from api.log_stream import LogPublisher  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -81,7 +81,7 @@ async def _worker_loop() -> None:
     from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
     from api.models import Job
 
-    engine = create_async_engine(os.environ["DATABASE_URL"])
+    engine = create_async_engine(async_dsn(os.environ["DATABASE_URL"]))
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
     while True:
@@ -166,7 +166,7 @@ async def _run_job(job_id, session_factory) -> None:
         from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker as _sm
 
         async def flush_loop():
-            engine = create_async_engine(os.environ["DATABASE_URL"])
+            engine = create_async_engine(async_dsn(os.environ["DATABASE_URL"]))
             Session = _sm(engine, expire_on_commit=False)
             try:
                 while not flush_stop.is_set():
