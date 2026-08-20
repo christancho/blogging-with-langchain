@@ -4,7 +4,13 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 
-from api.mcp_auth import JwksTokenVerifier, require_auth_config_or_warn
+from api.mcp_auth import (
+    JwksTokenVerifier,
+    StaticTokenVerifier,
+    build_auth_settings,
+    build_token_verifier,
+    require_auth_config_or_warn,
+)
 
 
 @pytest.fixture
@@ -109,3 +115,49 @@ def test_require_auth_config_production_ok_when_both_present():
 
 def test_require_auth_config_development_does_not_raise():
     require_auth_config_or_warn("development", None, None)  # warns only
+
+
+async def test_static_token_verifier_accepts_matching_token():
+    verifier = StaticTokenVerifier("secret-token")
+    result = await verifier.verify_token("secret-token")
+    assert result is not None
+    assert result.client_id == "static"
+
+
+async def test_static_token_verifier_rejects_wrong_token():
+    verifier = StaticTokenVerifier("secret-token")
+    assert await verifier.verify_token("wrong-token") is None
+
+
+def test_build_token_verifier_prefers_static_token(monkeypatch):
+    monkeypatch.setenv("MCP_STATIC_TOKEN", "secret-token")
+    monkeypatch.delenv("OAUTH_JWKS_URL", raising=False)
+    monkeypatch.delenv("OAUTH_ISSUER", raising=False)
+    monkeypatch.delenv("OAUTH_AUDIENCE", raising=False)
+    verifier = build_token_verifier()
+    assert isinstance(verifier, StaticTokenVerifier)
+
+
+def test_build_token_verifier_falls_back_to_jwks(monkeypatch):
+    monkeypatch.delenv("MCP_STATIC_TOKEN", raising=False)
+    monkeypatch.setenv("OAUTH_JWKS_URL", "https://issuer.test/.well-known/jwks.json")
+    monkeypatch.setenv("OAUTH_ISSUER", "https://issuer.test")
+    monkeypatch.setenv("OAUTH_AUDIENCE", "https://mcp.test")
+    verifier = build_token_verifier()
+    assert isinstance(verifier, JwksTokenVerifier)
+
+
+def test_build_token_verifier_none_when_unconfigured(monkeypatch):
+    monkeypatch.delenv("MCP_STATIC_TOKEN", raising=False)
+    monkeypatch.delenv("OAUTH_JWKS_URL", raising=False)
+    monkeypatch.delenv("OAUTH_ISSUER", raising=False)
+    monkeypatch.delenv("OAUTH_AUDIENCE", raising=False)
+    assert build_token_verifier() is None
+
+
+def test_build_auth_settings_issuer_falls_back_to_resource_url(monkeypatch):
+    monkeypatch.delenv("OAUTH_ISSUER", raising=False)
+    monkeypatch.setenv("MCP_RESOURCE_URL", "https://blog.test/mcp")
+    settings = build_auth_settings()
+    assert str(settings.issuer_url) == "https://blog.test/mcp"
+    assert str(settings.resource_server_url) == "https://blog.test/mcp"

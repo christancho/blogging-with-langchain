@@ -2,6 +2,8 @@ import os
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import DeclarativeBase
 
+from api.pg_dsn import async_dsn
+
 
 class Base(DeclarativeBase):
     pass
@@ -12,7 +14,7 @@ def _make_engine():
     url = os.environ.get("DATABASE_URL")
     if not url:
         raise ValueError("DATABASE_URL environment variable is not set")
-    return create_async_engine(url, pool_pre_ping=True)
+    return create_async_engine(async_dsn(url), pool_pre_ping=True)
 
 
 engine = _make_engine()
