@@ -2,8 +2,8 @@
 # note below). Regenerate with `pip freeze` after intentional upgrades.
 
 # LangChain Core
-langchain==1.3.15
-langchain-core==1.5.5
+langchain==1.3.16
+langchain-core==1.6.0
 langchain-community==0.4.2
 
 # LLM Providers
@@ -42,8 +42,8 @@ mypy==2.3.1
 
 # Web API
 fastapi==0.141.1
-uvicorn[standard]==0.52.3
-mcp==1.28.1
+uvicorn[standard]==0.52.4
+mcp==2.0.0
 
 # Database
 sqlalchemy[asyncio]==2.0.52
