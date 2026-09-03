@@ -2,8 +2,8 @@
 # note below). Regenerate with `pip freeze` after intentional upgrades.
 
 # LangChain Core
-langchain==1.3.15
-langchain-core==1.5.5
+langchain==1.3.18
+langchain-core==1.6.1
 langchain-community==0.4.2
 
 # LLM Providers
@@ -35,15 +35,15 @@ pytest-mock==3.15.1
 
 # Graph Visualization (for workflow diagrams)
 graphviz==0.21
-ipython==9.16.1
+ipython==9.17.0
 
 # Type Checking (optional but recommended)
 mypy==2.3.1
 
 # Web API
 fastapi==0.141.1
-uvicorn[standard]==0.52.3
-mcp==1.28.1
+uvicorn[standard]==0.52.4
+mcp==2.1.1
 
 # Database
 sqlalchemy[asyncio]==2.0.52
