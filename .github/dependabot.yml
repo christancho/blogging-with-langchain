@@ -11,6 +11,11 @@ updates:
       python-dependencies:
         patterns:
           - "*"
+    ignore:
+      # mcp 2.x removed FastMCP (renamed MCPServer); a major bump needs a code
+      # migration, so it must not arrive hidden in the grouped PR (#69, #93).
+      - dependency-name: "mcp"
+        update-types: ["version-update:semver-major"]
 
   # Next.js frontend
   - package-ecosystem: "npm"
@@ -23,6 +28,10 @@ updates:
       npm-dependencies:
         patterns:
           - "*"
+    ignore:
+      # TypeScript majors break ts-jest's peer range and npm ci (#62, #93).
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
 
   # GitHub Actions used in workflows
   - package-ecosystem: "github-actions"
