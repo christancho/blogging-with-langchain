@@ -1,49 +1,46 @@
-import hmac
+import asyncio
+import json
 import logging
 import os
 
 import jwt
 from jwt import PyJWKClient
 
-from mcp.server.auth.provider import TokenVerifier, AccessToken
-from mcp.server.auth.settings import AuthSettings
-
 _log = logging.getLogger("api.mcp_auth")
 
+# Header Cloudflare Access adds to every request it lets through to the origin.
+ACCESS_JWT_HEADER = b"cf-access-jwt-assertion"
 
-class StaticTokenVerifier(TokenVerifier):
-    """Verify a single pre-shared bearer token — no OAuth authorization server involved.
 
-    For personal use, where the same fixed token is configured once on the client
-    (e.g. `claude mcp add --header "Authorization: Bearer <token>"`) and sent on
-    every request.
+class CloudflareAccessVerifier:
+    """Verify the Cloudflare Access application token sent to the origin.
+
+    Cloudflare Access (with Managed OAuth) owns login and token issuance for MCP
+    clients; on each request it forwards a signed JWT in `Cf-Access-Jwt-Assertion`.
+    Validates its signature (RS256, keys from the team's certs endpoint), issuer
+    (the team domain), and audience (the Access application's AUD tag).
     """
 
-    def __init__(self, token: str):
-        self._token = token
-
-    async def verify_token(self, token: str) -> AccessToken | None:
-        if not hmac.compare_digest(token, self._token):
-            return None
-        return AccessToken(token=token, client_id="static", scopes=[], expires_at=None)
-
-
-class JwksTokenVerifier(TokenVerifier):
-    """Verify a provider-issued JWT against the provider's JWKS.
-
-    Validates signature (RS256), issuer, and audience. Returns an AccessToken
-    on success or None on any failure (the MCP SDK turns None into a 401).
-    """
-
-    def __init__(self, jwks_url: str, issuer: str, audience: str):
-        self.jwks_client = PyJWKClient(jwks_url)
-        self.issuer = issuer
+    def __init__(self, team_domain: str, audience: str):
+        team = team_domain.strip().rstrip("/")
+        if not team.startswith("https://"):
+            team = f"https://{team}"
+        self.issuer = team
         self.audience = audience
+        self.jwks_client = PyJWKClient(f"{team}/cdn-cgi/access/certs")
 
-    async def verify_token(self, token: str) -> AccessToken | None:
+    def verify(self, token: str) -> dict | None:
+        """Return the token's claims if valid, or None on any failure.
+
+        Args:
+            token: Raw value of the Cf-Access-Jwt-Assertion header.
+
+        Returns:
+            Decoded claims dict, or None if the token is invalid.
+        """
         try:
             signing_key = self.jwks_client.get_signing_key_from_jwt(token)
-            claims = jwt.decode(
+            return jwt.decode(
                 token,
                 signing_key.key,
                 algorithms=["RS256"],
@@ -51,74 +48,78 @@ class JwksTokenVerifier(TokenVerifier):
                 issuer=self.issuer,
             )
         except Exception as e:  # noqa: BLE001 — must stay visible per repo rule
-            print(f"[mcp-auth] token verification failed: {e}")
+            print(f"[mcp-auth] Cloudflare Access token verification failed: {e}")
             return None
 
-        scope = claims.get("scope", "")
-        return AccessToken(
-            token=token,
-            client_id=claims.get("client_id", claims.get("azp", "unknown")),
-            scopes=scope.split() if scope else [],
-            expires_at=claims.get("exp"),
-            subject=claims.get("sub"),
-            claims=claims,
+
+class CloudflareAccessMiddleware:
+    """ASGI middleware that rejects HTTP requests lacking a valid Access JWT.
+
+    Cloudflare Access already blocks unauthenticated traffic at the edge; this is
+    the origin-side check so a request that reaches the app without passing
+    through Access (misrouted tunnel, exposed port) is still refused.
+    """
+
+    def __init__(self, app, verifier: CloudflareAccessVerifier):
+        self.app = app
+        self.verifier = verifier
+
+    async def __call__(self, scope, receive, send):
+        """Verify the Access JWT, then delegate to the wrapped app or answer 401."""
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        token = next(
+            (v.decode("latin-1") for k, v in scope["headers"] if k == ACCESS_JWT_HEADER),
+            None,
         )
+        if token is None:
+            print(f"[mcp-auth] rejected {scope['path']}: missing Cf-Access-Jwt-Assertion header")
+        elif await asyncio.to_thread(self.verifier.verify, token) is not None:
+            await self.app(scope, receive, send)
+            return
+
+        body = json.dumps({"error": "unauthorized"}).encode()
+        await send({
+            "type": "http.response.start",
+            "status": 401,
+            "headers": [(b"content-type", b"application/json"), (b"content-length", str(len(body)).encode())],
+        })
+        await send({"type": "http.response.body", "body": body})
 
 
-def build_token_verifier() -> TokenVerifier | None:
-    """Build the verifier from env, or None if no auth is configured.
+def build_cloudflare_access_verifier() -> CloudflareAccessVerifier | None:
+    """Build the verifier from CF_ACCESS_TEAM_DOMAIN and CF_ACCESS_AUD, or None if unset.
 
-    Prefers MCP_STATIC_TOKEN (a pre-shared secret, for personal/CLI use with no
-    OAuth authorization server). Falls back to JWKS-based OAuth verification when
-    OAUTH_JWKS_URL/OAUTH_ISSUER/OAUTH_AUDIENCE are set instead.
+    Returns:
+        A CloudflareAccessVerifier, or None when either variable is missing.
     """
-    static_token = os.environ.get("MCP_STATIC_TOKEN")
-    if static_token:
-        return StaticTokenVerifier(static_token)
-
-    jwks_url = os.environ.get("OAUTH_JWKS_URL")
-    issuer = os.environ.get("OAUTH_ISSUER")
-    audience = os.environ.get("OAUTH_AUDIENCE")
-    if not (jwks_url and issuer and audience):
-        print("[mcp-auth] no auth configured (MCP_STATIC_TOKEN or OAuth env) — MCP server will run UNAUTHENTICATED")
+    team_domain = os.environ.get("CF_ACCESS_TEAM_DOMAIN")
+    audience = os.environ.get("CF_ACCESS_AUD")
+    if not (team_domain and audience):
+        print("[mcp-auth] CF_ACCESS_TEAM_DOMAIN/CF_ACCESS_AUD not set — MCP server will run UNAUTHENTICATED")
         return None
-    return JwksTokenVerifier(jwks_url, issuer, audience)
+    return CloudflareAccessVerifier(team_domain, audience)
 
 
-def build_auth_settings() -> AuthSettings | None:
-    """Build AuthSettings (advertised discovery metadata) from env, or None.
+def require_auth_config_or_warn(env, verifier) -> None:
+    """Enforce Cloudflare Access config at startup.
 
-    issuer_url falls back to MCP_RESOURCE_URL when only a static token is
-    configured — there's no real OAuth authorization server in that mode, and a
-    client using a fixed bearer token never dereferences it.
+    In production ('production'), raise RuntimeError if the verifier is missing,
+    so a misconfigured deploy fails closed instead of serving /mcp
+    unauthenticated. In any other env, log a loud warning but allow the server
+    to run unauthenticated (convenient for local/dev/test).
+
+    Args:
+        env: Value of the ENV environment variable.
+        verifier: Result of build_cloudflare_access_verifier().
     """
-    resource = os.environ.get("MCP_RESOURCE_URL")
-    issuer = os.environ.get("OAUTH_ISSUER") or resource
-    if not (issuer and resource):
-        return None
-    return AuthSettings(
-        issuer_url=issuer,
-        resource_server_url=resource,
-        required_scopes=[],
-    )
-
-
-def require_auth_config_or_warn(env, token_verifier, auth_settings) -> None:
-    """Enforce OAuth config at startup.
-
-    In production ('production'), raise RuntimeError if either the token
-    verifier or auth settings is missing (OAuth env incomplete), so a
-    misconfigured deploy fails closed instead of serving /mcp unauthenticated.
-    In any other env, log a loud warning but allow the server to run
-    unauthenticated (convenient for local/dev/test).
-    """
-    configured = token_verifier is not None and auth_settings is not None
-    if configured:
+    if verifier is not None:
         return
     if env == "production":
-        _log.critical("MCP OAuth is not fully configured in production — refusing to start.")
+        _log.critical("MCP Cloudflare Access auth is not configured in production — refusing to start.")
         raise RuntimeError(
-            "MCP OAuth env incomplete in production: set OAUTH_ISSUER, OAUTH_AUDIENCE, "
-            "OAUTH_JWKS_URL, and MCP_RESOURCE_URL."
+            "MCP auth env incomplete in production: set CF_ACCESS_TEAM_DOMAIN and CF_ACCESS_AUD."
         )
-    _log.warning("MCP server running UNAUTHENTICATED — OAuth env not fully configured (fine for local/dev).")
+    _log.warning("MCP server running UNAUTHENTICATED — Cloudflare Access env not set (fine for local/dev).")
