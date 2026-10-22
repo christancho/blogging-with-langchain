@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { jobs, type Job } from '@/lib/api';
+import { useActiveJobs } from '@/lib/activeJobs';
 
 function StatusBadge({ status }: { status: Job['status'] }) {
   const classes: Record<string, string> = {
@@ -79,32 +80,14 @@ function LogPanel({ jobId }: { jobId: string }) {
 }
 
 export default function QueuePage() {
-  const [allJobs, setAllJobs] = useState<Job[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { jobs: allJobs, loading } = useActiveJobs();
   const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  const fetchJobs = useCallback(async () => {
-    try {
-      const data = await jobs.list();
-      setAllJobs(data);
-    } catch (err) {
-      console.error('Failed to fetch jobs:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchJobs();
-    const interval = setInterval(fetchJobs, 3000);
-    return () => clearInterval(interval);
-  }, [fetchJobs]);
 
   async function handleDelete(id: string) {
     setDeletingId(id);
     try {
+      // The stream pushes the updated queue once the row is deleted.
       await jobs.delete(id);
-      setAllJobs(prev => prev.filter(j => j.id !== id));
     } catch (err) {
       console.error('Failed to delete job:', err);
     } finally {
