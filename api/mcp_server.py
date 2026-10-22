@@ -312,16 +312,13 @@ async def update_settings_impl(
         return _settings_dict(s)
 
 
-def build_mcp(session_factory, token_verifier=None, auth_settings=None) -> "FastMCP":
+def build_mcp(session_factory) -> "FastMCP":
     """Build the BlogForge MCP server. Tools bind to the given session factory.
 
-    When both token_verifier and auth_settings are provided, all tools require a
-    valid bearer token; otherwise the server runs unauthenticated (tests only).
+    The server itself is unauthenticated: authentication is Cloudflare Access at
+    the edge, enforced at the origin by CloudflareAccessMiddleware (api/main.py).
     """
     kwargs = {"name": "BlogForge", "streamable_http_path": "/mcp"}
-    if token_verifier is not None and auth_settings is not None:
-        kwargs["token_verifier"] = token_verifier
-        kwargs["auth"] = auth_settings
     with warnings.catch_warnings():
         # mcp SDK's own Settings model has a `lifespan` field with an unresolved
         # generic type annotation; pydantic-settings warns on every FastMCP()
