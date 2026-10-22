@@ -159,4 +159,4 @@ This file contains a growing ruleset that improves over time. **At session start
 3. [CODE] Never suppress compiler or runtime warnings — always fix the root cause. Warnings exist for a reason; silencing them hides real problems.
 4. [CODE] Never fire-and-forget operations that can fail — background tasks must persist their result (success or error) somewhere the user can see it. Logging to console alone is not enough for user-facing operations.
 5. [PROCESS] Always choose Subagent-Driven execution (never Inline Execution) when the writing-plans skill's handoff offers a choice — user default preference, stated explicitly. Proceed with it directly without asking again.
-
+6. [PROCESS] Always verify dependency upgrades by building the Docker image and running its real CMD (migrations + startup) until the healthcheck reports healthy — because tests that build the schema with create_all and an import check missed SQLAlchemy 2.1 breaking `alembic upgrade head`, which failed the stg deploy (#96).
