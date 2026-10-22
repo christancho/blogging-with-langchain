@@ -8,11 +8,15 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Use DATABASE_URL from environment, converting asyncpg to sync driver for alembic
+# Use DATABASE_URL from environment, converting asyncpg to sync driver for alembic.
+# The driver is named explicitly: SQLAlchemy 2.1 maps a bare postgresql:// URL to
+# psycopg (v3), which isn't installed; psycopg2-binary is (requirements.txt).
 _db_url = os.environ.get("DATABASE_URL", config.get_main_option("sqlalchemy.url"))
-_db_url = _db_url.replace("postgresql+asyncpg://", "postgresql://")
+_db_url = _db_url.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
 if _db_url.startswith("postgres://"):
-    _db_url = "postgresql://" + _db_url[len("postgres://"):]
+    _db_url = "postgresql+psycopg2://" + _db_url[len("postgres://"):]
+elif _db_url.startswith("postgresql://"):
+    _db_url = "postgresql+psycopg2://" + _db_url[len("postgresql://"):]
 config.set_main_option("sqlalchemy.url", _db_url)
 
 # Import models so Alembic can detect them
