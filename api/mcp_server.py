@@ -2,6 +2,7 @@ import uuid
 import warnings
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 from pydantic_settings.exceptions import IncompleteFieldDefinitionWarning
 from sqlalchemy import select, desc
 
@@ -318,7 +319,16 @@ def build_mcp(session_factory, token_verifier=None, auth_settings=None) -> "Fast
     When both token_verifier and auth_settings are provided, all tools require a
     valid bearer token; otherwise the server runs unauthenticated (tests only).
     """
-    kwargs = {"name": "BlogForge", "streamable_http_path": "/mcp"}
+    kwargs = {
+        "name": "BlogForge",
+        "streamable_http_path": "/mcp",
+        # FastMCP enables DNS-rebinding protection by default (host=127.0.0.1),
+        # which answers 421 to any non-localhost Host header — i.e. every request
+        # arriving through the reverse proxy / tunnel. Rebinding targets services
+        # on a victim's localhost; this one is only reachable through the proxy
+        # and requires auth, so the check adds nothing here.
+        "transport_security": TransportSecuritySettings(enable_dns_rebinding_protection=False),
+    }
     if token_verifier is not None and auth_settings is not None:
         kwargs["token_verifier"] = token_verifier
         kwargs["auth"] = auth_settings
