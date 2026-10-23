@@ -1,16 +1,16 @@
 import httpx
 
-from api.mcp_server import build_mcp
+from api.mcp_server import build_mcp, build_mcp_app
 
 
 async def test_mcp_accepts_public_host_header():
     """Behind a proxy/tunnel the Host header is the public hostname, not localhost.
 
-    FastMCP's default DNS-rebinding protection answers 421 for any non-localhost
-    Host; build_mcp must not leave it on.
+    The SDK's default DNS-rebinding protection answers 421 for any non-localhost
+    Host; build_mcp_app must not leave it on.
     """
     mcp = build_mcp(session_factory=None)
-    app = mcp.streamable_http_app()
+    app = build_mcp_app(mcp)
     init = {
         "jsonrpc": "2.0", "id": 1, "method": "initialize",
         "params": {"protocolVersion": "2025-06-18", "capabilities": {},
