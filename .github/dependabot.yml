@@ -12,8 +12,9 @@ updates:
         patterns:
           - "*"
     ignore:
-      # mcp 2.x removed FastMCP (renamed MCPServer); a major bump needs a code
-      # migration, so it must not arrive hidden in the grouped PR (#69, #93).
+      # mcp majors have broken the server API before (1.x -> 2.x removed
+      # FastMCP, #68, #93, #99); a major bump needs a deliberate migration, so
+      # it must not arrive hidden in the grouped PR. Now on 2.x: this blocks 3.x.
       - dependency-name: "mcp"
         update-types: ["version-update:semver-major"]
 

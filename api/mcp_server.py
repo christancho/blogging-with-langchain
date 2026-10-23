@@ -1,9 +1,9 @@
+import functools
 import uuid
-import warnings
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
-from pydantic_settings.exceptions import IncompleteFieldDefinitionWarning
 from sqlalchemy import select, desc
 
 from api.models import Job, Settings
@@ -313,30 +313,42 @@ async def update_settings_impl(
         return _settings_dict(s)
 
 
-def build_mcp(session_factory) -> "FastMCP":
+def _surface_value_errors(fn):
+    """Re-raise a tool's ValueError as ToolError so its message reaches the client.
+
+    The *_impl functions raise ValueError for anticipated failures (job not
+    found, wrong status, Ghost publish error). mcp 2.x treats any exception
+    other than ToolError as a crash and sends the client only "Error executing
+    tool <name>", hiding the reason.
+
+    Args:
+        fn: The async tool function to wrap.
+
+    Returns:
+        The wrapped async function, with fn's signature preserved for schema
+        generation.
+    """
+    @functools.wraps(fn)
+    async def wrapper(*args, **kwargs):
+        try:
+            return await fn(*args, **kwargs)
+        except ValueError as e:
+            raise ToolError(str(e)) from e
+    return wrapper
+
+
+def build_mcp(session_factory) -> "MCPServer":
     """Build the BlogForge MCP server. Tools bind to the given session factory.
 
     The server itself is unauthenticated: authentication is Cloudflare Access at
     the edge, enforced at the origin by CloudflareAccessMiddleware (api/main.py).
+    Transport settings (path, DNS-rebinding protection) are passed when the ASGI
+    app is created; see build_mcp_app().
     """
-    kwargs = {
-        "name": "BlogForge",
-        "streamable_http_path": "/mcp",
-        # FastMCP enables DNS-rebinding protection by default (host=127.0.0.1),
-        # which answers 421 to any non-localhost Host header — i.e. every request
-        # arriving through the reverse proxy / tunnel. Rebinding targets services
-        # on a victim's localhost; this one is only reachable through the proxy
-        # and requires auth, so the check adds nothing here.
-        "transport_security": TransportSecuritySettings(enable_dns_rebinding_protection=False),
-    }
-    with warnings.catch_warnings():
-        # mcp SDK's own Settings model has a `lifespan` field with an unresolved
-        # generic type annotation; pydantic-settings warns on every FastMCP()
-        # call regardless of whether lifespan is used. We never set it.
-        warnings.filterwarnings("ignore", category=IncompleteFieldDefinitionWarning)
-        mcp = FastMCP(**kwargs)
+    mcp = MCPServer(name="BlogForge")
 
     @mcp.tool()
+    @_surface_value_errors
     async def generate_blog(
         topic: str,
         tone: str | None = None,
@@ -347,36 +359,43 @@ def build_mcp(session_factory) -> "FastMCP":
         return await generate_blog_impl(session_factory, topic, tone, word_count, instructions)
 
     @mcp.tool()
+    @_surface_value_errors
     async def get_job(job_id: str) -> dict:
         """Get a job's status and, once completed, the finished article for review."""
         return await get_job_impl(session_factory, job_id)
 
     @mcp.tool()
+    @_surface_value_errors
     async def list_jobs(limit: int = 20) -> list[dict]:
         """List recent blog jobs, newest first."""
         return await list_jobs_impl(session_factory, limit)
 
     @mcp.tool()
+    @_surface_value_errors
     async def get_job_logs(job_id: str) -> dict:
         """Get the captured pipeline log output for a job."""
         return await get_job_logs_impl(session_factory, job_id)
 
     @mcp.tool()
+    @_surface_value_errors
     async def publish_blog(job_id: str) -> dict:
         """Publish a completed job's article to Ghost CMS."""
         return await publish_blog_impl(session_factory, job_id)
 
     @mcp.tool()
+    @_surface_value_errors
     async def retry_blog(job_id: str) -> dict:
         """Re-queue a failed job as a new pending job."""
         return await retry_blog_impl(session_factory, job_id)
 
     @mcp.tool()
+    @_surface_value_errors
     async def get_settings() -> dict:
         """Get current generation defaults and settings."""
         return await get_settings_impl(session_factory)
 
     @mcp.tool()
+    @_surface_value_errors
     async def update_settings(
         default_tone: str | None = None,
         default_word_count: int | None = None,
@@ -395,3 +414,24 @@ def build_mcp(session_factory) -> "FastMCP":
         )
 
     return mcp
+
+
+def build_mcp_app(mcp: MCPServer):
+    """Create the Streamable HTTP ASGI app (and session manager) for the server.
+
+    Args:
+        mcp: The server returned by build_mcp().
+
+    Returns:
+        A Starlette app serving POST /mcp. mcp.session_manager is available
+        once this has been called.
+    """
+    return mcp.streamable_http_app(
+        streamable_http_path="/mcp",
+        # The SDK enables DNS-rebinding protection by default (host=127.0.0.1),
+        # which answers 421 to any non-localhost Host header — i.e. every request
+        # arriving through the reverse proxy / tunnel. Rebinding targets services
+        # on a victim's localhost; this one is only reachable through the proxy
+        # and requires auth, so the check adds nothing here.
+        transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+    )

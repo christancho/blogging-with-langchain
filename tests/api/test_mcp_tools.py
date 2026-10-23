@@ -239,16 +239,14 @@ async def test_update_settings_accepts_valid_temperature(session_factory, seeded
         assert s.llm_temperature == 1.2
 
 
-from mcp.shared.memory import create_connected_server_and_client_session
+from mcp import Client
 from api.mcp_server import build_mcp
 
 
 async def test_tools_listed_and_callable_in_memory(session_factory, seeded_settings):
     mcp = build_mcp(session_factory)  # no auth for the in-memory client
 
-    async with create_connected_server_and_client_session(mcp._mcp_server) as client:
-        await client.initialize()
-
+    async with Client(mcp) as client:
         tools = {t.name for t in (await client.list_tools()).tools}
         assert {
             "generate_blog", "get_job", "list_jobs", "get_job_logs",
@@ -256,17 +254,19 @@ async def test_tools_listed_and_callable_in_memory(session_factory, seeded_setti
         } <= tools
 
         # NOTE: the tool wrappers are annotated `-> dict` (unparameterized), which
-        # FastMCP's func_metadata cannot turn into an output schema (bare `dict`
-        # has no type hints to build a Pydantic model from), so `structuredContent`
+        # the SDK's func_metadata cannot turn into an output schema (bare `dict`
+        # has no type hints to build a Pydantic model from), so `structured_content`
         # is None. The payload is still available as JSON text in `content[0]`.
         created = await client.call_tool("generate_blog", {"topic": "End to end"})
-        assert created.isError is False
-        assert created.structuredContent is None
+        assert created.is_error is False
+        assert created.structured_content is None
         job_id = json.loads(created.content[0].text)["job_id"]
 
         fetched = await client.call_tool("get_job", {"job_id": job_id})
-        assert fetched.isError is False
+        assert fetched.is_error is False
         assert json.loads(fetched.content[0].text)["status"] == "pending"
 
         missing = await client.call_tool("get_job", {"job_id": str(uuid.uuid4())})
-        assert missing.isError is True  # ValueError becomes a tool error
+        assert missing.is_error is True  # ValueError becomes a tool error
+        # ...whose message reaches the client (mcp 2.x hides it unless it is a ToolError).
+        assert "Job not found" in missing.content[0].text
