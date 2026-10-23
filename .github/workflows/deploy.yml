@@ -1,0 +1,78 @@
+name: deploy
+
+# Deploy the Coolify apps on demand (instead of Coolify's GitHub webhook, which needs a public
+# Coolify instance).
+# - Push to stg (merging the dev -> stg promotion PR): deploys only the app(s) whose files
+#   changed — web/ -> web, backend -> api, docs/tests/.github -> nothing. api goes before web.
+# - Manual: Actions -> deploy -> Run workflow (available once this file is on main).
+# Runs on the self-hosted runner at home (dockyard infra/github-runner, runner-blogging), which
+# holds COOLIFY_URL and COOLIFY_TOKEN. Nothing is in GitHub secrets.
+#
+# Test mode: as long as the repo variable DEPLOY_MODE is not "live", this only prints what it
+# would deploy.
+#
+# Never add pull_request triggers here: workflow code runs inside the home network.
+on:
+  push:
+    branches: [stg]
+  workflow_dispatch:
+    inputs:
+      apps:
+        description: "App(s) to deploy"
+        type: choice
+        options: ["api,web", "api", "web"]
+        default: "api,web"
+      dry_run:
+        description: "Only show what would be deployed"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, homelab]
+    timeout-minutes: 60
+    env:
+      SHA: ${{ github.sha }}
+      DRY_RUN: ${{ vars.DEPLOY_MODE != 'live' || inputs.dry_run }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Check runner config
+        run: |
+          if [ -z "$COOLIFY_TOKEN" ]; then
+            echo "::error::COOLIFY_TOKEN is not set on the runner (dockyard infra/github-runner)"
+            exit 1
+          fi
+
+      - name: Deploy changed apps
+        if: github.event_name == 'push'
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            echo "No previous commit to compare against; nothing deployed."
+            exit 0
+          fi
+          git diff --name-only "$BEFORE" "$SHA" > "$RUNNER_TEMP/changed.txt"
+          echo "Changed files:"; sed 's/^/  /' "$RUNNER_TEMP/changed.txt"
+          args="--changed-files $RUNNER_TEMP/changed.txt"
+          [ "$DRY_RUN" = "true" ] && args="$args --dry-run"
+          python3 .github/scripts/coolify_deploy.py $args
+
+      - name: Deploy (manual)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          APPS: ${{ inputs.apps }}
+        run: |
+          args=""
+          [ "$DRY_RUN" = "true" ] && args="--dry-run"
+          python3 .github/scripts/coolify_deploy.py --apps "$APPS" $args
