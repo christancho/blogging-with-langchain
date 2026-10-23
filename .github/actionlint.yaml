@@ -1,0 +1,4 @@
+# Labels of the self-hosted runner (dockyard infra/github-runner), for actionlint.
+self-hosted-runner:
+  labels:
+    - homelab

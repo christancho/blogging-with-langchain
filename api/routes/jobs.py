@@ -9,8 +9,9 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
-from api.db import get_db
-from api.models import Job
+from sqlalchemy.orm import defer
+from api.db import get_db, AsyncSessionLocal
+from api.models import Job, JOBS_CHANNEL
 from api.auth import require_auth
 from api.pg_dsn import plain_dsn
 from api.log_stream import channel_for, count_completed_lines
@@ -18,6 +19,7 @@ from api.log_stream import channel_for, count_completed_lines
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 _TERMINAL_STATUSES = ("completed", "failed", "published")
+_ACTIVE_STATUSES = ("pending", "running")
 _KEEPALIVE_SECONDS = 15
 _POLL_SECONDS = 2
 
@@ -70,6 +72,65 @@ async def create_job(body: JobCreate, db: AsyncSession = Depends(get_db), _: str
     await db.commit()
     await db.refresh(job)
     return _serialize(job)
+
+
+async def _active_jobs_payload() -> str:
+    """Serialize the pending/running jobs (newest first) as a JSON array.
+
+    Uses a short-lived session per snapshot, and skips loading the large
+    `logs`/`result` columns, which _serialize doesn't emit for list views.
+    """
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(Job)
+            .where(Job.status.in_(_ACTIVE_STATUSES))
+            .order_by(desc(Job.created_at))
+            .options(defer(Job.logs), defer(Job.result))
+        )
+        return json.dumps([_serialize(j) for j in result.scalars().all()])
+
+
+# Declared before /{job_id} so "stream" isn't parsed as a job id.
+@router.get("/stream")
+async def stream_jobs(_: str = Depends(require_auth)):
+    """Server-Sent Events stream of the active (pending/running) jobs.
+
+    Sends an `event: jobs` snapshot on connect and again whenever the
+    `jobs_changed` trigger NOTIFYs (job created/deleted, status or
+    current_node changed), with keep-alive comments in between. Notifications
+    that arrive together are coalesced into one snapshot. The listener
+    subscribes before the first snapshot is read, so no change is missed.
+    """
+
+    async def event_gen():
+        conn = await asyncpg.connect(plain_dsn(os.environ["DATABASE_URL"]))
+        changed = asyncio.Event()
+
+        def on_notify(_conn, _pid, _ch, _payload):
+            changed.set()
+
+        try:
+            await conn.add_listener(JOBS_CHANNEL, on_notify)
+            try:
+                while True:
+                    changed.clear()
+                    yield f"event: jobs\ndata: {await _active_jobs_payload()}\n\n"
+                    while True:
+                        try:
+                            await asyncio.wait_for(changed.wait(), timeout=_KEEPALIVE_SECONDS)
+                            break
+                        except asyncio.TimeoutError:
+                            yield ": keep-alive\n\n"
+            finally:
+                await conn.remove_listener(JOBS_CHANNEL, on_notify)
+        finally:
+            await conn.close()
+
+    return StreamingResponse(
+        event_gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.get("/{job_id}")

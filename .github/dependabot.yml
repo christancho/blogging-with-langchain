@@ -11,6 +11,12 @@ updates:
       python-dependencies:
         patterns:
           - "*"
+    ignore:
+      # mcp majors have broken the server API before (1.x -> 2.x removed
+      # FastMCP, #68, #93, #99); a major bump needs a deliberate migration, so
+      # it must not arrive hidden in the grouped PR. Now on 2.x: this blocks 3.x.
+      - dependency-name: "mcp"
+        update-types: ["version-update:semver-major"]
 
   # Next.js frontend
   - package-ecosystem: "npm"
@@ -23,6 +29,10 @@ updates:
       npm-dependencies:
         patterns:
           - "*"
+    ignore:
+      # TypeScript majors break ts-jest's peer range and npm ci (#62, #93).
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
 
   # GitHub Actions used in workflows
   - package-ecosystem: "github-actions"
