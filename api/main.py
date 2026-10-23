@@ -12,7 +12,7 @@ from api.models import Settings
 from api.auth import hash_password, verify_password, create_token, require_auth
 from api.routes import settings as settings_router
 from api.routes import jobs as jobs_router
-from api.mcp_server import build_mcp
+from api.mcp_server import build_mcp, build_mcp_app
 from api.mcp_auth import CloudflareAccessMiddleware, build_cloudflare_access_verifier, require_auth_config_or_warn
 
 logging.basicConfig(level=logging.INFO)
@@ -20,7 +20,7 @@ _log = logging.getLogger("api.startup")
 
 _access_verifier = build_cloudflare_access_verifier()
 mcp = build_mcp(AsyncSessionLocal)
-mcp_app = mcp.streamable_http_app()  # creates the session manager; serves /mcp
+mcp_app = build_mcp_app(mcp)  # creates the session manager; serves /mcp
 if _access_verifier is not None:
     mcp_app = CloudflareAccessMiddleware(mcp_app, _access_verifier)
 
