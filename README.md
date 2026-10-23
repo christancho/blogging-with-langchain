@@ -189,6 +189,15 @@ Production is deployed with [Dokploy](https://dokploy.com), which **builds the i
 
 > Work in progress stays on the `dev` branch and promotes `dev → stg → main`. Point Dokploy at whichever branch is your production line.
 
+### Coolify (staging): on-demand deploys
+
+The `api` and `web` Coolify apps track `stg`. Coolify's GitHub auto-deploy is off; instead
+`.github/workflows/deploy.yml` runs on a self-hosted runner on the home network (dockyard
+`infra/github-runner`) when the `dev → stg` promotion is merged, and deploys only what changed:
+`web/` → web, backend (`api/`, `agentic/`, `requirements.txt`, …) → api, docs/tests/`.github` →
+nothing (api first, then web). Manual: Actions → deploy → Run workflow. Until the repo variable
+`DEPLOY_MODE` is `live`, it only prints what it would deploy.
+
 ### Stopping
 
 ```bash
