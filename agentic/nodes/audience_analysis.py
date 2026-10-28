@@ -49,7 +49,7 @@ def audience_analysis_node(state: BlogState) -> Dict[str, Any]:
     ])
 
     try:
-        llm = Config.get_llm()
+        llm = Config.get_llm("audience_analysis")
         chain = prompt | llm | StrOutputParser()
 
         audience_insights = chain.invoke({})

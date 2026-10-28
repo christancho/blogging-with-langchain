@@ -31,7 +31,7 @@ class QueryGeneratorTool:
         Returns:
             List of search query strings
         """
-        llm = Config.get_llm(temperature=Config.RESEARCH_TEMPERATURE)
+        llm = Config.get_llm("query_generator")
         current_year = datetime.now().year
 
         prompt_template = ChatPromptTemplate.from_messages([
