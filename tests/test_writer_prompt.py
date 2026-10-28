@@ -154,3 +154,30 @@ class TestSessionNotesVoice:
         for phrase in VOICE_CONFLICT_PHRASES[name]:
             assert phrase in r
         assert "told in first person" not in r
+
+
+CORRECTION_CLAUSE = "unless a VERIFIED FACT or a listed correction says otherwise"
+CORRECTIONS_OVERRIDE = "The corrections above override the session notes"
+
+
+class TestCorrectionsOverrideNotes:
+    @pytest.mark.parametrize(
+        "name,args",
+        [("writer", MINIMAL_WRITER_ARGS), ("revision", MINIMAL_REVISION_ARGS)],
+    )
+    def test_reproduce_bullet_defers_to_facts(self, name, args):
+        r = PromptLoader.load(name).render(**args, research_key_facts=SAMPLE_FACTS, session_notes="I ran X")
+        assert CORRECTION_CLAUSE in r
+
+    def test_fact_revision_with_notes_has_override(self):
+        r = PromptLoader.load("revision").render(
+            **MINIMAL_REVISION_ARGS, research_key_facts=SAMPLE_FACTS,
+            session_notes="I ran X", is_fact_revision=True,
+        )
+        assert CORRECTIONS_OVERRIDE in r
+
+    def test_fact_revision_without_notes_has_no_override(self):
+        r = PromptLoader.load("revision").render(
+            **MINIMAL_REVISION_ARGS, research_key_facts=SAMPLE_FACTS, is_fact_revision=True,
+        )
+        assert CORRECTIONS_OVERRIDE not in r

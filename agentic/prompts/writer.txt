@@ -19,7 +19,7 @@ Write a complete, publication-ready blog post on: {{ topic }}
 - This hands-on session is the foundation of the article. Build on it and around it: follow its order of events, from idea to outcome.
 - Write in first person as the author ("I set up…", "my first attempt failed…").
 - Mention the AI assistant where it shaped the story (a suggestion that worked, one that broke something). Don't hide it and don't make it the theme.
-- Reproduce commands, configuration, code and error messages exactly as they appear in the notes.
+- Reproduce commands, configuration, code and error messages exactly as they appear in the notes, unless a VERIFIED FACT or a listed correction says otherwise.
 - Keep instructive dead ends and fixes; they're what makes a hands-on post worth reading.
 - Use web research as supporting context: official docs, current versions, citations.
 
