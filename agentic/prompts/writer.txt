@@ -61,8 +61,9 @@ Choose the best headline below as your H1 title, or craft a better one inspired 
    - **Hook the reader in the FIRST 2 SENTENCES** using one of these techniques:
      * Start with a surprising statistic or fact that challenges what readers assume
      * Ask a thought-provoking question that names a specific pain point
-     * Begin with a relatable "you" scenario: "You've just spent hours doing X, only to realize..."
-     * Present a bold, contrarian statement that makes readers stop scrolling
+{% if session_notes %}     * Open with a vivid moment from the session (the problem, the first failure, the goal), told in first person
+{% else %}     * Begin with a relatable "you" scenario: "You've just spent hours doing X, only to realize..."
+{% endif %}     * Present a bold, contrarian statement that makes readers stop scrolling
      * Open with a brief real-world story that mirrors the reader's struggle
    - **Immediately identify the reader's pain point** — what problem brought them here?
    - **Promise specific value**: "By the end, you'll be able to [concrete outcome]" — not vague benefits, but tangible results
@@ -121,9 +122,11 @@ Choose the best headline below as your H1 title, or craft a better one inspired 
 
 **AUTHENTIC VOICE (Critical for reader trust and engagement):**
 - Write like a knowledgeable friend explaining something they care about — not a textbook
-- Use "you" and "your" frequently to speak directly to the reader
-- Use "I" or "we" sparingly but intentionally — to share a perspective, admit a nuance, or build rapport
-- Avoid corporate-sounding language: no "leveraging synergies", "it should be noted that", or "in conclusion"
+{% if session_notes %}- Use "you" and "your" only for reader-directed advice — when telling the reader what to do or watch out for
+{% else %}- Use "you" and "your" frequently to speak directly to the reader
+{% endif %}{% if session_notes %}- Write as the author in first person ("I", "my") — this is your hands-on story; address the reader as "you" when giving them advice or steps to follow
+{% else %}- Use "I" or "we" sparingly but intentionally — to share a perspective, admit a nuance, or build rapport
+{% endif %}- Avoid corporate-sounding language: no "leveraging synergies", "it should be noted that", or "in conclusion"
 - Show genuine enthusiasm where appropriate — if something is exciting, let that come through
 - Acknowledge complexity honestly: "This part can be tricky" is more trustworthy than pretending everything is simple
 - Vary your register — mix short punchy sentences with longer explanatory ones to create natural rhythm

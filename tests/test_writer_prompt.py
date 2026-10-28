@@ -123,3 +123,34 @@ class TestSessionNotesBlock:
         r = PromptLoader.load(name).render(**args, research_key_facts=SAMPLE_FACTS)
         assert "use ONLY what is in the VERIFIED FACTS list" in r
         assert "SESSION NOTES" not in r and "first person" not in r
+
+
+VOICE_CONFLICT_PHRASES = {
+    "writer": [
+        'Begin with a relatable "you" scenario',
+        'Use "you" and "your" frequently',
+        '"I" or "we" sparingly',
+    ],
+    "revision": [
+        'or a vivid "you" scenario',
+        'Add more "you" and "your"',
+    ],
+}
+
+
+@pytest.mark.parametrize(
+    "name,args",
+    [("writer", MINIMAL_WRITER_ARGS), ("revision", MINIMAL_REVISION_ARGS)],
+)
+class TestSessionNotesVoice:
+    def test_conflicting_voice_lines_replaced_with_notes(self, name, args):
+        r = PromptLoader.load(name).render(**args, research_key_facts=SAMPLE_FACTS, session_notes="I ran X")
+        for phrase in VOICE_CONFLICT_PHRASES[name]:
+            assert phrase not in r
+        assert "told in first person" in r
+
+    def test_voice_lines_kept_without_notes(self, name, args):
+        r = PromptLoader.load(name).render(**args, research_key_facts=SAMPLE_FACTS)
+        for phrase in VOICE_CONFLICT_PHRASES[name]:
+            assert phrase in r
+        assert "told in first person" not in r
