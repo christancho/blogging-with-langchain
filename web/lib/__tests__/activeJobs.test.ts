@@ -6,6 +6,7 @@ const job = (id: string, status: Job['status'] = 'pending'): Job => ({
   tone: 'warm',
   word_count: 100,
   instructions: null,
+  session_notes: null,
   status,
   created_at: '2026-10-22T00:00:00+00:00',
   started_at: null,

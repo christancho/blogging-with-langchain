@@ -23,9 +23,21 @@ Revise and improve the following article to address the specific feedback provid
 - Locate the exact sentence(s) containing each incorrect claim and replace only those sentences
 - If a correction requires surrounding context, edit only the immediate 1-2 sentences
 - Word count will naturally stay stable — do not compensate by adding content elsewhere
-{% endif %}
+{% if session_notes %}- The corrections above override the session notes, including commands; use the notes only to keep untouched passages faithful. Do not restructure the article to follow the notes during a fact-correction pass.
+{% endif %}{% endif %}
 
-{% if research_key_facts %}
+{% if session_notes %}**AUTHOR'S SESSION NOTES — Primary Source (the foundation of this article):**
+{{ session_notes }}
+
+**How to use the session notes:**
+- This hands-on session is the foundation of the article. Build on it and around it: follow its order of events, from idea to outcome.
+- Write in first person as the author ("I set up…", "my first attempt failed…").
+- Mention the AI assistant where it shaped the story (a suggestion that worked, one that broke something). Don't hide it and don't make it the theme.
+- Reproduce commands, configuration, code and error messages exactly as they appear in the notes, unless a VERIFIED FACT or a listed correction says otherwise.
+- Keep instructive dead ends and fixes; they're what makes a hands-on post worth reading.
+- Use web research as supporting context: official docs, current versions, citations.
+
+{% endif %}{% if research_key_facts %}
 **VERIFIED FACTS — Numbered Reference List:**
 These facts were sourced and verified during research. Use them as your factual foundation when making specific claims.
 
@@ -52,8 +64,9 @@ These facts were sourced and verified during research. Use them as your factual 
 - Improve article structure and flow if feedback mentions structural issues
 
 **IF HOOK SCORE IS LOW (below 7):**
-- Rewrite the first 2 sentences to immediately grab attention — use a surprising fact, a direct pain point question, or a vivid "you" scenario
-- Remove generic openings like "In today's world..." or "Technology is evolving..."
+{% if session_notes %}- Rewrite the first 2 sentences to immediately grab attention — open with a vivid moment from the session (the problem, the first failure, the goal), told in first person
+{% else %}- Rewrite the first 2 sentences to immediately grab attention — use a surprising fact, a direct pain point question, or a vivid "you" scenario
+{% endif %}- Remove generic openings like "In today's world..." or "Technology is evolving..."
 - Add a clear, specific value promise within the first paragraph: what will the reader be able to DO after reading?
 - Keep the intro tight — don't bury the hook under background context
 
@@ -65,8 +78,9 @@ These facts were sourced and verified during research. Use them as your factual 
 
 **IF VOICE SCORE IS LOW (below 6):**
 - Replace corporate or textbook-sounding phrases with conversational language
-- Add more "you" and "your" — speak directly to the reader
-- Vary sentence length: mix short punchy statements with longer explanations
+{% if session_notes %}- Keep the first-person author voice ("I", "my"); use "you" and "your" for reader-directed advice and steps to follow
+{% else %}- Add more "you" and "your" — speak directly to the reader
+{% endif %}- Vary sentence length: mix short punchy statements with longer explanations
 - Add honest acknowledgments where appropriate: "This can be tricky", "There's no perfect answer here"
 - Remove filler phrases: "it should be noted that", "it is important to mention", "in order to"
 
@@ -113,9 +127,13 @@ These facts were sourced and verified during research. Use them as your factual 
 
 {% if research_key_facts %}
 **FACTUAL GROUNDING (Critical):**
-- Every specific claim — statistics, version numbers, percentages, benchmark results, named metrics — must trace back to one of the numbered VERIFIED FACTS above
+{% if session_notes %}- Every specific claim must trace back to one of the numbered VERIFIED FACTS above or to the AUTHOR'S SESSION NOTES.
+- If a VERIFIED FACT contradicts the session notes, the VERIFIED FACT wins: use the verified information and adjust the narrative to match.
+- Do not assert specific technical details from your training knowledge; use ONLY what is in the VERIFIED FACTS list or session notes
+- If a specific detail is NOT in the VERIFIED FACTS list or session notes, either omit it or hedge explicitly: "some sources suggest..." or "estimates vary..."
+{% else %}- Every specific claim — statistics, version numbers, percentages, benchmark results, named metrics — must trace back to one of the numbered VERIFIED FACTS above
 - Do not assert specific technical details from your training knowledge; use ONLY what is in the VERIFIED FACTS list
 - If a specific detail is NOT in the list, either omit it or hedge explicitly: "some sources suggest..." or "estimates vary..."
-{% endif %}
+{% endif %}{% endif %}
 
 Now revise the article to address the editor feedback.

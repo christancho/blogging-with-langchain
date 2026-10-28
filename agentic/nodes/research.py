@@ -13,7 +13,7 @@ def research_node(state: BlogState) -> Dict[str, Any]:
     Research node: Fetch and synthesize live web content for the topic.
 
     Workflow:
-    1. Fetch priority URLs from instructions (if provided)
+    1. Fetch priority URLs from instructions and session notes (if provided)
     2. Generate custom search queries (LLM)
     3. Execute searches via Brave API
     4. Fetch top N URLs per query (validated)
@@ -32,6 +32,7 @@ def research_node(state: BlogState) -> Dict[str, Any]:
 
     topic = state["topic"]
     instructions = state.get("instructions", "")
+    session_notes = state.get("session_notes", "") or ""
     print(f"Topic: {topic}")
     if instructions:
         preview = instructions[:100] + "..." if len(instructions) > 100 else instructions
@@ -48,11 +49,14 @@ def research_node(state: BlogState) -> Dict[str, Any]:
     all_fetched_urls = []
     all_queries = []
 
-    # STEP 1: Validate and fetch priority URLs from instructions
-    if instructions:
-        instruction_urls = url_fetcher.extract_urls_from_text(instructions)
+    # STEP 1: Validate and fetch priority URLs from instructions and session notes
+    if instructions or session_notes:
+        instruction_urls = list(dict.fromkeys(
+            url_fetcher.extract_urls_from_text(instructions)
+            + url_fetcher.extract_urls_from_text(session_notes)
+        ))
         if instruction_urls:
-            print(f"\n📎 Found {len(instruction_urls)} priority URLs from instructions")
+            print(f"\n📎 Found {len(instruction_urls)} priority URLs from instructions/session notes")
 
             valid_instruction_urls, _ = link_validator.validate_urls(instruction_urls, show_progress=True)
 
@@ -72,7 +76,8 @@ def research_node(state: BlogState) -> Dict[str, Any]:
         queries = query_generator.generate_queries(
             topic,
             instructions,
-            num_queries=Config.DEEP_RESEARCH_QUERIES
+            num_queries=Config.DEEP_RESEARCH_QUERIES,
+            session_notes=session_notes
         )
         all_queries = queries
         print(f"Generated queries:")

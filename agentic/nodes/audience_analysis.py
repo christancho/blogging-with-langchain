@@ -38,7 +38,7 @@ def audience_analysis_node(state: BlogState) -> Dict[str, Any]:
     current_date = datetime.now().strftime("%B %d, %Y")
     audience_prompt_text = audience_template.render(
         topic=topic,
-        instructions=instructions or "No specific instructions provided.",
+        instructions=(instructions or "No specific instructions provided.").replace("{", "{{").replace("}", "}}"),
         research_summary=research_summary,
         current_date=current_date
     )
@@ -49,7 +49,7 @@ def audience_analysis_node(state: BlogState) -> Dict[str, Any]:
     ])
 
     try:
-        llm = Config.get_llm()
+        llm = Config.get_llm("audience_analysis")
         chain = prompt | llm | StrOutputParser()
 
         audience_insights = chain.invoke({})

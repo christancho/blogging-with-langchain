@@ -305,7 +305,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 | Page | Description |
 |------|-------------|
-| **New Post** | Create a new blog generation job with topic, tone, word count, and custom instructions |
+| **New Post** | Create a new blog generation job with topic, tone, word count, custom instructions, and optional session notes (a hands-on session brief that becomes the post's foundation) |
 | **Queue** | View pending and in-progress jobs |
 | **History** | Browse completed jobs and their results |
 | **Settings** | Set default tone and word count, change password |
@@ -365,13 +365,13 @@ The API includes a built-in **remote MCP server** (Model Context Protocol) that 
 
 | Tool | Description |
 |------|-------------|
-| `generate_blog` | Queue a new job (`topic`, optional `tone` / `word_count` / `instructions`); returns a `job_id` |
+| `generate_blog` | Queue a new job (`topic`, optional `tone` / `word_count` / `instructions` / `session_notes`, a hands-on session brief that becomes the post's foundation); returns a `job_id` |
 | `get_job` | Job status and, once complete, the finished article (content + SEO metadata) for review |
 | `list_jobs` | Recent jobs, newest first |
 | `get_job_logs` | Captured pipeline logs for a job |
 | `publish_blog` | Publish a completed job to Ghost CMS |
 | `retry_blog` | Re-queue a failed job |
-| `get_settings` / `update_settings` | Read/update default tone, word count, model, temperature, auto-publish |
+| `get_settings` / `update_settings` | Read/update default tone, word count, model, per-step reasoning effort / temperature, auto-publish |
 
 Because generation takes minutes, `generate_blog` is **fire-and-poll**: it queues the job and returns a `job_id`; Claude polls `get_job` and shows you the finished article so you can review it before calling `publish_blog`.
 
@@ -619,7 +619,7 @@ All settings can be customized in `.env`:
 
 ## LangSmith Tracing (Optional)
 
-LangSmith provides powerful tracing and debugging capabilities for your LangGraph workflows. The system uses the official `langchain-openrouter` package so LangSmith correctly identifies the provider and model name (e.g. `anthropic/claude-sonnet-4-5`) instead of labelling all runs as OpenAI. With LangSmith, you can:
+LangSmith provides powerful tracing and debugging capabilities for your LangGraph workflows. The system uses the official `langchain-openrouter` package so LangSmith correctly identifies the provider and model name (e.g. `anthropic/claude-sonnet-5.5`) instead of labelling all runs as OpenAI. With LangSmith, you can:
 
 - 📊 **Visualize the entire workflow** - See each node execution in a timeline
 - 🔍 **Inspect LLM calls** - View prompts, responses, and token usage

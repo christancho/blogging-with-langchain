@@ -1,12 +1,13 @@
 import os
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from api.db import get_db
 from api.models import Settings
 from api.auth import hash_password, require_auth
+from agentic.config import Config
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -14,8 +15,8 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 class SettingsUpdate(BaseModel):
     default_tone: str | None = None
     default_word_count: int | None = None
-    llm_temperature: float | None = Field(default=None, ge=0.0, le=2.0)
     llm_model: str | None = None
+    llm_node_settings: dict[str, dict] | None = None
     auto_publish_to_ghost: bool | None = None
 
 
@@ -28,8 +29,8 @@ def _row_to_dict(s: Settings) -> dict:
     return {
         "default_tone": s.default_tone,
         "default_word_count": s.default_word_count,
-        "llm_temperature": s.llm_temperature,
         "llm_model": s.llm_model,
+        "llm_node_settings": Config.get_node_llm_settings(s.llm_node_settings),
         "auto_publish_to_ghost": s.auto_publish_to_ghost,
     }
 
@@ -54,10 +55,13 @@ async def update_settings(
         s.default_tone = body.default_tone
     if body.default_word_count is not None:
         s.default_word_count = body.default_word_count
-    if body.llm_temperature is not None:
-        s.llm_temperature = body.llm_temperature
     if body.llm_model is not None:
         s.llm_model = body.llm_model
+    if body.llm_node_settings is not None:
+        try:
+            s.llm_node_settings = Config.merge_node_llm_settings(s.llm_node_settings, body.llm_node_settings)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
     if body.auto_publish_to_ghost is not None:
         s.auto_publish_to_ghost = body.auto_publish_to_ghost
     await db.commit()
@@ -83,7 +87,10 @@ async def change_password(
 
 @router.get("/models")
 async def list_models(_: str = Depends(require_auth)):
-    """Proxy OpenRouter model list. Returns [{id, name}] sorted by name."""
+    """Proxy OpenRouter model list.
+
+    Returns [{id, name, supports_reasoning, supports_temperature}] sorted by name.
+    """
     api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
         raise HTTPException(status_code=503, detail="OPENROUTER_API_KEY not configured")
@@ -96,7 +103,15 @@ async def list_models(_: str = Depends(require_auth)):
         resp.raise_for_status()
         data = resp.json().get("data", [])
         models = sorted(
-            [{"id": m["id"], "name": m.get("name", m["id"])} for m in data],
+            [
+                {
+                    "id": m["id"],
+                    "name": m.get("name", m["id"]),
+                    "supports_reasoning": "reasoning" in m.get("supported_parameters", []),
+                    "supports_temperature": "temperature" in m.get("supported_parameters", []),
+                }
+                for m in data
+            ],
             key=lambda m: m["name"].lower(),
         )
         return models

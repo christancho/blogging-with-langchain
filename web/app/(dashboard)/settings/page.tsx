@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, FormEvent } from 'react';
-import { settings, OpenRouterModel } from '@/lib/api';
+import { settings, OpenRouterModel, NodeLLMSettings, ReasoningEffort } from '@/lib/api';
 
 const TONE_PRESETS = [
   { name: 'Conversational', value: 'friendly, conversational, and approachable — like a knowledgeable friend explaining something they care about, while remaining authoritative and well-researched' },
@@ -11,11 +11,24 @@ const TONE_PRESETS = [
   { name: 'Thought Leader', value: 'bold, opinionated, and forward-looking — taking clear positions on industry trends, challenging conventional wisdom, and backing claims with evidence' },
 ];
 
+const REASONING_EFFORTS: ReasoningEffort[] = ['off', 'low', 'medium', 'high', 'xhigh', 'max'];
+
+const NODE_LABELS: Record<string, string> = {
+  query_generator: 'Query generator',
+  content_synthesizer: 'Content synthesizer',
+  audience_analysis: 'Audience analysis',
+  writer: 'Writer',
+  fact_checker: 'Fact checker',
+  editor: 'Editor',
+  seo: 'SEO',
+  formatter: 'Formatter',
+};
+
 export default function SettingsPage() {
   const [tone, setTone] = useState('');
   const [toneDisplay, setToneDisplay] = useState('');
   const [wordCount, setWordCount] = useState(3500);
-  const [llmTemperature, setLlmTemperature] = useState(0.7);
+  const [nodeSettings, setNodeSettings] = useState<Record<string, NodeLLMSettings>>({});
   const [llmModel, setLlmModel] = useState('');
   const [autoPublish, setAutoPublish] = useState(true);
   const [models, setModels] = useState<OpenRouterModel[]>([]);
@@ -45,7 +58,7 @@ export default function SettingsPage() {
       const matched = TONE_PRESETS.find(p => p.value === s.default_tone);
       setToneDisplay(matched ? matched.name : s.default_tone);
       setWordCount(s.default_word_count);
-      setLlmTemperature(s.llm_temperature);
+      setNodeSettings(s.llm_node_settings);
       setLlmModel(s.llm_model);
       setAutoPublish(s.auto_publish_to_ghost);
     }).catch((err) => {
@@ -94,6 +107,25 @@ export default function SettingsPage() {
     }
   }, [models, llmModel]);
 
+  // Capabilities of the selected model; null when unknown (model list not
+  // loaded, or the saved id isn't in it). Mirrors Config.get_llm(): unknown
+  // capabilities fall back to "effort unless off, then temperature".
+  const selectedModel = models.find(m => m.id === llmModel);
+  const caps = selectedModel
+    ? { reasoning: selectedModel.supports_reasoning, temperature: selectedModel.supports_temperature }
+    : null;
+  const effortEnabled = caps ? caps.reasoning : true;
+
+  function temperatureEnabled(s: NodeLLMSettings): boolean {
+    if (!caps) return s.effort === 'off';
+    if (!caps.temperature) return false;
+    return !caps.reasoning || s.effort === 'off';
+  }
+
+  function updateNode(node: string, patch: Partial<NodeLLMSettings>) {
+    setNodeSettings(prev => ({ ...prev, [node]: { ...prev[node], ...patch } }));
+  }
+
   function selectModel(model: OpenRouterModel) {
     setLlmModel(model.id);
     setModelSearch(model.name);
@@ -113,8 +145,8 @@ export default function SettingsPage() {
       await settings.update({
         default_tone: tone,
         default_word_count: wordCount,
-        llm_temperature: llmTemperature,
         llm_model: llmModel,
+        llm_node_settings: nodeSettings,
         auto_publish_to_ghost: autoPublish,
       });
       setSettingsSaved(true);
@@ -205,28 +237,69 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Temperature */}
+          {/* Per-node reasoning effort / temperature */}
           <div>
-            <label htmlFor="llm-temperature" className="block text-sm font-medium text-gray-700 mb-1">
-              Temperature
-              <span className="ml-2 font-normal text-gray-500">{llmTemperature.toFixed(2)}</span>
-            </label>
-            <input
-              id="llm-temperature"
-              type="range"
-              min={0}
-              max={2}
-              step={0.05}
-              value={llmTemperature}
-              onChange={e => setLlmTemperature(Number(e.target.value))}
-              className="w-full accent-blue-600"
-            />
-            <div className="flex justify-between text-xs text-gray-400 mt-0.5">
-              <span>0 — deterministic</span>
-              <span>2 — most creative</span>
-            </div>
+            <p className="block text-sm font-medium text-gray-700 mb-1">Reasoning effort per step</p>
+            <p className="text-xs text-gray-500 mb-2">
+              {caps ? (
+                <>
+                  Selected model supports:{' '}
+                  <span className={caps.reasoning ? 'text-green-700' : 'text-gray-400 line-through'}>reasoning effort</span>
+                  {' · '}
+                  <span className={caps.temperature ? 'text-green-700' : 'text-gray-400 line-through'}>temperature</span>
+                </>
+              ) : modelsLoading ? (
+                'Checking what the selected model supports…'
+              ) : (
+                'Unknown model capabilities — settings are sent as configured.'
+              )}
+            </p>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-xs text-gray-500 text-left">
+                  <th className="font-normal pb-1">Step</th>
+                  <th className="font-normal pb-1">Effort</th>
+                  <th className="font-normal pb-1">Temperature</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(nodeSettings).map(([node, s]) => (
+                  <tr key={node}>
+                    <td className="py-1 pr-2 text-gray-700">{NODE_LABELS[node] ?? node}</td>
+                    <td className="py-1 pr-2">
+                      <select
+                        aria-label={`${NODE_LABELS[node] ?? node} effort`}
+                        value={s.effort}
+                        disabled={!effortEnabled}
+                        onChange={e => updateNode(node, { effort: e.target.value as ReasoningEffort })}
+                        className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
+                      >
+                        {REASONING_EFFORTS.map(effort => (
+                          <option key={effort} value={effort}>{effort}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="py-1">
+                      <input
+                        aria-label={`${NODE_LABELS[node] ?? node} temperature`}
+                        type="number"
+                        min={0}
+                        max={2}
+                        step={0.05}
+                        value={s.temperature}
+                        disabled={!temperatureEnabled(s)}
+                        onChange={e => updateNode(node, { temperature: Number(e.target.value) })}
+                        className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
             <p className="text-xs text-gray-400 mt-1">
-              Controls randomness. Values above 1.0 may not be supported by all models.
+              Effort controls how much the model thinks (cost and latency); temperature controls randomness.
+              A model can&apos;t use both at once: when it supports both, set a step&apos;s effort to
+              &ldquo;off&rdquo; to use its temperature.
             </p>
           </div>
 

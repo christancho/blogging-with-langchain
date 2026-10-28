@@ -29,6 +29,7 @@ class JobCreate(BaseModel):
     tone: str | None = None
     word_count: int | None = None
     instructions: str | None = None
+    session_notes: str | None = None
 
 
 def _serialize(job: Job, include_result: bool = False) -> dict:
@@ -38,6 +39,7 @@ def _serialize(job: Job, include_result: bool = False) -> dict:
         "tone": job.tone,
         "word_count": job.word_count,
         "instructions": job.instructions,
+        "session_notes": job.session_notes,
         "status": job.status,
         "created_at": job.created_at.isoformat() if job.created_at else None,
         "started_at": job.started_at.isoformat() if job.started_at else None,
@@ -66,6 +68,7 @@ async def create_job(body: JobCreate, db: AsyncSession = Depends(get_db), _: str
         tone=body.tone or Config.BLOG_TONE,
         word_count=body.word_count or Config.WORD_COUNT_TARGET,
         instructions=body.instructions,
+        session_notes=body.session_notes,
         status="pending",
     )
     db.add(job)
@@ -313,6 +316,7 @@ async def retry_job(job_id: uuid.UUID, db: AsyncSession = Depends(get_db), _: st
         tone=original.tone,
         word_count=original.word_count,
         instructions=original.instructions,
+        session_notes=original.session_notes,
         status="pending",
     )
     db.add(new_job)

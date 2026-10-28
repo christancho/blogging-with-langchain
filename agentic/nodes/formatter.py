@@ -205,7 +205,7 @@ def formatter_node(state: BlogState) -> Dict[str, Any]:
     print(f"Formatting article for Ghost CMS")
 
     # Initialize LLM
-    llm = Config.get_llm()
+    llm = Config.get_llm("formatter")
 
     # Escape curly braces in article content and metadata to prevent ChatPromptTemplate
     # from interpreting them as template variables

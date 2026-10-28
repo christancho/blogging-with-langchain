@@ -10,6 +10,7 @@ export interface Job {
   tone: string;
   word_count: number;
   instructions: string | null;
+  session_notes: string | null;
   status: JobStatus;
   created_at: string;
   started_at: string | null;
@@ -28,27 +29,37 @@ export interface JobCreate {
   tone?: string;
   word_count?: number;
   instructions?: string;
+  session_notes?: string;
+}
+
+export type ReasoningEffort = 'off' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+
+export interface NodeLLMSettings {
+  effort: ReasoningEffort;
+  temperature: number;
 }
 
 export interface Settings {
   default_tone: string;
   default_word_count: number;
-  llm_temperature: number;
   llm_model: string;
+  llm_node_settings: Record<string, NodeLLMSettings>;
   auto_publish_to_ghost: boolean;
 }
 
 export interface SettingsUpdate {
   default_tone?: string;
   default_word_count?: number;
-  llm_temperature?: number;
   llm_model?: string;
+  llm_node_settings?: Record<string, Partial<NodeLLMSettings>>;
   auto_publish_to_ghost?: boolean;
 }
 
 export interface OpenRouterModel {
   id: string;
   name: string;
+  supports_reasoning: boolean;
+  supports_temperature: boolean;
 }
 
 export interface PasswordChange {

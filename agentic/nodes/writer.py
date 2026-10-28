@@ -17,6 +17,13 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
     """
     Writer node: Generate comprehensive blog article or revise based on editor feedback
 
+    When state["session_notes"] is non-empty, the author's notes are rendered into both
+    the initial and revision prompts as the article's primary source, and the grounding
+    rule accepts them alongside the VERIFIED FACTS (a VERIFIED FACT wins on conflict).
+    User-supplied text (instructions, session notes) and the research_key_facts strings
+    (fact, source, confidence) are brace-escaped before rendering so ChatPromptTemplate
+    does not treat them as template variables. State is not modified.
+
     Args:
         state: Current blog state
 
@@ -34,9 +41,23 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
     approval_feedback = state.get("approval_feedback", "")
     fact_check_feedback = state.get("fact_check_feedback", "")
     fact_revision_count = state.get("fact_revision_count", 0)
+    session_notes = state.get("session_notes", "") or ""
+
+    # Escape curly braces in user-supplied text so ChatPromptTemplate keeps them literal
+    instructions_escaped = instructions.replace("{", "{{").replace("}", "}}")
+    session_notes_escaped = session_notes.replace("{", "{{").replace("}", "}}")
+    # Facts can carry fact-checker corrections with ${VAR} or JSON; escape a copy, not state
+    research_key_facts_escaped = [
+        {
+            k: v.replace("{", "{{").replace("}", "}}")
+            if k in ("fact", "source", "confidence") and isinstance(v, str) else v
+            for k, v in f.items()
+        }
+        for f in state.get("research_key_facts", [])
+    ]
 
     # Initialize LLM
-    llm = Config.get_llm()
+    llm = Config.get_llm("writer")
 
     # Combine feedback sources — fact-check corrections take priority
     combined_feedback = ""
@@ -83,7 +104,6 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
         # Use revision prompt
         revision_template = PromptLoader.load("revision")
         current_date = datetime.now().strftime("%B %d, %Y")
-        research_key_facts = state.get("research_key_facts", [])
         revision_prompt = revision_template.render(
             topic=topic,
             article_content=article_content_escaped,
@@ -92,7 +112,8 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
             min_word_count=min_word_count,
             max_word_count=max_word_count,
             current_date=current_date,
-            research_key_facts=research_key_facts,
+            research_key_facts=research_key_facts_escaped,
+            session_notes=session_notes_escaped,
             is_fact_revision=(
                 fact_revision_count > 0
                 and fact_check_feedback
@@ -114,6 +135,7 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
         print(f"Topic: {topic}")
         print(f"Instructions: {instructions[:80]}..." if len(instructions) > 80 else f"Instructions: {instructions}")
         print(f"Research summary length: {len(research_summary)} characters")
+        print(f"Session notes: {len(session_notes):,} characters")
 
         # Calculate word count tolerance (minimum 5% below target, no upper limit)
         word_count_target = state.get("word_count_target", Config.WORD_COUNT_TARGET)
@@ -125,11 +147,10 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
         current_date = datetime.now().strftime("%B %d, %Y")
         headline_candidates = state.get("headline_candidates", [])
         audience_analysis = state.get("audience_analysis", "")
-        research_key_facts = state.get("research_key_facts", [])
         writer_prompt = writer_template.render(
             topic=topic,
             tone=state.get("tone", Config.BLOG_TONE),
-            instructions=instructions,
+            instructions=instructions_escaped,
             research_summary=research_summary,
             audience_analysis=audience_analysis,
             headline_candidates=headline_candidates,
@@ -137,7 +158,8 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
             min_word_count=min_word_count,
             max_word_count=max_word_count,
             current_date=current_date,
-            research_key_facts=research_key_facts,
+            research_key_facts=research_key_facts_escaped,
+            session_notes=session_notes_escaped,
         )
 
         prompt = ChatPromptTemplate.from_messages([

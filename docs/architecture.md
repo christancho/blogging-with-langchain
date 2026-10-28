@@ -52,6 +52,10 @@ prompt = template.render(
 3. Update workflow in `agentic/graph.py`: `workflow.add_node("new_node", new_node)`
 4. Add edges: `workflow.add_edge("previous", "new_node")`
 5. Update `agentic/state.py` with new output fields
+6. If the node calls an LLM, add an entry to `Config.NODE_LLM_DEFAULTS` and use `Config.get_llm("new_node")`, plus a label in `NODE_LABELS` in `web/app/(dashboard)/settings/page.tsx`
+
+### Per-Node LLM Settings
+Each LLM-calling node has an `effort` (`off`/`low`/`medium`/`high`/`xhigh`/`max`) and a `temperature` in `Config.NODE_LLM_DEFAULTS`. `get_llm(node)` checks the model's OpenRouter `supported_parameters` (fetched once per process via `get_model_supported_params()`): it sends `reasoning.effort` when the model supports reasoning and effort isn't `off`, otherwise `temperature` if the model supports it; never both, since thinking and a custom temperature are exclusive. If capabilities are unknown (fetch failed, model not listed) it warns and sends what the node is configured for. The settings page enables the effort/temperature inputs by the same rule, from the flags `/settings/models` returns. Partial overrides live in the `settings.llm_node_settings` JSONB column, are edited via the settings page / REST API / MCP `update_settings`, and the worker copies them into `Config.NODE_LLM_SETTINGS` before each job.
 
 ### Changing the Workflow Order
 1. Update edges in `agentic/graph.py`: `workflow.add_edge(source, target)`

@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import DDL, String, Integer, Text, DateTime, Float, Boolean, event, func
+from sqlalchemy import DDL, String, Integer, Text, DateTime, Boolean, event, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from api.db import Base
@@ -16,6 +16,7 @@ class Job(Base):
     tone: Mapped[str] = mapped_column(Text, nullable=False)
     word_count: Mapped[int] = mapped_column(Integer, nullable=False)
     instructions: Mapped[str | None] = mapped_column(Text, nullable=True)
+    session_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending", index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -63,6 +64,7 @@ class Settings(Base):
     default_tone: Mapped[str] = mapped_column(Text, nullable=False, default="informative and insightful")
     default_word_count: Mapped[int] = mapped_column(Integer, nullable=False, default=3500)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
-    llm_temperature: Mapped[float] = mapped_column(Float, nullable=False, default=0.7)
-    llm_model: Mapped[str] = mapped_column(Text, nullable=False, default="anthropic/claude-sonnet-4-5")
+    llm_model: Mapped[str] = mapped_column(Text, nullable=False, default="anthropic/claude-sonnet-5.5")
+    # Partial per-node overrides of Config.NODE_LLM_DEFAULTS ({node: {effort?, temperature?}})
+    llm_node_settings: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     auto_publish_to_ghost: Mapped[bool] = mapped_column(Boolean(), nullable=False, default=True)

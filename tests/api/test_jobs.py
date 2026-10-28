@@ -89,3 +89,19 @@ async def test_retry_non_failed_job_fails(authed_client, db, seeded_settings):
 async def test_unauthenticated_requests_rejected(client):
     resp = await client.get("/jobs")
     assert resp.status_code == 401
+
+
+async def test_create_job_with_session_notes(authed_client, seeded_settings):
+    resp = await authed_client.post("/jobs", json={"topic": "T", "session_notes": "steps ${X}"})
+    assert resp.status_code == 201
+    assert resp.json()["session_notes"] == "steps ${X}"
+
+
+async def test_retry_job_copies_session_notes(authed_client, db, seeded_settings):
+    job = Job(topic="F", tone="informative", word_count=3500, status="failed",
+              error="timeout", session_notes="notes")
+    db.add(job)
+    await db.commit()
+    resp = await authed_client.post(f"/jobs/{job.id}/retry")
+    assert resp.status_code == 201
+    assert resp.json()["session_notes"] == "notes"
