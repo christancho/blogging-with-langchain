@@ -3,7 +3,7 @@ Unit tests for configuration
 """
 import pytest
 import os
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from agentic.config import Config
 
@@ -55,20 +55,82 @@ class TestConfig:
         """Test default publish as draft setting"""
         assert Config.PUBLISH_AS_DRAFT is True
 
-    @patch.dict(os.environ, {"OPENROUTER_API_KEY": "test_key"})
-    def test_get_llm_temperature_override(self):
-        """get_llm() uses the provided temperature when given, not the default."""
-        with patch("langchain_openrouter.ChatOpenRouter") as mock_chat:
-            Config.get_llm(temperature=0.1)
-            assert mock_chat.call_args.kwargs["temperature"] == 0.1
+    @pytest.mark.parametrize("params, overrides, expected", [
+        # Model supports both: effort wins unless the node is "off"
+        ({"reasoning", "temperature"}, {}, {"reasoning": {"effort": "high"}}),
+        ({"reasoning", "temperature"}, {"effort": "off", "temperature": 0.3}, {"temperature": 0.3}),
+        # Reasoning only: "off" sends neither (model default)
+        ({"reasoning"}, {}, {"reasoning": {"effort": "high"}}),
+        ({"reasoning"}, {"effort": "off"}, {}),
+        # Temperature only: effort is ignored
+        ({"temperature"}, {}, {"temperature": 0.1}),
+        # Neither supported
+        (set(), {}, {}),
+        # Capabilities unknown: send what the node is configured for
+        (None, {}, {"reasoning": {"effort": "high"}}),
+        (None, {"effort": "off"}, {"temperature": 0.1}),
+    ])
+    def test_get_llm_follows_model_capabilities(self, params, overrides, expected):
+        """get_llm() sends effort or temperature based on what the model supports."""
+        with patch("langchain_openrouter.ChatOpenRouter") as mock_chat, \
+                patch.object(Config, "NODE_LLM_SETTINGS", {"fact_checker": overrides}), \
+                patch.object(Config, "get_model_supported_params", return_value=params):
+            Config.get_llm("fact_checker")
+            kwargs = dict(mock_chat.call_args.kwargs)
+            kwargs.pop("model")
+            assert kwargs == expected
 
-    @patch.dict(os.environ, {"OPENROUTER_API_KEY": "test_key"})
-    def test_get_llm_default_temperature(self):
-        """get_llm() falls back to OPENROUTER_TEMPERATURE when no override given."""
-        with patch("langchain_openrouter.ChatOpenRouter") as mock_chat:
-            Config.get_llm()
-            assert mock_chat.call_args.kwargs["temperature"] == Config.OPENROUTER_TEMPERATURE
+    def test_get_model_supported_params_caches_list(self):
+        """The list is fetched once per uncached model; unlisted models cache as None."""
+        fake = MagicMock()
+        fake.json.return_value = {"data": [{"id": "a/x", "supported_parameters": ["reasoning"]}]}
+        with patch("requests.get", return_value=fake) as mock_get, \
+                patch.object(Config, "_SUPPORTED_PARAMS_CACHE", {}), \
+                patch.object(Config, "OPENROUTER_MODEL", "a/x"):
+            assert Config.get_model_supported_params() == {"reasoning"}
+            assert Config.get_model_supported_params() == {"reasoning"}
+            assert mock_get.call_count == 1
+            with patch.object(Config, "OPENROUTER_MODEL", "a/missing"):
+                assert Config.get_model_supported_params() is None
+                assert Config.get_model_supported_params() is None
+            assert mock_get.call_count == 2
 
-    def test_research_temperature_default(self):
-        """RESEARCH_TEMPERATURE defaults to 0.1."""
-        assert Config.RESEARCH_TEMPERATURE == 0.1
+    def test_get_model_supported_params_fetch_error(self, capsys):
+        """A failed fetch returns None, warns, and isn't cached."""
+        import requests
+        with patch("requests.get", side_effect=requests.ConnectionError("down")), \
+                patch.object(Config, "_SUPPORTED_PARAMS_CACHE", {}) as cache:
+            assert Config.get_model_supported_params() is None
+            assert cache == {}
+        assert "could not fetch OpenRouter model capabilities" in capsys.readouterr().out
+
+    def test_get_llm_unknown_node_raises(self):
+        """get_llm() rejects a node name with no settings."""
+        with pytest.raises(KeyError):
+            Config.get_llm("nonexistent")
+
+    def test_get_node_llm_settings_merges_overrides(self):
+        """Overrides replace only the keys they set; other nodes keep defaults."""
+        merged = Config.get_node_llm_settings({"writer": {"effort": "xhigh"}})
+        assert merged["writer"] == {"effort": "xhigh", "temperature": 0.7}
+        assert merged["seo"] == Config.NODE_LLM_DEFAULTS["seo"]
+
+    def test_merge_node_llm_settings(self):
+        """merge_node_llm_settings merges per key and does not mutate its inputs."""
+        stored = {"writer": {"effort": "xhigh"}}
+        merged = Config.merge_node_llm_settings(stored, {"writer": {"temperature": 1.0}, "seo": {"effort": "off"}})
+        assert merged == {"writer": {"effort": "xhigh", "temperature": 1.0}, "seo": {"effort": "off"}}
+        assert stored == {"writer": {"effort": "xhigh"}}
+
+    @pytest.mark.parametrize("updates", [
+        {"bogus": {"effort": "low"}},
+        {"writer": {"effort": "extreme"}},
+        {"writer": {"temperature": 2.5}},
+        {"writer": {"temperature": "hot"}},
+        {"writer": {"top_p": 0.9}},
+        {"writer": "high"},
+    ])
+    def test_merge_node_llm_settings_rejects_invalid(self, updates):
+        """Invalid nodes, keys, and values raise ValueError."""
+        with pytest.raises(ValueError):
+            Config.merge_node_llm_settings({}, updates)

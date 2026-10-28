@@ -1,7 +1,7 @@
 """add session_notes to jobs
 
 Revision ID: e4b8c2d1a9f3
-Revises: d7e2a9c41f60
+Revises: e4b8c1d2a7f3
 Create Date: 2026-10-28
 
 """
@@ -10,7 +10,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision: str = 'e4b8c2d1a9f3'
-down_revision: Union[str, None] = 'd7e2a9c41f60'
+down_revision: Union[str, None] = 'e4b8c1d2a7f3'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

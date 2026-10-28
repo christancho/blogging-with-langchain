@@ -132,11 +132,11 @@ async def _run_job(job_id, session_factory) -> None:
             settings = settings_result.scalar_one_or_none()
             auto_publish = True
             if settings:
-                Config.OPENROUTER_TEMPERATURE = settings.llm_temperature
                 Config.OPENROUTER_MODEL = settings.llm_model
+                Config.NODE_LLM_SETTINGS = settings.llm_node_settings
                 auto_publish = settings.auto_publish_to_ghost
                 # Safe: worker processes one job at a time; concurrent jobs would need a lock here
-                logger.info(f"LLM settings from DB: model={settings.llm_model}, temperature={settings.llm_temperature}")
+                logger.info(f"LLM settings from DB: model={settings.llm_model}, node overrides={settings.llm_node_settings}")
     except Exception as e:
         logger.error(f"Job {job_id} failed to start: {e}", exc_info=True)
         try:

@@ -57,7 +57,7 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
     ]
 
     # Initialize LLM
-    llm = Config.get_llm()
+    llm = Config.get_llm("writer")
 
     # Combine feedback sources — fact-check corrections take priority
     combined_feedback = ""
