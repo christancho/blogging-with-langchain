@@ -106,3 +106,38 @@ def test_writer_revision_escapes_notes():
     with patch("agentic.nodes.writer.Config.get_llm", llm):
         writer_node(state)
     assert llm.calls and BRACES in llm.calls[0]
+
+
+BRACE_FACTS = [{"fact": BRACES, "source": "https://x.example/{a}", "confidence": "high"}]
+
+
+def test_writer_initial_escapes_research_key_facts():
+    """Initial write passes brace-laden research_key_facts to the LLM literally."""
+    llm = CapturingLLM(reply=SHORT_ARTICLE)
+    state = {
+        "topic": "Databases",
+        "research_summary": "r",
+        "research_key_facts": BRACE_FACTS,
+    }
+    with patch("agentic.nodes.writer.Config.get_llm", llm):
+        writer_node(state)
+    assert llm.calls, "LLM never invoked — prompt construction failed"
+    assert BRACES in llm.calls[0]
+    assert "https://x.example/{a}" in llm.calls[0]
+
+
+def test_writer_revision_escapes_research_key_facts():
+    """Revision passes brace-laden research_key_facts to the LLM literally."""
+    llm = CapturingLLM(reply=SHORT_ARTICLE)
+    state = {
+        "topic": "Databases",
+        "revision_count": 1,
+        "approval_feedback": "Fix intro",
+        "article_content": SHORT_ARTICLE,
+        "research_key_facts": BRACE_FACTS,
+    }
+    with patch("agentic.nodes.writer.Config.get_llm", llm):
+        writer_node(state)
+    assert llm.calls, "LLM never invoked — prompt construction failed"
+    assert BRACES in llm.calls[0]
+    assert "https://x.example/{a}" in llm.calls[0]

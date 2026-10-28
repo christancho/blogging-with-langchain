@@ -20,8 +20,9 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
     When state["session_notes"] is non-empty, the author's notes are rendered into both
     the initial and revision prompts as the article's primary source, and the grounding
     rule accepts them alongside the VERIFIED FACTS (a VERIFIED FACT wins on conflict).
-    User-supplied text (instructions, session notes) is brace-escaped before rendering so
-    ChatPromptTemplate does not treat it as template variables.
+    User-supplied text (instructions, session notes) and the research_key_facts strings
+    (fact, source, confidence) are brace-escaped before rendering so ChatPromptTemplate
+    does not treat them as template variables. State is not modified.
 
     Args:
         state: Current blog state
@@ -45,6 +46,15 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
     # Escape curly braces in user-supplied text so ChatPromptTemplate keeps them literal
     instructions_escaped = instructions.replace("{", "{{").replace("}", "}}")
     session_notes_escaped = session_notes.replace("{", "{{").replace("}", "}}")
+    # Facts can carry fact-checker corrections with ${VAR} or JSON; escape a copy, not state
+    research_key_facts_escaped = [
+        {
+            k: v.replace("{", "{{").replace("}", "}}")
+            if k in ("fact", "source", "confidence") and isinstance(v, str) else v
+            for k, v in f.items()
+        }
+        for f in state.get("research_key_facts", [])
+    ]
 
     # Initialize LLM
     llm = Config.get_llm()
@@ -94,7 +104,6 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
         # Use revision prompt
         revision_template = PromptLoader.load("revision")
         current_date = datetime.now().strftime("%B %d, %Y")
-        research_key_facts = state.get("research_key_facts", [])
         revision_prompt = revision_template.render(
             topic=topic,
             article_content=article_content_escaped,
@@ -103,7 +112,7 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
             min_word_count=min_word_count,
             max_word_count=max_word_count,
             current_date=current_date,
-            research_key_facts=research_key_facts,
+            research_key_facts=research_key_facts_escaped,
             session_notes=session_notes_escaped,
             is_fact_revision=(
                 fact_revision_count > 0
@@ -138,7 +147,6 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
         current_date = datetime.now().strftime("%B %d, %Y")
         headline_candidates = state.get("headline_candidates", [])
         audience_analysis = state.get("audience_analysis", "")
-        research_key_facts = state.get("research_key_facts", [])
         writer_prompt = writer_template.render(
             topic=topic,
             tone=state.get("tone", Config.BLOG_TONE),
@@ -150,7 +158,7 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
             min_word_count=min_word_count,
             max_word_count=max_word_count,
             current_date=current_date,
-            research_key_facts=research_key_facts,
+            research_key_facts=research_key_facts_escaped,
             session_notes=session_notes_escaped,
         )
 
