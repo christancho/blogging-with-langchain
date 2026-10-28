@@ -17,6 +17,12 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
     """
     Writer node: Generate comprehensive blog article or revise based on editor feedback
 
+    When state["session_notes"] is non-empty, the author's notes are rendered into both
+    the initial and revision prompts as the article's primary source, and the grounding
+    rule accepts them alongside the VERIFIED FACTS (a VERIFIED FACT wins on conflict).
+    User-supplied text (instructions, session notes) is brace-escaped before rendering so
+    ChatPromptTemplate does not treat it as template variables.
+
     Args:
         state: Current blog state
 
@@ -34,6 +40,11 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
     approval_feedback = state.get("approval_feedback", "")
     fact_check_feedback = state.get("fact_check_feedback", "")
     fact_revision_count = state.get("fact_revision_count", 0)
+    session_notes = state.get("session_notes", "") or ""
+
+    # Escape curly braces in user-supplied text so ChatPromptTemplate keeps them literal
+    instructions_escaped = instructions.replace("{", "{{").replace("}", "}}")
+    session_notes_escaped = session_notes.replace("{", "{{").replace("}", "}}")
 
     # Initialize LLM
     llm = Config.get_llm()
@@ -93,6 +104,7 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
             max_word_count=max_word_count,
             current_date=current_date,
             research_key_facts=research_key_facts,
+            session_notes=session_notes_escaped,
             is_fact_revision=(
                 fact_revision_count > 0
                 and fact_check_feedback
@@ -114,6 +126,7 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
         print(f"Topic: {topic}")
         print(f"Instructions: {instructions[:80]}..." if len(instructions) > 80 else f"Instructions: {instructions}")
         print(f"Research summary length: {len(research_summary)} characters")
+        print(f"Session notes: {len(session_notes):,} characters")
 
         # Calculate word count tolerance (minimum 5% below target, no upper limit)
         word_count_target = state.get("word_count_target", Config.WORD_COUNT_TARGET)
@@ -129,7 +142,7 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
         writer_prompt = writer_template.render(
             topic=topic,
             tone=state.get("tone", Config.BLOG_TONE),
-            instructions=instructions,
+            instructions=instructions_escaped,
             research_summary=research_summary,
             audience_analysis=audience_analysis,
             headline_candidates=headline_candidates,
@@ -138,6 +151,7 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
             max_word_count=max_word_count,
             current_date=current_date,
             research_key_facts=research_key_facts,
+            session_notes=session_notes_escaped,
         )
 
         prompt = ChatPromptTemplate.from_messages([

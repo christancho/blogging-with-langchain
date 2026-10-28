@@ -100,3 +100,26 @@ class TestRevisionTemplateFactInventory:
         template = PromptLoader.load("revision")
         rendered = template.render(**MINIMAL_REVISION_ARGS)
         assert "[FACT 1]" not in rendered
+
+
+@pytest.mark.parametrize(
+    "name,args",
+    [("writer", MINIMAL_WRITER_ARGS), ("revision", MINIMAL_REVISION_ARGS)],
+)
+class TestSessionNotesBlock:
+    def test_block_rendered_with_notes(self, name, args):
+        r = PromptLoader.load(name).render(**args, research_key_facts=SAMPLE_FACTS, session_notes="I ran X")
+        assert "AUTHOR'S SESSION NOTES" in r and "I ran X" in r
+        assert "or to the AUTHOR'S SESSION NOTES" in r
+        assert "the VERIFIED FACT wins" in r
+
+    def test_no_block_without_notes(self, name, args):
+        r = PromptLoader.load(name).render(**args, research_key_facts=SAMPLE_FACTS, session_notes="")
+        assert "AUTHOR'S SESSION NOTES" not in r
+        assert "must trace back to one of the numbered VERIFIED FACTS above" in r
+
+    def test_grounding_unchanged_without_notes(self, name, args):
+        # Render WITHOUT passing session_notes at all (undefined variable path)
+        r = PromptLoader.load(name).render(**args, research_key_facts=SAMPLE_FACTS)
+        assert "use ONLY what is in the VERIFIED FACTS list" in r
+        assert "SESSION NOTES" not in r and "first person" not in r
