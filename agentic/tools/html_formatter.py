@@ -50,6 +50,7 @@ class HTMLFormatterTool(BaseTool):
 
         # Ensure consistent heading syntax (ATX-style with space)
         content = re.sub(r'^(#{1,6})([^\s#])', r'\1 \2', content, flags=re.MULTILINE)
+        content = re.sub(r'^(#{1,6})[ \t]{2,}', r'\1 ', content, flags=re.MULTILINE)
 
         # Clean up list formatting
         content = re.sub(r'^\s*[-*+]\s+', '- ', content, flags=re.MULTILINE)
