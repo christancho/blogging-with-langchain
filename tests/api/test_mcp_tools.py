@@ -270,3 +270,30 @@ async def test_tools_listed_and_callable_in_memory(session_factory, seeded_setti
         assert missing.is_error is True  # ValueError becomes a tool error
         # ...whose message reaches the client (mcp 2.x hides it unless it is a ToolError).
         assert "Job not found" in missing.content[0].text
+
+
+async def test_generate_blog_stores_session_notes(session_factory, seeded_settings):
+    out = await generate_blog_impl(session_factory, topic="Coolify setup", session_notes="## Goal\nDeploy {app}")
+    async with session_factory() as db:
+        job = await db.get(Job, uuid.UUID(out["job_id"]))
+        assert job.session_notes == "## Goal\nDeploy {app}"
+
+
+async def test_generate_blog_session_notes_default_none(session_factory, seeded_settings):
+    out = await generate_blog_impl(session_factory, topic="X")
+    async with session_factory() as db:
+        assert (await db.get(Job, uuid.UUID(out["job_id"]))).session_notes is None
+
+
+async def test_retry_copies_session_notes(session_factory, seeded_settings):
+    async with session_factory() as db:
+        job = Job(topic="F", tone="t", word_count=100, status="failed", error="boom",
+                  instructions="i", session_notes="notes")
+        db.add(job)
+        await db.commit()
+        job_id = str(job.id)
+    out = await retry_blog_impl(session_factory, job_id)
+    async with session_factory() as db:
+        new_job = await db.get(Job, uuid.UUID(out["job_id"]))
+        assert new_job.session_notes == "notes"
+        assert new_job.instructions == "i"
