@@ -64,7 +64,7 @@ def _serialize_job(job: Job, include_result: bool = False) -> dict:
 
 
 async def generate_blog_impl(
-    session_factory, topic, tone=None, word_count=None, instructions=None
+    session_factory, topic, tone=None, word_count=None, instructions=None, session_notes=None
 ) -> dict:
     """Create a new pending blog generation job.
 
@@ -78,6 +78,8 @@ async def generate_blog_impl(
             back to the Settings row's default_word_count, then
             Config.WORD_COUNT_TARGET.
         instructions: Optional free-form instructions for the writer.
+        session_notes: Optional markdown account of a hands-on session that
+            becomes the foundation of the post.
 
     Returns:
         A dict with the new job's "job_id" and initial "status".
@@ -92,6 +94,7 @@ async def generate_blog_impl(
             tone=tone if tone is not None else default_tone,
             word_count=word_count if word_count is not None else default_wc,
             instructions=instructions,
+            session_notes=session_notes,
             status="pending",
         )
         db.add(job)
@@ -227,6 +230,7 @@ async def retry_blog_impl(session_factory, job_id) -> dict:
             tone=original.tone,
             word_count=original.word_count,
             instructions=original.instructions,
+            session_notes=original.session_notes,
             status="pending",
         )
         db.add(new_job)
@@ -354,9 +358,17 @@ def build_mcp(session_factory) -> "MCPServer":
         tone: str | None = None,
         word_count: int | None = None,
         instructions: str | None = None,
+        session_notes: str | None = None,
     ) -> dict:
-        """Queue a new blog-generation job. Returns a job_id to poll with get_job."""
-        return await generate_blog_impl(session_factory, topic, tone, word_count, instructions)
+        """Queue a new blog-generation job. Returns a job_id to poll with get_job.
+
+        `instructions`: short directives for the post (audience, focus, angle).
+
+        `session_notes`: when the user has worked through something hands-on in this conversation (setup, experiment, build, deployment) and wants a post about it, pass a detailed markdown account of the session. It becomes the foundation of the post. Include: the goal; the steps in the order they happened; exact commands, config and code that worked; errors hit and how they were fixed; dead ends worth mentioning; lessons learned; links used. Write it from the user's point of view and note where the AI's suggestions helped or failed. Remove secrets (API keys, tokens, passwords, private hostnames). Prefer completeness over brevity.
+        """
+        return await generate_blog_impl(
+            session_factory, topic, tone, word_count, instructions, session_notes
+        )
 
     @mcp.tool()
     @_surface_value_errors

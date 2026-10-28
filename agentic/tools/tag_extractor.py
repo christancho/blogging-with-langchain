@@ -88,7 +88,7 @@ class TagExtractionTool(BaseTool):
             tag_parts = re.split(r'[,;\n]', text)
             for tag in tag_parts:
                 cleaned = self._clean_tag(tag)
-                if cleaned and len(cleaned) > 2:  # Minimum tag length
+                if cleaned:  # Short tags like "ai" and "go" are legitimate
                     tags.add(cleaned)
 
         return list(tags)

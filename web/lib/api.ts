@@ -10,6 +10,7 @@ export interface Job {
   tone: string;
   word_count: number;
   instructions: string | null;
+  session_notes: string | null;
   status: JobStatus;
   created_at: string;
   started_at: string | null;
@@ -28,6 +29,7 @@ export interface JobCreate {
   tone?: string;
   word_count?: number;
   instructions?: string;
+  session_notes?: string;
 }
 
 export type ReasoningEffort = 'off' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';

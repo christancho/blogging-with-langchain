@@ -75,7 +75,7 @@ class TestFactCheckerStateUpdates:
             mock_loader.load.return_value.render.return_value = "prompt text"
             self._make_llm_mock(mock_llm, claims_json, verdict_json)
 
-            result = fact_checker_node(state)
+            result = fact_checker_node(state, {})
 
         assert result["fact_check_status"] == "failed"
         updated_facts = result["research_key_facts"]
@@ -107,7 +107,7 @@ class TestFactCheckerStateUpdates:
             mock_loader.load.return_value.render.return_value = "prompt text"
             self._make_llm_mock(mock_llm, claims_json, verdict_json)
 
-            result = fact_checker_node(state)
+            result = fact_checker_node(state, {})
 
         feedback = result["fact_check_feedback"]
         assert "Old claim" in feedback
@@ -131,7 +131,7 @@ class TestFactCheckerStateUpdates:
             mock_loader.load.return_value.render.return_value = "prompt text"
             self._make_llm_mock(mock_llm, claims_json, verdict_json)
 
-            result = fact_checker_node(state)
+            result = fact_checker_node(state, {})
 
         # Both correct_information and source_url must be present; either missing means excluded
         assert result.get("research_key_facts", []) == []
@@ -157,7 +157,7 @@ class TestFactCheckerStateUpdates:
             mock_loader.load.return_value.render.return_value = "prompt text"
             self._make_llm_mock(mock_llm, claims_json, verdict_json)
 
-            result = fact_checker_node(state)
+            result = fact_checker_node(state, {})
 
         # Should still be 1 fact — deduplication prevented the append
         assert len(result["research_key_facts"]) == 1
