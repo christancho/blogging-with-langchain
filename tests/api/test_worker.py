@@ -144,3 +144,59 @@ async def test_run_job_uses_default_config_when_no_settings(db):
 
     assert config_module.Config.OPENROUTER_TEMPERATURE == original_temp
     assert config_module.Config.OPENROUTER_MODEL == original_model
+
+
+async def test_run_job_passes_session_notes_to_graph(db, seeded_settings):
+    """Worker strips session_notes and passes them into the initial graph state."""
+    job = Job(topic="Session topic", tone="informative", word_count=3500, status="pending",
+              session_notes="  ## Goal\nShip it  \n")
+    db.add(job)
+    await db.flush()
+
+    mock_graph = MagicMock()
+    mock_graph.stream.return_value = iter([{"writer": {"article_content": "done"}}])
+
+    with patch("api.worker.create_blog_graph", return_value=mock_graph):
+        from api.worker import _run_job
+        session_factory = make_session_factory(db)
+        await _run_job(job.id, session_factory)
+
+    initial_state = mock_graph.stream.call_args[0][0]
+    assert initial_state["session_notes"] == "## Goal\nShip it"
+
+
+async def test_run_job_whitespace_session_notes_become_empty(db, seeded_settings):
+    """Whitespace-only session_notes become an empty string in the initial state."""
+    job = Job(topic="Session topic", tone="informative", word_count=3500, status="pending",
+              session_notes="   \n ")
+    db.add(job)
+    await db.flush()
+
+    mock_graph = MagicMock()
+    mock_graph.stream.return_value = iter([{"writer": {"article_content": "done"}}])
+
+    with patch("api.worker.create_blog_graph", return_value=mock_graph):
+        from api.worker import _run_job
+        session_factory = make_session_factory(db)
+        await _run_job(job.id, session_factory)
+
+    initial_state = mock_graph.stream.call_args[0][0]
+    assert initial_state["session_notes"] == ""
+
+
+async def test_run_job_absent_session_notes_become_empty(db, seeded_settings):
+    """A job with no session_notes (NULL) yields an empty string, never None."""
+    job = Job(topic="Session topic", tone="informative", word_count=3500, status="pending")
+    db.add(job)
+    await db.flush()
+
+    mock_graph = MagicMock()
+    mock_graph.stream.return_value = iter([{"writer": {"article_content": "done"}}])
+
+    with patch("api.worker.create_blog_graph", return_value=mock_graph):
+        from api.worker import _run_job
+        session_factory = make_session_factory(db)
+        await _run_job(job.id, session_factory)
+
+    initial_state = mock_graph.stream.call_args[0][0]
+    assert initial_state["session_notes"] == ""

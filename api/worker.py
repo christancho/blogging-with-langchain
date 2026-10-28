@@ -126,6 +126,7 @@ async def _run_job(job_id, session_factory) -> None:
             tone = job.tone
             word_count = job.word_count
             instructions = job.instructions or ""
+            session_notes = (job.session_notes or "").strip()
 
             settings_result = await db.execute(select(Settings))
             settings = settings_result.scalar_one_or_none()
@@ -203,6 +204,7 @@ async def _run_job(job_id, session_factory) -> None:
         print(f"Tone:              {tone}")
         print(f"Target Word Count: {word_count}")
         print(f"Instructions:      {instructions[:80] + '...' if instructions and len(instructions) > 80 else instructions or '(none)'}")
+        print(f"Session notes:     {f'{len(session_notes):,} chars' if session_notes else '(none)'}")
         print(f"LangSmith Tracing: {'ENABLED (Project: ' + Config.LANGCHAIN_PROJECT + ')' if Config.is_langsmith_enabled() else 'DISABLED'}")
         print("=" * 80)
 
@@ -220,6 +222,7 @@ async def _run_job(job_id, session_factory) -> None:
             "tone": tone,
             "word_count_target": word_count,
             "instructions": instructions,
+            "session_notes": session_notes,
             "auto_publish_to_ghost": auto_publish,
         }
         accumulated: dict = dict(initial_state)
