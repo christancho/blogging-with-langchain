@@ -371,7 +371,7 @@ The API includes a built-in **remote MCP server** (Model Context Protocol) that 
 | `get_job_logs` | Captured pipeline logs for a job |
 | `publish_blog` | Publish a completed job to Ghost CMS |
 | `retry_blog` | Re-queue a failed job |
-| `get_settings` / `update_settings` | Read/update default tone, word count, model, temperature, auto-publish |
+| `get_settings` / `update_settings` | Read/update default tone, word count, model, per-step reasoning effort / temperature, auto-publish |
 
 Because generation takes minutes, `generate_blog` is **fire-and-poll**: it queues the job and returns a `job_id`; Claude polls `get_job` and shows you the finished article so you can review it before calling `publish_blog`.
 
@@ -619,7 +619,7 @@ All settings can be customized in `.env`:
 
 ## LangSmith Tracing (Optional)
 
-LangSmith provides powerful tracing and debugging capabilities for your LangGraph workflows. The system uses the official `langchain-openrouter` package so LangSmith correctly identifies the provider and model name (e.g. `anthropic/claude-sonnet-4-5`) instead of labelling all runs as OpenAI. With LangSmith, you can:
+LangSmith provides powerful tracing and debugging capabilities for your LangGraph workflows. The system uses the official `langchain-openrouter` package so LangSmith correctly identifies the provider and model name (e.g. `anthropic/claude-sonnet-5.5`) instead of labelling all runs as OpenAI. With LangSmith, you can:
 
 - 📊 **Visualize the entire workflow** - See each node execution in a timeline
 - 🔍 **Inspect LLM calls** - View prompts, responses, and token usage

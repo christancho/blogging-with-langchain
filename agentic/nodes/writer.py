@@ -36,7 +36,7 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
     fact_revision_count = state.get("fact_revision_count", 0)
 
     # Initialize LLM
-    llm = Config.get_llm()
+    llm = Config.get_llm("writer")
 
     # Combine feedback sources — fact-check corrections take priority
     combined_feedback = ""

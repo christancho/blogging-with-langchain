@@ -98,11 +98,11 @@ async def test_run_job_updates_current_node(db, seeded_settings):
 
 
 async def test_run_job_applies_llm_settings_from_db(db, seeded_settings):
-    """Worker reads llm_temperature and llm_model from Settings and applies to Config."""
+    """Worker reads llm_node_settings and llm_model from Settings and applies to Config."""
     from sqlalchemy import select
     result = await db.execute(select(Settings))
     s = result.scalar_one()
-    s.llm_temperature = 1.3
+    s.llm_node_settings = {"writer": {"effort": "max"}}
     s.llm_model = "openai/gpt-4o"
     await db.commit()
 
@@ -119,7 +119,7 @@ async def test_run_job_applies_llm_settings_from_db(db, seeded_settings):
             session_factory = make_session_factory(db)
             await _run_job(job.id, session_factory)
 
-    assert mock_config.OPENROUTER_TEMPERATURE == 1.3
+    assert mock_config.NODE_LLM_SETTINGS == {"writer": {"effort": "max"}}
     assert mock_config.OPENROUTER_MODEL == "openai/gpt-4o"
 
 
@@ -134,7 +134,7 @@ async def test_run_job_uses_default_config_when_no_settings(db):
     mock_graph = MagicMock()
     mock_graph.stream.return_value = iter([{"writer": {"article_content": "done"}}])
 
-    original_temp = config_module.Config.OPENROUTER_TEMPERATURE
+    original_nodes = config_module.Config.NODE_LLM_SETTINGS
     original_model = config_module.Config.OPENROUTER_MODEL
 
     with patch("api.worker.create_blog_graph", return_value=mock_graph):
@@ -142,5 +142,5 @@ async def test_run_job_uses_default_config_when_no_settings(db):
         session_factory = make_session_factory(db)
         await _run_job(job.id, session_factory)
 
-    assert config_module.Config.OPENROUTER_TEMPERATURE == original_temp
+    assert config_module.Config.NODE_LLM_SETTINGS is original_nodes
     assert config_module.Config.OPENROUTER_MODEL == original_model

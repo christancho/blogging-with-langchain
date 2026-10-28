@@ -228,15 +228,17 @@ async def test_update_settings_partial(session_factory, seeded_settings):
 
 async def test_update_settings_rejects_out_of_range_temperature(session_factory, seeded_settings):
     with pytest.raises(ValueError, match="between 0.0 and 2.0"):
-        await update_settings_impl(session_factory, llm_temperature=999)
+        await update_settings_impl(session_factory, llm_node_settings={"seo": {"temperature": 999}})
 
 
-async def test_update_settings_accepts_valid_temperature(session_factory, seeded_settings):
-    out = await update_settings_impl(session_factory, llm_temperature=1.2)
-    assert out["llm_temperature"] == 1.2
+async def test_update_settings_accepts_node_overrides(session_factory, seeded_settings):
+    out = await update_settings_impl(
+        session_factory, llm_node_settings={"seo": {"effort": "off", "temperature": 1.2}}
+    )
+    assert out["llm_node_settings"]["seo"] == {"effort": "off", "temperature": 1.2}
     async with session_factory() as db:
         s = (await db.execute(select(Settings))).scalar_one()
-        assert s.llm_temperature == 1.2
+        assert s.llm_node_settings == {"seo": {"effort": "off", "temperature": 1.2}}
 
 
 from mcp import Client
