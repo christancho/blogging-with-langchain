@@ -22,24 +22,15 @@ def test_tee_writer_captures_to_buffer():
     assert tee.getvalue() == "hello\n"
 
 
-def test_tee_writer_clear_resets_buffer_not_real_stdout():
-    real = io.StringIO()
-    tee = TeeWriter(real)
-    tee.write("line1\n")
-    tee.clear()
-    assert tee.getvalue() == ""
-    assert real.getvalue() == "line1\n"  # real stdout is not affected by clear
-
-
-def test_tee_writer_accumulates_between_clears():
+def test_tee_writer_accumulates_full_job_log():
+    """The buffer keeps every line for the whole job (clear() was removed in f1cf552)."""
     real = io.StringIO()
     tee = TeeWriter(real)
     tee.write("a\n")
     tee.write("b\n")
-    assert tee.getvalue() == "a\nb\n"
-    tee.clear()
     tee.write("c\n")
-    assert tee.getvalue() == "c\n"
+    assert tee.getvalue() == "a\nb\nc\n"
+    assert real.getvalue() == "a\nb\nc\n"
 
 
 def test_tee_writer_flush_delegates_to_real():

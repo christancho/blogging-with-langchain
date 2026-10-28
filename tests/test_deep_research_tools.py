@@ -2,7 +2,14 @@
 Unit tests for deep research tools
 """
 import pytest
+from agentic.config import Config
 from agentic.tools import QueryGeneratorTool, ContentSynthesisTool
+
+# Every test here calls the live LLM through OpenRouter
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.skipif(not Config.OPENROUTER_API_KEY, reason="OPENROUTER_API_KEY not set (live LLM tests)"),
+]
 
 
 class TestQueryGeneratorTool:

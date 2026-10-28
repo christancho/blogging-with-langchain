@@ -58,14 +58,14 @@ class TestConfig:
     @patch.dict(os.environ, {"OPENROUTER_API_KEY": "test_key"})
     def test_get_llm_temperature_override(self):
         """get_llm() uses the provided temperature when given, not the default."""
-        with patch("langchain_openai.ChatOpenAI") as mock_chat:
+        with patch("langchain_openrouter.ChatOpenRouter") as mock_chat:
             Config.get_llm(temperature=0.1)
             assert mock_chat.call_args.kwargs["temperature"] == 0.1
 
     @patch.dict(os.environ, {"OPENROUTER_API_KEY": "test_key"})
     def test_get_llm_default_temperature(self):
         """get_llm() falls back to OPENROUTER_TEMPERATURE when no override given."""
-        with patch("langchain_openai.ChatOpenAI") as mock_chat:
+        with patch("langchain_openrouter.ChatOpenRouter") as mock_chat:
             Config.get_llm()
             assert mock_chat.call_args.kwargs["temperature"] == Config.OPENROUTER_TEMPERATURE
 
