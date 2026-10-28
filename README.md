@@ -305,7 +305,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 | Page | Description |
 |------|-------------|
-| **New Post** | Create a new blog generation job with topic, tone, word count, and custom instructions |
+| **New Post** | Create a new blog generation job with topic, tone, word count, custom instructions, and optional session notes (a hands-on session brief that becomes the post's foundation) |
 | **Queue** | View pending and in-progress jobs |
 | **History** | Browse completed jobs and their results |
 | **Settings** | Set default tone and word count, change password |
@@ -365,7 +365,7 @@ The API includes a built-in **remote MCP server** (Model Context Protocol) that 
 
 | Tool | Description |
 |------|-------------|
-| `generate_blog` | Queue a new job (`topic`, optional `tone` / `word_count` / `instructions`); returns a `job_id` |
+| `generate_blog` | Queue a new job (`topic`, optional `tone` / `word_count` / `instructions` / `session_notes`, a hands-on session brief that becomes the post's foundation); returns a `job_id` |
 | `get_job` | Job status and, once complete, the finished article (content + SEO metadata) for review |
 | `list_jobs` | Recent jobs, newest first |
 | `get_job_logs` | Captured pipeline logs for a job |

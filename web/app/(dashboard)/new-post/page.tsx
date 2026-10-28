@@ -151,7 +151,7 @@ export default function NewPostPage() {
             value={sessionNotes}
             onChange={e => setSessionNotes(e.target.value)}
             rows={10}
-            placeholder="Paste a hands-on session summary: steps, commands, errors and fixes, lessons. It becomes the foundation of the post."
+            placeholder="Paste a hands-on session summary: steps, commands, errors and fixes, lessons. It becomes the foundation of the post. Remove API keys, tokens and passwords."
             className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
           />
         </div>
