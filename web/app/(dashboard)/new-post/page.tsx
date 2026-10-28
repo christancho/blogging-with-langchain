@@ -19,6 +19,7 @@ export default function NewPostPage() {
   const [toneDisplay, setToneDisplay] = useState('');
   const [wordCount, setWordCount] = useState(3500);
   const [instructions, setInstructions] = useState('');
+  const [sessionNotes, setSessionNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showToneDropdown, setShowToneDropdown] = useState(false);
@@ -58,6 +59,7 @@ export default function NewPostPage() {
         tone: tone || undefined,
         word_count: wordCount || undefined,
         instructions: instructions || undefined,
+        session_notes: sessionNotes || undefined,
       });
       router.push('/queue');
     } catch {
@@ -139,6 +141,18 @@ export default function NewPostPage() {
             rows={3}
             placeholder="e.g. Focus on practical examples for Python developers"
             className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Session notes <span className="text-gray-400 font-normal">(optional)</span>
+          </label>
+          <textarea
+            value={sessionNotes}
+            onChange={e => setSessionNotes(e.target.value)}
+            rows={10}
+            placeholder="Paste a hands-on session summary: steps, commands, errors and fixes, lessons. It becomes the foundation of the post."
+            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
           />
         </div>
         {error && <p className="text-red-600 text-sm">{error}</p>}
