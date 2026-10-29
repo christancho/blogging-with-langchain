@@ -42,7 +42,7 @@ jobs:
       SHA: ${{ github.sha }}
       DRY_RUN: ${{ vars.DEPLOY_MODE != 'live' || inputs.dry_run }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
