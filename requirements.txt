@@ -2,8 +2,8 @@
 # note below). Regenerate with `pip freeze` after intentional upgrades.
 
 # LangChain Core
-langchain==1.4.6
-langchain-core==1.6.12
+langchain==1.4.7
+langchain-core==1.7.0
 langchain-community==0.4.2
 
 # LLM Providers
@@ -12,7 +12,7 @@ langchain-community==0.4.2
 langchain-openrouter==0.2.9
 
 # LangGraph
-langgraph==1.2.16
+langgraph==1.2.17
 langgraph-checkpoint==4.3.0
 langgraph-prebuilt==1.1.1
 
@@ -27,7 +27,7 @@ jinja2==3.1.6
 
 # Ghost CMS Integration
 PyJWT==2.15.1
-markdown==3.11.1
+markdown==3.11.2
 
 # Testing
 pytest==9.1.1
@@ -41,15 +41,15 @@ ipython==9.17.1
 mypy==2.4.0
 
 # Web API
-fastapi==0.146.0
+fastapi==0.162.0
 uvicorn[standard]==0.54.0
 mcp==2.3.0
 
 # Database
-sqlalchemy[asyncio]==2.1.5
+sqlalchemy[asyncio]==2.1.6
 asyncpg==0.32.0
 psycopg2-binary==2.9.13
-alembic==1.20.0
+alembic==1.20.1
 
 # Auth
 bcrypt==5.0.0
@@ -57,4 +57,4 @@ python-jose[cryptography]==3.5.0
 
 # Testing
 httpx==0.28.1
-pytest-asyncio==1.4.0
+pytest-asyncio==1.4.1
