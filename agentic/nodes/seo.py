@@ -36,7 +36,7 @@ def seo_node(state: BlogState) -> Dict[str, Any]:
     print(f"Instructions: {instructions[:80]}..." if len(instructions) > 80 else f"Instructions: {instructions}")
 
     # Initialize LLM
-    llm = Config.get_llm()
+    llm = Config.get_llm("seo")
 
     # Escape curly braces in article content to prevent ChatPromptTemplate from
     # interpreting them as template variables
@@ -48,7 +48,7 @@ def seo_node(state: BlogState) -> Dict[str, Any]:
     seo_prompt = seo_template.render(
         article_title=article_title,
         article_content=article_content_escaped,
-        instructions=instructions,
+        instructions=instructions.replace("{", "{{").replace("}", "}}"),
         current_date=current_date
     )
 

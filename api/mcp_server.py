@@ -1,8 +1,12 @@
+import functools
 import uuid
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
+from mcp.server.transport_security import TransportSecuritySettings
 from sqlalchemy import select, desc
 
+from agentic.config import Config
 from api.models import Job, Settings
 
 
@@ -60,7 +64,7 @@ def _serialize_job(job: Job, include_result: bool = False) -> dict:
 
 
 async def generate_blog_impl(
-    session_factory, topic, tone=None, word_count=None, instructions=None
+    session_factory, topic, tone=None, word_count=None, instructions=None, session_notes=None
 ) -> dict:
     """Create a new pending blog generation job.
 
@@ -74,6 +78,8 @@ async def generate_blog_impl(
             back to the Settings row's default_word_count, then
             Config.WORD_COUNT_TARGET.
         instructions: Optional free-form instructions for the writer.
+        session_notes: Optional markdown account of a hands-on session that
+            becomes the foundation of the post.
 
     Returns:
         A dict with the new job's "job_id" and initial "status".
@@ -88,6 +94,7 @@ async def generate_blog_impl(
             tone=tone if tone is not None else default_tone,
             word_count=word_count if word_count is not None else default_wc,
             instructions=instructions,
+            session_notes=session_notes,
             status="pending",
         )
         db.add(job)
@@ -223,6 +230,7 @@ async def retry_blog_impl(session_factory, job_id) -> dict:
             tone=original.tone,
             word_count=original.word_count,
             instructions=original.instructions,
+            session_notes=original.session_notes,
             status="pending",
         )
         db.add(new_job)
@@ -239,14 +247,14 @@ def _settings_dict(s: Settings) -> dict:
 
     Returns:
         A dict with all public Settings fields (default_tone, default_word_count,
-        llm_temperature, llm_model, auto_publish_to_ghost), excluding
+        llm_model, llm_node_settings, auto_publish_to_ghost), excluding
         password_hash and other sensitive data.
     """
     return {
         "default_tone": s.default_tone,
         "default_word_count": s.default_word_count,
-        "llm_temperature": s.llm_temperature,
         "llm_model": s.llm_model,
+        "llm_node_settings": Config.get_node_llm_settings(s.llm_node_settings),
         "auto_publish_to_ghost": s.auto_publish_to_ghost,
     }
 
@@ -260,7 +268,7 @@ async def get_settings_impl(session_factory) -> dict:
 
     Returns:
         A dict with all public Settings fields (default_tone, default_word_count,
-        llm_temperature, llm_model, auto_publish_to_ghost).
+        llm_model, llm_node_settings, auto_publish_to_ghost).
     """
     async with session_factory() as db:
         s = (await db.execute(select(Settings))).scalar_one()
@@ -271,8 +279,8 @@ async def update_settings_impl(
     session_factory,
     default_tone=None,
     default_word_count=None,
-    llm_temperature=None,
     llm_model=None,
+    llm_node_settings=None,
     auto_publish_to_ghost=None,
 ) -> dict:
     """Update application settings with partial changes.
@@ -284,8 +292,9 @@ async def update_settings_impl(
             to open a database session.
         default_tone: Optional new default tone for blog generation.
         default_word_count: Optional new default target word count.
-        llm_temperature: Optional new LLM temperature setting.
         llm_model: Optional new LLM model name.
+        llm_node_settings: Optional partial per-node overrides, merged into
+            the stored ones ({node: {"effort"?: str, "temperature"?: float}}).
         auto_publish_to_ghost: Optional new auto-publish setting.
 
     Returns:
@@ -297,12 +306,10 @@ async def update_settings_impl(
             s.default_tone = default_tone
         if default_word_count is not None:
             s.default_word_count = default_word_count
-        if llm_temperature is not None:
-            if not (0.0 <= llm_temperature <= 2.0):
-                raise ValueError("llm_temperature must be between 0.0 and 2.0")
-            s.llm_temperature = llm_temperature
         if llm_model is not None:
             s.llm_model = llm_model
+        if llm_node_settings is not None:
+            s.llm_node_settings = Config.merge_node_llm_settings(s.llm_node_settings, llm_node_settings)
         if auto_publish_to_ghost is not None:
             s.auto_publish_to_ghost = auto_publish_to_ghost
         await db.commit()
@@ -310,74 +317,141 @@ async def update_settings_impl(
         return _settings_dict(s)
 
 
-def build_mcp(session_factory, token_verifier=None, auth_settings=None) -> "FastMCP":
+def _surface_value_errors(fn):
+    """Re-raise a tool's ValueError as ToolError so its message reaches the client.
+
+    The *_impl functions raise ValueError for anticipated failures (job not
+    found, wrong status, Ghost publish error). mcp 2.x treats any exception
+    other than ToolError as a crash and sends the client only "Error executing
+    tool <name>", hiding the reason.
+
+    Args:
+        fn: The async tool function to wrap.
+
+    Returns:
+        The wrapped async function, with fn's signature preserved for schema
+        generation.
+    """
+    @functools.wraps(fn)
+    async def wrapper(*args, **kwargs):
+        try:
+            return await fn(*args, **kwargs)
+        except ValueError as e:
+            raise ToolError(str(e)) from e
+    return wrapper
+
+
+def build_mcp(session_factory) -> "MCPServer":
     """Build the BlogForge MCP server. Tools bind to the given session factory.
 
-    When both token_verifier and auth_settings are provided, all tools require a
-    valid bearer token; otherwise the server runs unauthenticated (tests only).
+    The server itself is unauthenticated: authentication is Cloudflare Access at
+    the edge, enforced at the origin by CloudflareAccessMiddleware (api/main.py).
+    Transport settings (path, DNS-rebinding protection) are passed when the ASGI
+    app is created; see build_mcp_app().
     """
-    kwargs = {"name": "BlogForge", "streamable_http_path": "/mcp"}
-    if token_verifier is not None and auth_settings is not None:
-        kwargs["token_verifier"] = token_verifier
-        kwargs["auth"] = auth_settings
-    mcp = FastMCP(**kwargs)
+    mcp = MCPServer(name="BlogForge")
 
     @mcp.tool()
+    @_surface_value_errors
     async def generate_blog(
         topic: str,
         tone: str | None = None,
         word_count: int | None = None,
         instructions: str | None = None,
+        session_notes: str | None = None,
     ) -> dict:
-        """Queue a new blog-generation job. Returns a job_id to poll with get_job."""
-        return await generate_blog_impl(session_factory, topic, tone, word_count, instructions)
+        """Queue a new blog-generation job. Returns a job_id to poll with get_job.
+
+        `instructions`: short directives for the post (audience, focus, angle).
+
+        `session_notes`: when the user has worked through something hands-on in this conversation (setup, experiment, build, deployment) and wants a post about it, pass a detailed markdown account of the session. It becomes the foundation of the post. Include: the goal; the steps in the order they happened; exact commands, config and code that worked; errors hit and how they were fixed; dead ends worth mentioning; lessons learned; links used. Write it from the user's point of view and note where the AI's suggestions helped or failed. Remove secrets (API keys, tokens, passwords, private hostnames). Prefer completeness over brevity.
+        """
+        return await generate_blog_impl(
+            session_factory, topic, tone, word_count, instructions, session_notes
+        )
 
     @mcp.tool()
+    @_surface_value_errors
     async def get_job(job_id: str) -> dict:
         """Get a job's status and, once completed, the finished article for review."""
         return await get_job_impl(session_factory, job_id)
 
     @mcp.tool()
+    @_surface_value_errors
     async def list_jobs(limit: int = 20) -> list[dict]:
         """List recent blog jobs, newest first."""
         return await list_jobs_impl(session_factory, limit)
 
     @mcp.tool()
+    @_surface_value_errors
     async def get_job_logs(job_id: str) -> dict:
         """Get the captured pipeline log output for a job."""
         return await get_job_logs_impl(session_factory, job_id)
 
     @mcp.tool()
+    @_surface_value_errors
     async def publish_blog(job_id: str) -> dict:
         """Publish a completed job's article to Ghost CMS."""
         return await publish_blog_impl(session_factory, job_id)
 
     @mcp.tool()
+    @_surface_value_errors
     async def retry_blog(job_id: str) -> dict:
         """Re-queue a failed job as a new pending job."""
         return await retry_blog_impl(session_factory, job_id)
 
     @mcp.tool()
+    @_surface_value_errors
     async def get_settings() -> dict:
         """Get current generation defaults and settings."""
         return await get_settings_impl(session_factory)
 
     @mcp.tool()
+    @_surface_value_errors
     async def update_settings(
         default_tone: str | None = None,
         default_word_count: int | None = None,
-        llm_temperature: float | None = None,
         llm_model: str | None = None,
+        llm_node_settings: dict[str, dict] | None = None,
         auto_publish_to_ghost: bool | None = None,
     ) -> dict:
-        """Update one or more generation settings."""
+        """Update one or more generation settings.
+
+        llm_node_settings takes partial per-node overrides, e.g.
+        {"writer": {"effort": "xhigh"}, "seo": {"effort": "off", "temperature": 0.5}}.
+        Nodes: query_generator, content_synthesizer, audience_analysis, writer,
+        fact_checker, editor, seo, formatter. effort: off, low, medium, high,
+        xhigh, max ("off" sends temperature instead; only older models honor it).
+        temperature: 0.0-2.0.
+        """
         return await update_settings_impl(
             session_factory,
             default_tone,
             default_word_count,
-            llm_temperature,
             llm_model,
+            llm_node_settings,
             auto_publish_to_ghost,
         )
 
     return mcp
+
+
+def build_mcp_app(mcp: MCPServer):
+    """Create the Streamable HTTP ASGI app (and session manager) for the server.
+
+    Args:
+        mcp: The server returned by build_mcp().
+
+    Returns:
+        A Starlette app serving POST /mcp. mcp.session_manager is available
+        once this has been called.
+    """
+    return mcp.streamable_http_app(
+        streamable_http_path="/mcp",
+        # The SDK enables DNS-rebinding protection by default (host=127.0.0.1),
+        # which answers 421 to any non-localhost Host header — i.e. every request
+        # arriving through the reverse proxy / tunnel. Rebinding targets services
+        # on a victim's localhost; this one is only reachable through the proxy
+        # and requires auth, so the check adds nothing here.
+        transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+    )

@@ -159,10 +159,8 @@ Required variables:
 | `LANGCHAIN_TRACING_V2` | Enable LangSmith tracing (`true` / `false`) |
 | `LANGCHAIN_API_KEY` | LangSmith API key (required if tracing is enabled) |
 | `LANGCHAIN_PROJECT` | LangSmith project name (e.g. `blog-generation`) |
-| `OAUTH_ISSUER` | MCP OAuth provider issuer URL — required in production ([details](#mcp-server-claude-desktop)) |
-| `OAUTH_AUDIENCE` | MCP token audience (your `/mcp` URL) — required in production |
-| `OAUTH_JWKS_URL` | MCP OAuth provider JWKS endpoint — required in production |
-| `MCP_RESOURCE_URL` | Public URL of the MCP resource (your `/mcp` URL) — required in production |
+| `CF_ACCESS_TEAM_DOMAIN` | Cloudflare Zero Trust team domain (e.g. `https://your-team.cloudflareaccess.com`) — required in production ([details](#mcp-server-claude-desktop)) |
+| `CF_ACCESS_AUD` | AUD tag of the Cloudflare Access application protecting `/mcp` — required in production |
 
 2. **Build and start all services**
 
@@ -185,11 +183,20 @@ Both `api` and `web` are built from their Dockerfiles (`api/Dockerfile`, `web/Do
 Production is deployed with [Dokploy](https://dokploy.com), which **builds the images from source** on the server (from `api/Dockerfile` / `web/Dockerfile`) — there is no registry to push to.
 
 1. Create a **Docker Compose** service in Dokploy pointing at this repo (using `docker-compose.yml`).
-2. Set all environment variables — including the four `OAUTH_*` vars — in Dokploy's **Environment** panel; no `.env` file needed. The `api` runs with `ENV=production` and refuses to start if any `OAUTH_*` var is missing (see [MCP Server](#mcp-server-claude-desktop)).
+2. Set all environment variables — including `CF_ACCESS_TEAM_DOMAIN` and `CF_ACCESS_AUD` — in Dokploy's **Environment** panel; no `.env` file needed. The `api` runs with `ENV=production` and refuses to start if either is missing (see [MCP Server](#mcp-server-claude-desktop)).
 3. Add a domain for the `api` service (→ container port `8000`) and for `web` (→ `3000`); Dokploy provisions HTTPS via Traefik/Let's Encrypt. The api's HTTPS URL is your MCP endpoint (`https://<api-host>/mcp`).
 4. Enable **auto-deploy**: copy the service's Webhook URL from the Deployments tab into the GitHub repo's webhooks (push events), so merges rebuild and redeploy.
 
 > Work in progress stays on the `dev` branch and promotes `dev → stg → main`. Point Dokploy at whichever branch is your production line.
+
+### Coolify (staging): on-demand deploys
+
+The `api` and `web` Coolify apps track `stg`. Coolify's GitHub auto-deploy is off; instead
+`.github/workflows/deploy.yml` runs on a self-hosted runner on the home network (dockyard
+`infra/github-runner`) when the `dev → stg` promotion is merged, and deploys only what changed:
+`web/` → web, backend (`api/`, `agentic/`, `requirements.txt`, …) → api, docs/tests/`.github` →
+nothing (api first, then web). Manual: Actions → deploy → Run workflow. Until the repo variable
+`DEPLOY_MODE` is `live`, it only prints what it would deploy.
 
 ### Stopping
 
@@ -298,7 +305,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 | Page | Description |
 |------|-------------|
-| **New Post** | Create a new blog generation job with topic, tone, word count, and custom instructions |
+| **New Post** | Create a new blog generation job with topic, tone, word count, custom instructions, and optional session notes (a hands-on session brief that becomes the post's foundation) |
 | **Queue** | View pending and in-progress jobs |
 | **History** | Browse completed jobs and their results |
 | **Settings** | Set default tone and word count, change password |
@@ -358,36 +365,34 @@ The API includes a built-in **remote MCP server** (Model Context Protocol) that 
 
 | Tool | Description |
 |------|-------------|
-| `generate_blog` | Queue a new job (`topic`, optional `tone` / `word_count` / `instructions`); returns a `job_id` |
+| `generate_blog` | Queue a new job (`topic`, optional `tone` / `word_count` / `instructions` / `session_notes`, a hands-on session brief that becomes the post's foundation); returns a `job_id` |
 | `get_job` | Job status and, once complete, the finished article (content + SEO metadata) for review |
 | `list_jobs` | Recent jobs, newest first |
 | `get_job_logs` | Captured pipeline logs for a job |
 | `publish_blog` | Publish a completed job to Ghost CMS |
 | `retry_blog` | Re-queue a failed job |
-| `get_settings` / `update_settings` | Read/update default tone, word count, model, temperature, auto-publish |
+| `get_settings` / `update_settings` | Read/update default tone, word count, model, per-step reasoning effort / temperature, auto-publish |
 
 Because generation takes minutes, `generate_blog` is **fire-and-poll**: it queues the job and returns a `job_id`; Claude polls `get_job` and shows you the finished article so you can review it before calling `publish_blog`.
 
 ### Authentication
 
-The MCP endpoint is secured with **OAuth 2.1**, which Claude Desktop's custom connectors require. Auth is **verification-only** — a managed provider (e.g. **Stytch** or **WorkOS AuthKit**) owns login, consent, and token issuance; the server just validates the provider's JWT against its JWKS (issuer + audience). There is no auth-server code of our own, and this is separate from the web UI's password/JWT.
+The MCP endpoint is published through a **Cloudflare Tunnel** and protected by **Cloudflare Access with Managed OAuth**. Access acts as the OAuth 2.1 authorization server that Claude's custom connectors require: it handles discovery, client registration, login against your identity provider, and token issuance. There is no auth-server code of our own, and this is separate from the web UI's password/JWT.
 
-Set these in your environment (all four required in production):
+Access forwards each allowed request to the origin with a signed JWT in the `Cf-Access-Jwt-Assertion` header. The API validates that JWT on every request to the MCP app (RS256 signature from the team's certs endpoint, issuer = team domain, audience = the application's AUD tag), so a request that reaches the container without passing through Access is still rejected.
 
 | Variable | Description |
 |----------|-------------|
-| `OAUTH_ISSUER` | OAuth provider issuer URL |
-| `OAUTH_AUDIENCE` | Expected token audience (your `/mcp` URL) |
-| `OAUTH_JWKS_URL` | Provider JWKS endpoint |
-| `MCP_RESOURCE_URL` | Public URL of the MCP resource (your `/mcp` URL) |
+| `CF_ACCESS_TEAM_DOMAIN` | Zero Trust team domain, e.g. `https://your-team.cloudflareaccess.com` |
+| `CF_ACCESS_AUD` | Application Audience (AUD) tag of the Access application |
 
-> **Fails closed in production:** when `ENV=production`, the API refuses to start if any of these are unset — it will not silently serve `/mcp` unauthenticated. Outside production it runs unauthenticated with a warning (convenient for local dev).
+> **Fails closed in production:** when `ENV=production`, the API refuses to start if either is unset — it will not silently serve `/mcp` unauthenticated. Outside production it runs unauthenticated with a warning (convenient for local dev).
 
 ### Connecting Claude Desktop
 
-1. Deploy the API behind a public HTTPS URL (e.g. `https://mcp.yourdomain.com`) routing to the api container's port `8000`.
-2. Create an app in your OAuth provider and enable **dynamic client registration**; set the four `OAUTH_*` variables above.
-3. In Claude Desktop → **Settings → Connectors → Add custom connector**, enter `https://mcp.yourdomain.com/mcp` and sign in once.
+1. Route a public hostname (e.g. `mcp.yourdomain.com`) through a Cloudflare Tunnel to the api container's port `8000`.
+2. In Cloudflare Zero Trust, add a self-hosted Access application for that hostname, restrict its policy to your own identity, and enable **Managed OAuth** (Advanced settings) with Claude's callback URLs as allowed redirect URIs. Copy the application's AUD tag into `CF_ACCESS_AUD` and your team domain into `CF_ACCESS_TEAM_DOMAIN`.
+3. In Claude Desktop → **Settings → Connectors → Add custom connector**, enter `https://mcp.yourdomain.com/mcp` and sign in once through Cloudflare.
 4. Ask Claude to write a post (e.g. *"Write a blog about X"*), then review and publish right from the chat.
 
 See [`docs/design/2026-07-17-mcp-server-design.md`](docs/design/2026-07-17-mcp-server-design.md) for the full design.
@@ -614,7 +619,7 @@ All settings can be customized in `.env`:
 
 ## LangSmith Tracing (Optional)
 
-LangSmith provides powerful tracing and debugging capabilities for your LangGraph workflows. The system uses the official `langchain-openrouter` package so LangSmith correctly identifies the provider and model name (e.g. `anthropic/claude-sonnet-4-5`) instead of labelling all runs as OpenAI. With LangSmith, you can:
+LangSmith provides powerful tracing and debugging capabilities for your LangGraph workflows. The system uses the official `langchain-openrouter` package so LangSmith correctly identifies the provider and model name (e.g. `anthropic/claude-sonnet-5.5`) instead of labelling all runs as OpenAI. With LangSmith, you can:
 
 - 📊 **Visualize the entire workflow** - See each node execution in a timeline
 - 🔍 **Inspect LLM calls** - View prompts, responses, and token usage

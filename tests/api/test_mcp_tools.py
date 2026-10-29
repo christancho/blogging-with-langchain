@@ -228,27 +228,27 @@ async def test_update_settings_partial(session_factory, seeded_settings):
 
 async def test_update_settings_rejects_out_of_range_temperature(session_factory, seeded_settings):
     with pytest.raises(ValueError, match="between 0.0 and 2.0"):
-        await update_settings_impl(session_factory, llm_temperature=999)
+        await update_settings_impl(session_factory, llm_node_settings={"seo": {"temperature": 999}})
 
 
-async def test_update_settings_accepts_valid_temperature(session_factory, seeded_settings):
-    out = await update_settings_impl(session_factory, llm_temperature=1.2)
-    assert out["llm_temperature"] == 1.2
+async def test_update_settings_accepts_node_overrides(session_factory, seeded_settings):
+    out = await update_settings_impl(
+        session_factory, llm_node_settings={"seo": {"effort": "off", "temperature": 1.2}}
+    )
+    assert out["llm_node_settings"]["seo"] == {"effort": "off", "temperature": 1.2}
     async with session_factory() as db:
         s = (await db.execute(select(Settings))).scalar_one()
-        assert s.llm_temperature == 1.2
+        assert s.llm_node_settings == {"seo": {"effort": "off", "temperature": 1.2}}
 
 
-from mcp.shared.memory import create_connected_server_and_client_session
+from mcp import Client
 from api.mcp_server import build_mcp
 
 
 async def test_tools_listed_and_callable_in_memory(session_factory, seeded_settings):
     mcp = build_mcp(session_factory)  # no auth for the in-memory client
 
-    async with create_connected_server_and_client_session(mcp._mcp_server) as client:
-        await client.initialize()
-
+    async with Client(mcp) as client:
         tools = {t.name for t in (await client.list_tools()).tools}
         assert {
             "generate_blog", "get_job", "list_jobs", "get_job_logs",
@@ -256,17 +256,46 @@ async def test_tools_listed_and_callable_in_memory(session_factory, seeded_setti
         } <= tools
 
         # NOTE: the tool wrappers are annotated `-> dict` (unparameterized), which
-        # FastMCP's func_metadata cannot turn into an output schema (bare `dict`
-        # has no type hints to build a Pydantic model from), so `structuredContent`
+        # the SDK's func_metadata cannot turn into an output schema (bare `dict`
+        # has no type hints to build a Pydantic model from), so `structured_content`
         # is None. The payload is still available as JSON text in `content[0]`.
         created = await client.call_tool("generate_blog", {"topic": "End to end"})
-        assert created.isError is False
-        assert created.structuredContent is None
+        assert created.is_error is False
+        assert created.structured_content is None
         job_id = json.loads(created.content[0].text)["job_id"]
 
         fetched = await client.call_tool("get_job", {"job_id": job_id})
-        assert fetched.isError is False
+        assert fetched.is_error is False
         assert json.loads(fetched.content[0].text)["status"] == "pending"
 
         missing = await client.call_tool("get_job", {"job_id": str(uuid.uuid4())})
-        assert missing.isError is True  # ValueError becomes a tool error
+        assert missing.is_error is True  # ValueError becomes a tool error
+        # ...whose message reaches the client (mcp 2.x hides it unless it is a ToolError).
+        assert "Job not found" in missing.content[0].text
+
+
+async def test_generate_blog_stores_session_notes(session_factory, seeded_settings):
+    out = await generate_blog_impl(session_factory, topic="Coolify setup", session_notes="## Goal\nDeploy {app}")
+    async with session_factory() as db:
+        job = await db.get(Job, uuid.UUID(out["job_id"]))
+        assert job.session_notes == "## Goal\nDeploy {app}"
+
+
+async def test_generate_blog_session_notes_default_none(session_factory, seeded_settings):
+    out = await generate_blog_impl(session_factory, topic="X")
+    async with session_factory() as db:
+        assert (await db.get(Job, uuid.UUID(out["job_id"]))).session_notes is None
+
+
+async def test_retry_copies_session_notes(session_factory, seeded_settings):
+    async with session_factory() as db:
+        job = Job(topic="F", tone="t", word_count=100, status="failed", error="boom",
+                  instructions="i", session_notes="notes")
+        db.add(job)
+        await db.commit()
+        job_id = str(job.id)
+    out = await retry_blog_impl(session_factory, job_id)
+    async with session_factory() as db:
+        new_job = await db.get(Job, uuid.UUID(out["job_id"]))
+        assert new_job.session_notes == "notes"
+        assert new_job.instructions == "i"

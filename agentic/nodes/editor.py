@@ -62,7 +62,7 @@ def editor_node(state: BlogState) -> Dict[str, Any]:
     editor_template = PromptLoader.load("editor")
     editor_prompt_text = editor_template.render(
         article_content=article_content_escaped,
-        instructions=instructions,
+        instructions=instructions.replace("{", "{{").replace("}", "}}"),
         current_date=current_date,
         current_word_count=analysis["word_count"],
         word_count_target=word_count_target,
@@ -82,7 +82,7 @@ def editor_node(state: BlogState) -> Dict[str, Any]:
     ])
 
     try:
-        llm = Config.get_llm()
+        llm = Config.get_llm("editor")
         chain = prompt | llm | StrOutputParser()
 
         print(f"\n🤖 Requesting LLM editorial review...")

@@ -31,8 +31,8 @@ async def test_settings_model_has_llm_fields(db):
     db.add(s)
     await db.commit()
     await db.refresh(s)
-    assert s.llm_temperature == 0.7
-    assert s.llm_model == "anthropic/claude-sonnet-4-5"
+    assert s.llm_node_settings == {}
+    assert s.llm_model == "anthropic/claude-sonnet-5.5"
 
 
 @pytest.mark.asyncio(loop_scope="function")
@@ -105,17 +105,25 @@ async def test_get_settings_includes_llm_fields(authed_client, seeded_settings):
     resp = await authed_client.get("/settings")
     assert resp.status_code == 200
     data = resp.json()
-    assert "llm_temperature" in data
-    assert "llm_model" in data
-    assert data["llm_temperature"] == 0.7
-    assert data["llm_model"] == "anthropic/claude-sonnet-4-5"
+    assert "llm_temperature" not in data
+    assert data["llm_model"] == "anthropic/claude-sonnet-5.5"
+    # GET returns effective settings for every node: defaults when nothing is overridden
+    assert data["llm_node_settings"]["writer"] == {"effort": "high", "temperature": 0.7}
+    assert set(data["llm_node_settings"]) == {
+        "query_generator", "content_synthesizer", "audience_analysis", "writer",
+        "fact_checker", "editor", "seo", "formatter",
+    }
 
 
 @pytest.mark.asyncio(loop_scope="function")
-async def test_update_llm_temperature(authed_client, seeded_settings):
-    resp = await authed_client.put("/settings", json={"llm_temperature": 1.2})
+async def test_update_llm_node_settings_merges_partial(authed_client, seeded_settings):
+    resp = await authed_client.put("/settings", json={"llm_node_settings": {"writer": {"effort": "xhigh"}}})
     assert resp.status_code == 200
-    assert resp.json()["llm_temperature"] == 1.2
+    resp = await authed_client.put("/settings", json={"llm_node_settings": {"writer": {"temperature": 1.1}}})
+    assert resp.status_code == 200
+    nodes = resp.json()["llm_node_settings"]
+    assert nodes["writer"] == {"effort": "xhigh", "temperature": 1.1}
+    assert nodes["seo"] == {"effort": "low", "temperature": 0.7}  # untouched node keeps defaults
 
 
 @pytest.mark.asyncio(loop_scope="function")
@@ -131,7 +139,7 @@ async def test_list_models(authed_client, seeded_settings):
     fake_response.status_code = 200
     fake_response.json.return_value = {
         "data": [
-            {"id": "openai/gpt-4o", "name": "GPT-4o"},
+            {"id": "openai/gpt-4o", "name": "GPT-4o", "supported_parameters": ["temperature"]},
             {"id": "anthropic/claude-sonnet-4-5", "name": "Claude Sonnet 4.5"},
         ]
     }
@@ -152,6 +160,9 @@ async def test_list_models(authed_client, seeded_settings):
     assert "name" in data[0]
     assert "name" in data[1]
     assert data[0]["name"].lower() < data[1]["name"].lower()
+    assert data[1]["supports_temperature"] is True
+    assert data[1]["supports_reasoning"] is False
+    assert data[0]["supports_temperature"] is False  # no supported_parameters listed
 
 
 @pytest.mark.asyncio(loop_scope="function")
@@ -169,6 +180,11 @@ async def test_list_models_no_api_key(authed_client, seeded_settings):
 
 
 @pytest.mark.asyncio(loop_scope="function")
-async def test_update_llm_temperature_out_of_range(authed_client, seeded_settings):
-    resp = await authed_client.put("/settings", json={"llm_temperature": 3.0})
-    assert resp.status_code == 422
+async def test_update_llm_node_settings_rejects_invalid(authed_client, seeded_settings):
+    for bad in (
+        {"writer": {"temperature": 3.0}},
+        {"writer": {"effort": "extreme"}},
+        {"not_a_node": {"effort": "low"}},
+    ):
+        resp = await authed_client.put("/settings", json={"llm_node_settings": bad})
+        assert resp.status_code == 422, bad

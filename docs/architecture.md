@@ -52,6 +52,10 @@ prompt = template.render(
 3. Update workflow in `agentic/graph.py`: `workflow.add_node("new_node", new_node)`
 4. Add edges: `workflow.add_edge("previous", "new_node")`
 5. Update `agentic/state.py` with new output fields
+6. If the node calls an LLM, add an entry to `Config.NODE_LLM_DEFAULTS` and use `Config.get_llm("new_node")`, plus a label in `NODE_LABELS` in `web/app/(dashboard)/settings/page.tsx`
+
+### Per-Node LLM Settings
+Each LLM-calling node has an `effort` (`off`/`low`/`medium`/`high`/`xhigh`/`max`) and a `temperature` in `Config.NODE_LLM_DEFAULTS`. `get_llm(node)` checks the model's OpenRouter `supported_parameters` (fetched once per process via `get_model_supported_params()`): it sends `reasoning.effort` when the model supports reasoning and effort isn't `off`, otherwise `temperature` if the model supports it; never both, since thinking and a custom temperature are exclusive. If capabilities are unknown (fetch failed, model not listed) it warns and sends what the node is configured for. The settings page enables the effort/temperature inputs by the same rule, from the flags `/settings/models` returns. Partial overrides live in the `settings.llm_node_settings` JSONB column, are edited via the settings page / REST API / MCP `update_settings`, and the worker copies them into `Config.NODE_LLM_SETTINGS` before each job.
 
 ### Changing the Workflow Order
 1. Update edges in `agentic/graph.py`: `workflow.add_edge(source, target)`
@@ -111,6 +115,8 @@ The backend is a FastAPI application with a PostgreSQL database and a background
 - **Publishing:** `api/worker.py`'s `TeeWriter` class emits each completed (newline-terminated) stdout line, tagged with a monotonic `seq`, to an `on_line` callback. In `_run_job`, that callback is `LogPublisher.publish(seq, line)` (`api/log_stream.py`) — a thread-safe, non-blocking enqueue. A dedicated `LogPublisher` thread drains the queue and NOTIFYs each line on `blog_run_{job_id}` via its own psycopg2 connection, so publishing never blocks the pipeline. `LogPublisher.stop(status)` sends a final `done` event.
 - **Payload chunking:** `build_payloads(seq, line, max_bytes=7000)` in `api/log_stream.py` serializes each line to JSON for NOTIFY; a line whose serialized size exceeds `max_bytes` is split into character-boundary-safe fragments sharing the same `seq`, with `last: true` on the final fragment so the client can reassemble reliably (not by length).
 - **Replay/live seam:** `count_completed_lines(text)` (`api/log_stream.py`) counts newline-terminated lines in `Job.logs` to compute `k`; `Job.logs` itself is unchanged JSON-free plain text (the existing `_start_log_flusher` mechanism), so replay is just that raw text.
+
+**Live queue updates:** The dashboard does not poll. `GET /jobs/stream` (`stream_jobs` in `api/routes/jobs.py`) is an SSE stream of the active (pending/running) jobs: it sends an `event: jobs` snapshot on connect and again whenever the `jobs_changed` Postgres channel fires, with keep-alive comments in between. The channel is fed by the `jobs_changed_notify` trigger (alembic `d7e2a9c41f60`; mirrored in `api/models.py` for `create_all`), which fires on job insert, delete, and `status`/`current_node` updates — so every writer (REST routes, MCP tools, worker) is covered without application code, while the worker's 2-second `logs` flushes do not fire it. On the web side, `app/(dashboard)/layout.tsx` opens the one subscription (`subscribeActiveJobs` in `web/lib/api.ts`) and shares it via `ActiveJobsContext` (`web/lib/activeJobs.ts`) with the nav badge and the queue page; a rejected stream re-checks the session and either redirects to `/login` or reconnects.
 
 **Key files:**
 - `api/routes/jobs.py`: `stream_job_events` — the `/jobs/{id}/events` SSE endpoint (replay, live forwarding, terminal-status fallback)

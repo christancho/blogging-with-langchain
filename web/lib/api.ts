@@ -10,6 +10,7 @@ export interface Job {
   tone: string;
   word_count: number;
   instructions: string | null;
+  session_notes: string | null;
   status: JobStatus;
   created_at: string;
   started_at: string | null;
@@ -28,27 +29,37 @@ export interface JobCreate {
   tone?: string;
   word_count?: number;
   instructions?: string;
+  session_notes?: string;
+}
+
+export type ReasoningEffort = 'off' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+
+export interface NodeLLMSettings {
+  effort: ReasoningEffort;
+  temperature: number;
 }
 
 export interface Settings {
   default_tone: string;
   default_word_count: number;
-  llm_temperature: number;
   llm_model: string;
+  llm_node_settings: Record<string, NodeLLMSettings>;
   auto_publish_to_ghost: boolean;
 }
 
 export interface SettingsUpdate {
   default_tone?: string;
   default_word_count?: number;
-  llm_temperature?: number;
   llm_model?: string;
+  llm_node_settings?: Record<string, Partial<NodeLLMSettings>>;
   auto_publish_to_ghost?: boolean;
 }
 
 export interface OpenRouterModel {
   id: string;
   name: string;
+  supports_reasoning: boolean;
+  supports_temperature: boolean;
 }
 
 export interface PasswordChange {
@@ -170,4 +181,70 @@ export function streamJobEvents(id: string, handlers: StreamHandlers): EventSour
   });
   es.onerror = () => handlers.onError?.();
   return es;
+}
+
+// ─── Active jobs stream ─────────────────────────────────────────────────────
+
+/** Parse a `jobs` SSE snapshot (JSON array of jobs); null if malformed. */
+export function parseJobsSnapshot(data: string): Job[] | null {
+  try {
+    const parsed: unknown = JSON.parse(data);
+    if (Array.isArray(parsed)) return parsed as Job[];
+    console.error('Active jobs stream: snapshot is not an array', parsed);
+  } catch (err) {
+    console.error('Active jobs stream: malformed snapshot', err);
+  }
+  return null;
+}
+
+export interface ActiveJobsHandlers {
+  onJobs: (jobs: Job[]) => void;
+  onUnauthorized: () => void;
+}
+
+const ACTIVE_JOBS_RETRY_MS = 3000;
+
+/**
+ * Subscribe to GET /jobs/stream: pending/running jobs pushed on every change.
+ *
+ * Network drops are retried by EventSource itself. A rejected (non-200)
+ * response closes it for good, so the session is checked: expired →
+ * onUnauthorized, otherwise the stream is reopened after a short delay.
+ * Returns an unsubscribe function.
+ */
+export function subscribeActiveJobs(handlers: ActiveJobsHandlers): () => void {
+  let es: EventSource | null = null;
+  let retry: ReturnType<typeof setTimeout> | null = null;
+  let stopped = false;
+
+  const reconnectLater = () => {
+    if (!stopped) retry = setTimeout(connect, ACTIVE_JOBS_RETRY_MS);
+  };
+
+  function connect() {
+    const source = new EventSource(`${API}/jobs/stream`, { withCredentials: true });
+    es = source;
+    source.addEventListener('jobs', (e) => {
+      const list = parseJobsSnapshot((e as MessageEvent).data);
+      if (list) handlers.onJobs(list);
+    });
+    source.onerror = () => {
+      if (stopped || source.readyState !== EventSource.CLOSED) return;
+      auth.me().then(reconnectLater, (err: { status?: number }) => {
+        if (err.status === 401) {
+          if (!stopped) handlers.onUnauthorized();
+        } else {
+          console.error('Active jobs stream: rejected, retrying', err);
+          reconnectLater();
+        }
+      });
+    };
+  }
+
+  connect();
+  return () => {
+    stopped = true;
+    if (retry) clearTimeout(retry);
+    es?.close();
+  };
 }

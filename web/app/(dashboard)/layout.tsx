@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { auth, jobs, type Job } from '@/lib/api';
+import { auth, subscribeActiveJobs } from '@/lib/api';
+import { ActiveJobsContext, type ActiveJobs } from '@/lib/activeJobs';
 
 const NAV_ITEMS = [
   {
@@ -48,26 +49,17 @@ const NAV_ITEMS = [
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [queueCount, setQueueCount] = useState(0);
+  const [activeJobs, setActiveJobs] = useState<ActiveJobs>({ jobs: [], loading: true });
+  const queueCount = activeJobs.jobs.length;
 
-  useEffect(() => {
-    let cancelled = false;
-    async function fetchCount() {
-      try {
-        const all: Job[] = await jobs.list();
-        if (!cancelled) {
-          setQueueCount(all.filter(j => j.status === 'pending' || j.status === 'running').length);
-        }
-      } catch (err: unknown) {
-        if ((err as { status?: number }).status === 401) {
-          router.push('/login');
-        }
-      }
-    }
-    fetchCount();
-    const interval = setInterval(fetchCount, 3000);
-    return () => { cancelled = true; clearInterval(interval); };
-  }, [router]);
+  useEffect(
+    () =>
+      subscribeActiveJobs({
+        onJobs: (jobs) => setActiveJobs({ jobs, loading: false }),
+        onUnauthorized: () => router.push('/login'),
+      }),
+    [router],
+  );
 
   async function handleLogout() {
     await auth.logout().catch(() => {});
@@ -125,7 +117,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Main content */}
       <main className="flex-1 overflow-auto">
         <div className="max-w-5xl mx-auto px-6 py-6">
-          {children}
+          <ActiveJobsContext.Provider value={activeJobs}>{children}</ActiveJobsContext.Provider>
         </div>
       </main>
     </div>

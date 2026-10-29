@@ -15,7 +15,7 @@ if _ROOT not in sys.path:
 from agentic.graph import create_blog_graph  # noqa: E402 — must come after sys.path setup
 from agentic.config import Config  # noqa: E402 — must come after sys.path setup
 from sqlalchemy import select  # noqa: E402 — must come after sys.path setup
-from api.pg_dsn import plain_dsn  # noqa: E402
+from api.pg_dsn import async_dsn, plain_dsn  # noqa: E402
 from api.log_stream import LogPublisher  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -81,7 +81,7 @@ async def _worker_loop() -> None:
     from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
     from api.models import Job
 
-    engine = create_async_engine(os.environ["DATABASE_URL"])
+    engine = create_async_engine(async_dsn(os.environ["DATABASE_URL"]))
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
     while True:
@@ -126,16 +126,17 @@ async def _run_job(job_id, session_factory) -> None:
             tone = job.tone
             word_count = job.word_count
             instructions = job.instructions or ""
+            session_notes = (job.session_notes or "").strip()
 
             settings_result = await db.execute(select(Settings))
             settings = settings_result.scalar_one_or_none()
             auto_publish = True
             if settings:
-                Config.OPENROUTER_TEMPERATURE = settings.llm_temperature
                 Config.OPENROUTER_MODEL = settings.llm_model
+                Config.NODE_LLM_SETTINGS = settings.llm_node_settings
                 auto_publish = settings.auto_publish_to_ghost
                 # Safe: worker processes one job at a time; concurrent jobs would need a lock here
-                logger.info(f"LLM settings from DB: model={settings.llm_model}, temperature={settings.llm_temperature}")
+                logger.info(f"LLM settings from DB: model={settings.llm_model}, node overrides={settings.llm_node_settings}")
     except Exception as e:
         logger.error(f"Job {job_id} failed to start: {e}", exc_info=True)
         try:
@@ -166,7 +167,7 @@ async def _run_job(job_id, session_factory) -> None:
         from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker as _sm
 
         async def flush_loop():
-            engine = create_async_engine(os.environ["DATABASE_URL"])
+            engine = create_async_engine(async_dsn(os.environ["DATABASE_URL"]))
             Session = _sm(engine, expire_on_commit=False)
             try:
                 while not flush_stop.is_set():
@@ -203,6 +204,7 @@ async def _run_job(job_id, session_factory) -> None:
         print(f"Tone:              {tone}")
         print(f"Target Word Count: {word_count}")
         print(f"Instructions:      {instructions[:80] + '...' if instructions and len(instructions) > 80 else instructions or '(none)'}")
+        print(f"Session notes:     {f'{len(session_notes):,} chars' if session_notes else '(none)'}")
         print(f"LangSmith Tracing: {'ENABLED (Project: ' + Config.LANGCHAIN_PROJECT + ')' if Config.is_langsmith_enabled() else 'DISABLED'}")
         print("=" * 80)
 
@@ -220,6 +222,7 @@ async def _run_job(job_id, session_factory) -> None:
             "tone": tone,
             "word_count_target": word_count,
             "instructions": instructions,
+            "session_notes": session_notes,
             "auto_publish_to_ghost": auto_publish,
         }
         accumulated: dict = dict(initial_state)

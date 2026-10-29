@@ -17,6 +17,7 @@ class BlogState(TypedDict, total=False):
     # ============================================================================
     topic: str  # The blog topic to write about
     instructions: Optional[str]  # Custom instructions for this article (optional)
+    session_notes: Optional[str]  # Author's hands-on session brief — the post's foundation (optional)
     tone: str  # Blog tone (default: Config.BLOG_TONE)
     word_count_target: int  # Target word count (default: Config.WORD_COUNT_TARGET)
     auto_publish_to_ghost: bool  # If False, skip publisher node; manual publish via UI

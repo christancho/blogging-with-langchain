@@ -80,9 +80,10 @@ Too many blank lines
 """
         result = tool._run(content)
 
-        # Should convert second H1 to H2
-        h1_count = result.count("\n# ")
+        # Should convert second H1 to H2 (output is stripped, so count lines, not "\n# ")
+        h1_count = sum(1 for line in result.splitlines() if line.startswith("# "))
         assert h1_count == 1
+        assert "## Second Title" in result
 
     def test_extract_title_and_description(self):
         """Test metadata extraction"""
@@ -130,6 +131,14 @@ class TestTagExtractionTool:
         assert len(data["tags"]) == 4
         assert "python" in data["tags"]
         assert "machine-learning" in data["tags"]
+
+    def test_short_tags_kept_through_seo_parse(self):
+        """Two-letter tags (AI, Go) survive the SEO node's bullet-list TAGS path"""
+        from agentic.nodes.seo import parse_seo_output
+        seo_output = "SEO_TITLE: x\nTAGS:\n- AI\n- LangGraph\n- Go\n- Python\n\nKEYWORD_DENSITY: 1.2\n"
+        tags = parse_seo_output(seo_output)["tags"]
+
+        assert sorted(tags) == ["ai", "go", "langgraph", "python"]
 
     def test_json_tags(self):
         """Test extracting tags from JSON"""
