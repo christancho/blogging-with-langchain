@@ -59,7 +59,7 @@ Each LLM-calling node has an `effort` (`off`/`low`/`medium`/`high`/`xhigh`/`max`
 
 ### Changing the Workflow Order
 1. Update edges in `agentic/graph.py`: `workflow.add_edge(source, target)`
-2. Update conditional routing if needed: `route_editor_decision()`
+2. Update conditional routing if needed: `route_fact_check_decision()` (fact checker → `formatter`/`writer`) and `route_editor_decision()` (editor → `publisher`/`writer`/`end`)
 3. Regenerate visualization: `python main.py --visualize`
 4. Update README's Architecture/Workflow Diagram and this file
 
@@ -95,10 +95,25 @@ The `BlogState` TypedDict flows through the entire graph. Key principles:
 **Critical state fields:**
 - `fact_check_status`: `"passed"` / `"failed"` / `"force_passed"`, drives the fact-check loop
 - `approval_status`: Controls routing — `"pending"` (initial) → `"approved"`, `"rejected"`, or `"force_publish"`
+- `auto_publish_to_ghost`: Seeded by the worker from `settings.auto_publish_to_ghost`; when `False`, an approved/force-published article routes to `END` instead of `publisher` (see [Auto-Publish and Manual Publishing](#auto-publish-and-manual-publishing))
+- `session_notes`: Optional author's session brief from the job (see [Session Notes](#session-notes))
 - `revision_count` / `fact_revision_count`: Track attempts against the editor and fact-check loops independently (each capped at `MAX_REVISIONS`)
 - `editor_feedback`: Passed to writer during revisions
 - `final_content`: Set once approved, ready for publishing
 - `errors` / `warnings`: Accumulate throughout workflow
+
+### Session Notes
+
+`Job.session_notes` (set via `POST /jobs`, MCP `generate_blog`, and carried over by `retry`) is stripped and copied into the initial state by `_run_job` in `api/worker.py`. It is consumed by two nodes:
+
+- **Research** (`agentic/nodes/research.py`): URLs extracted from both `instructions` and `session_notes` are validated and fetched as priority sources, and `QueryGeneratorTool.generate_queries(..., session_notes=...)` (`agentic/tools/query_generator.py`) folds the notes into search-query generation.
+- **Writer** (`agentic/nodes/writer.py`): the notes are brace-escaped (so `ChatPromptTemplate` doesn't read them as variables) and rendered into both `writer.txt` and `revision.txt` inside `{% if session_notes %}` blocks — primary source, first-person voice, and a grounding rule that accepts the notes alongside the VERIFIED FACTS. In `revision.txt`, fact-check corrections explicitly override the notes.
+
+No other node reads `session_notes`; with it empty, the prompts render exactly as before.
+
+### Auto-Publish and Manual Publishing
+
+`route_editor_decision()` in `agentic/graph.py` returns `"end"` instead of `"publisher"` for an approved or force-published article when `state["auto_publish_to_ghost"]` is `False`, so the job completes with the article in `Job.result` but unpublished. Publishing is then triggered on demand by `POST /jobs/{id}/publish` (`publish_job` in `api/routes/jobs.py`, used by the History page's "Publish to Ghost" button) or the MCP `publish_blog` tool (`publish_blog_impl` in `api/mcp_server.py`). Both require a `completed` job, call `publisher_node(job.result)` directly outside the graph, merge its state updates into `Job.result`, and set the job's status to `published`.
 
 ## API Backend & Live Pipeline Logs
 
