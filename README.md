@@ -30,11 +30,14 @@ An automated blog post generation system built with LangGraph, LangChain, and Cl
 - **Fact Checking**: Verifies factual claims against web sources after writing, with a revision loop (max 3 attempts)
 - **Tone Presets**: Choose from built-in tone presets (`conversational`, `expert_casual`, `storyteller`, `practical`, `thought_leader`) or define your own
 - **Custom Instructions**: Provide per-article instructions to guide the content direction
+- **Session Notes**: Optional hands-on session brief that becomes the post's foundation — drives research queries and priority URLs, and the writer builds the article on it in first person
+- **Per-Step Reasoning Effort**: Each LLM step has its own reasoning effort and temperature, sent according to what the selected model supports
 - **SEO Optimization**: Automatically optimizes content for search engines with excerpt support
 - **Ghost CMS Integration**: Publishes directly to Ghost CMS with full metadata (title, excerpt, meta description, tags)
 - **Editor Approval Gate**: LLM-based editorial review scoring cohesiveness, hook quality, storytelling, and authentic voice
 - **Revision Loop**: Failed articles automatically route back to writer with specific, actionable feedback (max 3 attempts)
 - **Forced Publishing**: Articles exceeding max revisions force-publish with editor's note explaining unresolved issues
+- **Auto-Publish Toggle**: With auto-publish off, approved articles stop before the publisher so you can review and publish manually from the UI
 - **Visual Recommendations**: Formatter suggests where to add images, charts, tables, and diagrams
 - **Quality Assurance**: Built-in content quality checks (word count, inline links, structure, headings, sections)
 - **Date-Aware Prompts**: All prompts receive the current date for timely, relevant content
@@ -49,7 +52,8 @@ The system uses a LangGraph state graph with 8 nodes and two approval gate workf
 ```
 Research → Audience Analysis → Writer → Fact Checker → Formatter → SEO → Editor (Approval Gate)
                                   ↑           |                               ├─→ Approved → Publisher
-                                  └───────────┘ (Fact Check Loop, max 3x)    └─→ Rejected ↻ Writer (Revision Loop, max 3x)
+                                  └───────────┘ (Fact Check Loop, max 3x)    ├─→ Approved, auto-publish off → End (publish manually)
+                                                                              └─→ Rejected ↻ Writer (Revision Loop, max 3x)
 ```
 
 ### Workflow Diagram
@@ -58,7 +62,7 @@ Research → Audience Analysis → Writer → Fact Checker → Formatter → SEO
 
 Each node performs a specific task and updates the shared state:
 
-- **Research**: Gathers information via web search, generates headline candidates
+- **Research**: Gathers information via web search (guided by instructions and session notes), generates headline candidates
 - **Audience Analysis**: Identifies target reader persona, pain points, goals, and content angle
 - **Writer**: Generates comprehensive article with hooks, storytelling, and authentic voice (or revises based on fact checker / editor feedback)
 - **Fact Checker**: Verifies factual claims against web sources; routes back to Writer if issues found (max 3 attempts), force-passes if exhausted
@@ -269,7 +273,8 @@ python main.py "Web Development" --instructions "Emphasize security best practic
 Custom instructions are passed to multiple nodes:
 - **Writer**: Influences article structure, focus, and tone
 - **SEO**: Guides keyword selection and optimization strategy
-- **Editor**: Informs editorial feedback and quality checks
+- **Editor**: Approval gate — scores the article and runs mechanical checks; approves (to Publisher, or stops if auto-publish is off), rejects back to Writer (max 3 attempts), or force-publishes when revisions are exhausted
+- **Publisher**: Saves the article locally and publishes to Ghost CMS with full metadata
 
 ### Visualize the Workflow
 
@@ -308,7 +313,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 | **New Post** | Create a new blog generation job with topic, tone, word count, custom instructions, and optional session notes (a hands-on session brief that becomes the post's foundation) |
 | **Queue** | View pending and in-progress jobs |
 | **History** | Browse completed jobs and their results |
-| **Settings** | Set default tone and word count, change password |
+| **Settings** | Set model, per-step reasoning effort / temperature, default tone and word count, auto-publish to Ghost; change password |
 
 ### Authentication
 
@@ -445,6 +450,8 @@ blogging-with-langchain/
 ## Workflow Details
 
 ### 1. Research Node
+- Fetches priority URLs found in custom instructions and session notes
+- Generates search queries from the topic, instructions, and session notes
 - Performs 5-7 web searches using Brave Search API
 - Collects 5-10 credible sources
 - Generates research summary with source information
@@ -484,6 +491,7 @@ blogging-with-langchain/
   - Mini-cliffhangers between sections
 - **Features:** 10-15 inline citations, headline candidates from research, audience-tailored content
 - **Custom instructions:** Applied to influence article direction and focus
+- **Session notes:** When provided, they are the article's primary source — the writer tells the story in first person and grounds claims in the notes alongside verified research facts (a verified fact wins on conflict; fact-check corrections override the notes)
 
 ### 4. Fact Checker Node
 - Verifies factual claims in the article against live web sources using Brave Search
@@ -492,7 +500,14 @@ blogging-with-langchain/
 - Allows max 3 revision attempts before force-passing to Formatter
 - Sets `fact_check_status` (`passed`, `failed`, `force_passed`) for conditional routing
 
-### 5. SEO Node
+### 5. Formatter Node
+- Formats content for Ghost CMS
+- Ensures proper Markdown syntax
+- Fixes heading hierarchy
+- Normalizes spacing and line breaks
+- Generates visual placement recommendations (hero images, comparison tables, workflow diagrams, charts, screenshots)
+
+### 6. SEO Node
 - Generates SEO-optimized title (50-60 chars)
 - Creates meta description (150-160 chars)
 - **Generates article excerpt** (200-250 chars for listing pages)
@@ -500,13 +515,6 @@ blogging-with-langchain/
 - Identifies 3-5 primary keywords
 - Calculates keyword density (targets 1.5-2%)
 - **Custom instructions:** Guides keyword selection and optimization strategy
-
-### 6. Formatter Node
-- Formats content for Ghost CMS
-- Ensures proper Markdown syntax
-- Fixes heading hierarchy
-- Normalizes spacing and line breaks
-- Generates visual placement recommendations (hero images, comparison tables, workflow diagrams, charts, screenshots)
 
 ### 7. Editor Node (Approval Gate)
 
@@ -525,7 +533,7 @@ blogging-with-langchain/
 **Approval Paths:**
 1. **✅ APPROVED**: All scores meet thresholds and mechanical requirements pass
    - Sets `approval_status: "approved"`
-   - Routes to Publisher node
+   - Routes to Publisher node — or, when auto-publish to Ghost is off, ends the run so the article can be reviewed and published manually ("Publish to Ghost" in History, or the `publish_blog` MCP tool)
 
 2. **❌ REJECTED + Revisions Available**: Scores or checks fail, attempts < 3
    - Sets `approval_status: "rejected"`
@@ -537,10 +545,11 @@ blogging-with-langchain/
 3. **⚠️ FORCE PUBLISH**: Checks fail, revisions exhausted (≥ 3 attempts)
    - Sets `approval_status: "force_publish"`
    - Prepends editor's note with all scores and unresolved issues
-   - Routes to Publisher node with forced note
+   - Routes to Publisher node with forced note (or ends the run if auto-publish is off)
    - Marks article with warning in logs
 
 ### 8. Publisher Node
+- Runs automatically after editor approval when auto-publish to Ghost is on; otherwise invoked on demand from the UI or MCP `publish_blog`
 - Checks for forced publish note and prepends if present
 - Saves article to local `output/` directory with timestamp
 - Removes H1 title from content (sent separately to avoid duplication)
