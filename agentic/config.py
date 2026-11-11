@@ -180,8 +180,9 @@ class Config:
         Validate partial per-node LLM updates and merge them into stored overrides.
 
         Args:
-            stored: Existing overrides, {node: {"effort"?: str, "temperature"?: float}}
-            updates: New partial overrides in the same shape
+            stored: Existing overrides, {node: {"effort"?: str, "temperature"?: float, "model"?: str}}
+            updates: New partial overrides in the same shape; "model": None removes
+                an override
 
         Returns:
             A new dict with updates merged over stored, per node and per key
@@ -194,7 +195,7 @@ class Config:
                 raise ValueError(f"Unknown LLM node '{node}'. Valid nodes: {', '.join(cls.NODE_LLM_DEFAULTS)}")
             if not isinstance(values, dict):
                 raise ValueError(f"Settings for node '{node}' must be an object")
-            unknown = set(values) - {"effort", "temperature"}
+            unknown = set(values) - {"effort", "temperature", "model"}
             if unknown:
                 raise ValueError(f"Unknown setting(s) for node '{node}': {', '.join(sorted(unknown))}")
             if "effort" in values and values["effort"] not in cls.REASONING_EFFORTS:
@@ -203,9 +204,15 @@ class Config:
                 t = values["temperature"]
                 if isinstance(t, bool) or not isinstance(t, (int, float)) or not (0.0 <= t <= 2.0):
                     raise ValueError(f"temperature for '{node}' must be between 0.0 and 2.0")
+            if "model" in values:
+                m = values["model"]
+                if m is not None and (not isinstance(m, str) or not m.strip()):
+                    raise ValueError(f"model for '{node}' must be a non-empty OpenRouter model id or null")
         merged = {node: dict(values) for node, values in stored.items()}
         for node, values in updates.items():
             merged[node] = {**merged.get(node, {}), **values}
+            if merged[node].get("model", "") is None:
+                del merged[node]["model"]
         return merged
 
     @classmethod
@@ -231,7 +238,8 @@ class Config:
         Get LLM via OpenRouter, configured for a pipeline node.
 
         Args:
-            node: Key of NODE_LLM_DEFAULTS whose effort/temperature to use
+            node: Key of NODE_LLM_DEFAULTS whose model/effort/temperature to use;
+                the model is the node's override, else OPENROUTER_MODEL
 
         Returns:
             ChatOpenRouter instance
@@ -239,13 +247,14 @@ class Config:
         from langchain_openrouter import ChatOpenRouter
 
         settings = cls.get_node_llm_settings()[node]
-        params = cls.get_model_supported_params()
+        model = settings.get("model") or cls.OPENROUTER_MODEL
+        params = cls.get_model_supported_params(model)
 
         def supports(param: str) -> bool:
             # Unknown capabilities: send whatever the node is configured for
             return params is None or param in params
 
-        kwargs = {"model": cls.OPENROUTER_MODEL}
+        kwargs = {"model": model}
         if settings["effort"] != "off" and supports("reasoning"):
             kwargs["reasoning"] = {"effort": settings["effort"]}
         elif supports("temperature"):
@@ -253,17 +262,19 @@ class Config:
         return ChatOpenRouter(**kwargs)
 
     @classmethod
-    def get_model_supported_params(cls) -> Optional[set]:
+    def get_model_supported_params(cls, model: str) -> Optional[set]:
         """
-        Get OpenRouter's supported_parameters for OPENROUTER_MODEL.
+        Get OpenRouter's supported_parameters for a model.
 
         Fetches the public model list once per process and caches it.
+
+        Args:
+            model: OpenRouter model id (e.g. "anthropic/claude-sonnet-5.5")
 
         Returns:
             Set of parameter names (e.g. {"reasoning", "temperature"}), or None
             if the list can't be fetched or the model isn't in it
         """
-        model = cls.OPENROUTER_MODEL
         if model in cls._SUPPORTED_PARAMS_CACHE:
             return cls._SUPPORTED_PARAMS_CACHE[model]
 
@@ -293,13 +304,18 @@ class Config:
         Get information about the configured LLM for display purposes.
 
         Returns:
-            Dict with provider info
+            Dict with provider info and "node_models" (node -> model id, only
+            for nodes with a model override; empty if none)
         """
+        settings = cls.get_node_llm_settings()
         return {
             "primary": {
                 "provider": "OpenRouter",
                 "model": cls.OPENROUTER_MODEL,
-            }
+            },
+            "node_models": {
+                node: s["model"] for node, s in settings.items() if "model" in s
+            },
         }
 
     @classmethod
