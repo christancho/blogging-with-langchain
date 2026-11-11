@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef, FormEvent } from 'react';
 import { settings, OpenRouterModel, NodeLLMSettings, ReasoningEffort } from '@/lib/api';
+import { capsFor, effectiveModel, rowControls, modelLabel } from '@/lib/modelCaps';
+import ModelCombobox from '@/components/ModelCombobox';
 
 const TONE_PRESETS = [
   { name: 'Conversational', value: 'friendly, conversational, and approachable — like a knowledgeable friend explaining something they care about, while remaining authoritative and well-researched' },
@@ -32,11 +34,9 @@ export default function SettingsPage() {
   const [llmModel, setLlmModel] = useState('');
   const [autoPublish, setAutoPublish] = useState(true);
   const [models, setModels] = useState<OpenRouterModel[]>([]);
-  const [modelSearch, setModelSearch] = useState('');
-  const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [modelsLoading, setModelsLoading] = useState(true);
-  const modelInputRef = useRef<HTMLInputElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  // Nodes switched back to the default model since load; saved as model: null.
+  const [resetModelNodes, setResetModelNodes] = useState<Set<string>>(new Set());
 
   const [showToneDropdown, setShowToneDropdown] = useState(false);
   const toneInputRef = useRef<HTMLInputElement>(null);
@@ -72,17 +72,9 @@ export default function SettingsPage() {
       .finally(() => setModelsLoading(false));
   }, []);
 
-  // Close dropdowns when clicking outside
+  // Close the tone dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (
-        dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
-        modelInputRef.current && !modelInputRef.current.contains(e.target as Node)
-      ) {
-        setShowModelDropdown(false);
-        const selected = models.find(m => m.id === llmModel);
-        setModelSearch(selected ? selected.name : llmModel);
-      }
       if (
         toneDropdownRef.current && !toneDropdownRef.current.contains(e.target as Node) &&
         toneInputRef.current && !toneInputRef.current.contains(e.target as Node)
@@ -92,44 +84,22 @@ export default function SettingsPage() {
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [llmModel, models]);
+  }, []);
 
-  const filteredModels = models.filter(m =>
-    m.name.toLowerCase().includes(modelSearch.toLowerCase()) ||
-    m.id.toLowerCase().includes(modelSearch.toLowerCase())
-  );
-
-  // Once models are loaded, resolve the current model's display name
-  useEffect(() => {
-    if (models.length > 0 && llmModel) {
-      const selected = models.find(m => m.id === llmModel);
-      if (selected) setModelSearch(selected.name);
-    }
-  }, [models, llmModel]);
-
-  // Capabilities of the selected model; null when unknown (model list not
-  // loaded, or the saved id isn't in it). Mirrors Config.get_llm(): unknown
-  // capabilities fall back to "effort unless off, then temperature".
-  const selectedModel = models.find(m => m.id === llmModel);
-  const caps = selectedModel
-    ? { reasoning: selectedModel.supports_reasoning, temperature: selectedModel.supports_temperature }
-    : null;
-  const effortEnabled = caps ? caps.reasoning : true;
-
-  function temperatureEnabled(s: NodeLLMSettings): boolean {
-    if (!caps) return s.effort === 'off';
-    if (!caps.temperature) return false;
-    return !caps.reasoning || s.effort === 'off';
-  }
+  // Capabilities of the default model; null when unknown (model list not
+  // loaded, or the saved id isn't in it).
+  const caps = capsFor(models, llmModel);
 
   function updateNode(node: string, patch: Partial<NodeLLMSettings>) {
+    if ('model' in patch) {
+      setResetModelNodes(prev => {
+        const next = new Set(prev);
+        if (patch.model === undefined) next.add(node);
+        else next.delete(node);
+        return next;
+      });
+    }
     setNodeSettings(prev => ({ ...prev, [node]: { ...prev[node], ...patch } }));
-  }
-
-  function selectModel(model: OpenRouterModel) {
-    setLlmModel(model.id);
-    setModelSearch(model.name);
-    setShowModelDropdown(false);
   }
 
   async function handleSaveSettings(e: FormEvent) {
@@ -146,9 +116,15 @@ export default function SettingsPage() {
         default_tone: tone,
         default_word_count: wordCount,
         llm_model: llmModel,
-        llm_node_settings: nodeSettings,
+        llm_node_settings: Object.fromEntries(
+          Object.entries(nodeSettings).map(([node, s]) => [
+            node,
+            resetModelNodes.has(node) ? { ...s, model: null } : s,
+          ])
+        ),
         auto_publish_to_ghost: autoPublish,
       });
+      setResetModelNodes(new Set());
       setSettingsSaved(true);
       setTimeout(() => setSettingsSaved(false), 2000);
     } catch (err) {
@@ -183,7 +159,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="max-w-lg space-y-8">
+    <div className="max-w-2xl space-y-8">
       <h1 className="text-xl font-semibold">Settings</h1>
 
       {settingsLoadError && (
@@ -199,73 +175,62 @@ export default function SettingsPage() {
 
           {/* Model selector */}
           <div>
-            <label htmlFor="llm-model" className="block text-sm font-medium text-gray-700 mb-1">Model</label>
-            <div className="relative">
-              <input
-                id="llm-model"
-                ref={modelInputRef}
-                type="text"
-                value={modelSearch}
-                onChange={e => { setModelSearch(e.target.value); setShowModelDropdown(true); }}
-                onFocus={() => setShowModelDropdown(true)}
-                placeholder={modelsLoading ? 'Loading models…' : 'Search models…'}
-                disabled={modelsLoading}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
-              />
-              {showModelDropdown && (
-                <div
-                  ref={dropdownRef}
-                  className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
-                >
-                  {filteredModels.length === 0 ? (
-                    <p className="px-3 py-2 text-sm text-gray-400">No models match your search.</p>
-                  ) : (
-                    filteredModels.map(m => (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => selectModel(m)}
-                        className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 ${m.id === llmModel ? 'bg-blue-50 font-medium' : ''}`}
-                      >
-                        <span className="block text-gray-900">{m.name}</span>
-                        <span className="block text-xs text-gray-400 font-mono">{m.id}</span>
-                      </button>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
+            <label htmlFor="llm-model" className="block text-sm font-medium text-gray-700 mb-1">Default model</label>
+            <ModelCombobox
+              id="llm-model"
+              ariaLabel="Default model"
+              value={llmModel}
+              onChange={m => setLlmModel(m ?? '')}
+              models={models}
+              loading={modelsLoading}
+            />
           </div>
 
           {/* Per-node reasoning effort / temperature */}
           <div>
-            <p className="block text-sm font-medium text-gray-700 mb-1">Reasoning effort per step</p>
+            <p className="block text-sm font-medium text-gray-700 mb-1">Model &amp; reasoning per step</p>
             <p className="text-xs text-gray-500 mb-2">
               {caps ? (
                 <>
-                  Selected model supports:{' '}
+                  Default model supports:{' '}
                   <span className={caps.reasoning ? 'text-green-700' : 'text-gray-400 line-through'}>reasoning effort</span>
                   {' · '}
                   <span className={caps.temperature ? 'text-green-700' : 'text-gray-400 line-through'}>temperature</span>
                 </>
               ) : modelsLoading ? (
-                'Checking what the selected model supports…'
+                'Checking what the default model supports…'
               ) : (
-                'Unknown model capabilities — settings are sent as configured.'
+                'Unknown default model capabilities — settings are sent as configured.'
               )}
             </p>
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-xs text-gray-500 text-left">
                   <th className="font-normal pb-1">Step</th>
+                  <th className="font-normal pb-1">Model</th>
                   <th className="font-normal pb-1">Effort</th>
                   <th className="font-normal pb-1">Temperature</th>
                 </tr>
               </thead>
               <tbody>
-                {Object.entries(nodeSettings).map(([node, s]) => (
+                {Object.entries(nodeSettings).map(([node, s]) => {
+                  const { effortEnabled, temperatureEnabled } = rowControls(
+                    capsFor(models, effectiveModel(s, llmModel)), s,
+                  );
+                  return (
                   <tr key={node}>
                     <td className="py-1 pr-2 text-gray-700">{NODE_LABELS[node] ?? node}</td>
+                    <td className="py-1 pr-2">
+                      <ModelCombobox
+                        id={`model-${node}`}
+                        ariaLabel={`${NODE_LABELS[node] ?? node} model`}
+                        value={s.model ?? null}
+                        onChange={m => updateNode(node, { model: m ?? undefined })}
+                        models={models}
+                        loading={modelsLoading}
+                        defaultLabel={`Default (${modelLabel(models, llmModel)})`}
+                      />
+                    </td>
                     <td className="py-1 pr-2">
                       <select
                         aria-label={`${NODE_LABELS[node] ?? node} effort`}
@@ -287,13 +252,14 @@ export default function SettingsPage() {
                         max={2}
                         step={0.05}
                         value={s.temperature}
-                        disabled={!temperatureEnabled(s)}
+                        disabled={!temperatureEnabled}
                         onChange={e => updateNode(node, { temperature: Number(e.target.value) })}
                         className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
                       />
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
             <p className="text-xs text-gray-400 mt-1">
