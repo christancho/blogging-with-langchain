@@ -129,6 +129,20 @@ class TestConfig:
             assert mock_chat.call_args.kwargs["model"] == "a/default"
             caps.assert_called_with("a/default")
 
+    @pytest.mark.parametrize("params, overrides, expected", [
+        ({"reasoning", "temperature"}, {"model": "a/opus"}, "[writer] model: a/opus (effort: high)"),
+        ({"temperature"}, {}, "[writer] model: a/default (temperature: 0.7)"),
+        (set(), {}, "[writer] model: a/default (model defaults)"),
+    ])
+    def test_get_llm_logs_model_and_sent_setting(self, capsys, params, overrides, expected):
+        """get_llm() prints the node's model and the effort/temperature actually sent."""
+        with patch("langchain_openrouter.ChatOpenRouter"), \
+                patch.object(Config, "OPENROUTER_MODEL", "a/default"), \
+                patch.object(Config, "NODE_LLM_SETTINGS", {"writer": overrides}), \
+                patch.object(Config, "get_model_supported_params", return_value=params):
+            Config.get_llm("writer")
+        assert capsys.readouterr().out.strip() == expected
+
     def test_get_node_llm_settings_model_only_when_overridden(self):
         """Resolved node settings include 'model' only for nodes that override it."""
         merged = Config.get_node_llm_settings({"writer": {"model": "a/opus"}})

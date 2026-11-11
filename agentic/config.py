@@ -257,8 +257,13 @@ class Config:
         kwargs = {"model": model}
         if settings["effort"] != "off" and supports("reasoning"):
             kwargs["reasoning"] = {"effort": settings["effort"]}
+            sent = f"effort: {settings['effort']}"
         elif supports("temperature"):
             kwargs["temperature"] = settings["temperature"]
+            sent = f"temperature: {settings['temperature']}"
+        else:
+            sent = "model defaults"
+        print(f"[{node}] model: {model} ({sent})")
         return ChatOpenRouter(**kwargs)
 
     @classmethod
