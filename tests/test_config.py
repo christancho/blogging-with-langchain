@@ -85,14 +85,12 @@ class TestConfig:
         fake = MagicMock()
         fake.json.return_value = {"data": [{"id": "a/x", "supported_parameters": ["reasoning"]}]}
         with patch("requests.get", return_value=fake) as mock_get, \
-                patch.object(Config, "_SUPPORTED_PARAMS_CACHE", {}), \
-                patch.object(Config, "OPENROUTER_MODEL", "a/x"):
-            assert Config.get_model_supported_params() == {"reasoning"}
-            assert Config.get_model_supported_params() == {"reasoning"}
+                patch.object(Config, "_SUPPORTED_PARAMS_CACHE", {}):
+            assert Config.get_model_supported_params("a/x") == {"reasoning"}
+            assert Config.get_model_supported_params("a/x") == {"reasoning"}
             assert mock_get.call_count == 1
-            with patch.object(Config, "OPENROUTER_MODEL", "a/missing"):
-                assert Config.get_model_supported_params() is None
-                assert Config.get_model_supported_params() is None
+            assert Config.get_model_supported_params("a/missing") is None
+            assert Config.get_model_supported_params("a/missing") is None
             assert mock_get.call_count == 2
 
     def test_get_model_supported_params_fetch_error(self, capsys):
@@ -100,9 +98,64 @@ class TestConfig:
         import requests
         with patch("requests.get", side_effect=requests.ConnectionError("down")), \
                 patch.object(Config, "_SUPPORTED_PARAMS_CACHE", {}) as cache:
-            assert Config.get_model_supported_params() is None
+            assert Config.get_model_supported_params("a/x") is None
             assert cache == {}
         assert "could not fetch OpenRouter model capabilities" in capsys.readouterr().out
+
+    def test_merge_node_llm_settings_model(self):
+        """A node 'model' override is merged alongside existing settings."""
+        merged = Config.merge_node_llm_settings({"writer": {"effort": "high"}}, {"writer": {"model": "a/opus"}})
+        assert merged == {"writer": {"effort": "high", "model": "a/opus"}}
+
+    def test_merge_node_llm_settings_model_null_removes(self):
+        """A null 'model' removes an existing override and keeps other settings."""
+        merged = Config.merge_node_llm_settings({"writer": {"model": "a/opus", "effort": "high"}}, {"writer": {"model": None}})
+        assert merged == {"writer": {"effort": "high"}}
+
+    def test_merge_node_llm_settings_model_null_without_override_stores_empty(self):
+        """A null 'model' with no prior override stores an empty node entry."""
+        assert Config.merge_node_llm_settings({}, {"seo": {"model": None}}) == {"seo": {}}
+
+    def test_get_llm_uses_node_model(self):
+        """get_llm() uses the node's model override, else the default model, for model and capability lookup."""
+        with patch("langchain_openrouter.ChatOpenRouter") as mock_chat, \
+                patch.object(Config, "OPENROUTER_MODEL", "a/default"), \
+                patch.object(Config, "NODE_LLM_SETTINGS", {"writer": {"model": "a/opus"}}), \
+                patch.object(Config, "get_model_supported_params", return_value=None) as caps:
+            Config.get_llm("writer")
+            assert mock_chat.call_args.kwargs["model"] == "a/opus"
+            caps.assert_called_with("a/opus")
+            Config.get_llm("seo")
+            assert mock_chat.call_args.kwargs["model"] == "a/default"
+            caps.assert_called_with("a/default")
+
+    @pytest.mark.parametrize("params, overrides, expected", [
+        ({"reasoning", "temperature"}, {"model": "a/opus"}, "[writer] model: a/opus (effort: high)"),
+        ({"temperature"}, {}, "[writer] model: a/default (temperature: 0.7)"),
+        (set(), {}, "[writer] model: a/default (model defaults)"),
+    ])
+    def test_get_llm_logs_model_and_sent_setting(self, capsys, params, overrides, expected):
+        """get_llm() prints the node's model and the effort/temperature actually sent."""
+        with patch("langchain_openrouter.ChatOpenRouter"), \
+                patch.object(Config, "OPENROUTER_MODEL", "a/default"), \
+                patch.object(Config, "NODE_LLM_SETTINGS", {"writer": overrides}), \
+                patch.object(Config, "get_model_supported_params", return_value=params):
+            Config.get_llm("writer")
+        assert capsys.readouterr().out.strip() == expected
+
+    def test_get_node_llm_settings_model_only_when_overridden(self):
+        """Resolved node settings include 'model' only for nodes that override it."""
+        merged = Config.get_node_llm_settings({"writer": {"model": "a/opus"}})
+        assert merged["writer"]["model"] == "a/opus"
+        assert "model" not in merged["seo"]
+
+    def test_get_llm_info_lists_node_models(self):
+        """get_llm_info() reports per-node model overrides only."""
+        with patch.object(Config, "OPENROUTER_MODEL", "a/default"), \
+                patch.object(Config, "NODE_LLM_SETTINGS", {"writer": {"model": "a/opus"}, "seo": {"effort": "off"}}):
+            info = Config.get_llm_info()
+        assert info["primary"]["model"] == "a/default"
+        assert info["node_models"] == {"writer": "a/opus"}
 
     def test_get_llm_unknown_node_raises(self):
         """get_llm() rejects a node name with no settings."""
@@ -129,6 +182,9 @@ class TestConfig:
         {"writer": {"temperature": "hot"}},
         {"writer": {"top_p": 0.9}},
         {"writer": "high"},
+        {"writer": {"model": ""}},
+        {"writer": {"model": 5}},
+        {"writer": {"model": "   "}},
     ])
     def test_merge_node_llm_settings_rejects_invalid(self, updates):
         """Invalid nodes, keys, and values raise ValueError."""

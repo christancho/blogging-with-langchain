@@ -185,6 +185,10 @@ def main():
     llm_info = Config.get_llm_info()
     if "primary" in llm_info:
         print(f"Primary LLM: {llm_info['primary']['provider']} ({llm_info['primary']['model']})")
+    if llm_info.get("node_models"):
+        print("Per-step models:")
+        for node, model in llm_info["node_models"].items():
+            print(f"  {node}: {model}")
     if "fallback" in llm_info:
         print(f"Fallback LLM: {llm_info['fallback']['provider']} ({llm_info['fallback']['model']})")
 
