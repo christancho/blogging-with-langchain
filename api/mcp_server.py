@@ -294,7 +294,11 @@ async def update_settings_impl(
         default_word_count: Optional new default target word count.
         llm_model: Optional new LLM model name.
         llm_node_settings: Optional partial per-node overrides, merged into
-            the stored ones ({node: {"effort"?: str, "temperature"?: float}}).
+            the stored ones ({node: {"effort"?: str, "temperature"?: float,
+            "model"?: str | None}}). "model" is an OpenRouter model id for that
+            node, e.g. {"writer": {"model": "anthropic/claude-opus-5.5"}};
+            {"writer": {"model": None}} resets it. Nodes without a model
+            override use llm_model.
         auto_publish_to_ghost: Optional new auto-publish setting.
 
     Returns:
@@ -423,6 +427,9 @@ def build_mcp(session_factory) -> "MCPServer":
         fact_checker, editor, seo, formatter. effort: off, low, medium, high,
         xhigh, max ("off" sends temperature instead; only older models honor it).
         temperature: 0.0-2.0.
+        model: an OpenRouter model id for that node, e.g.
+        {"writer": {"model": "anthropic/claude-opus-5.5"}}; pass
+        {"writer": {"model": null}} to reset it. Steps without a model use llm_model.
         """
         return await update_settings_impl(
             session_factory,
