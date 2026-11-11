@@ -188,3 +188,24 @@ async def test_update_llm_node_settings_rejects_invalid(authed_client, seeded_se
     ):
         resp = await authed_client.put("/settings", json={"llm_node_settings": bad})
         assert resp.status_code == 422, bad
+
+
+@pytest.mark.asyncio(loop_scope="function")
+async def test_update_node_model_and_reset(authed_client, seeded_settings):
+    resp = await authed_client.put("/settings", json={"llm_node_settings": {"writer": {"model": "anthropic/claude-opus-5.5"}}})
+    assert resp.json()["llm_node_settings"]["writer"]["model"] == "anthropic/claude-opus-5.5"
+    resp = await authed_client.put("/settings", json={"llm_node_settings": {"writer": {"model": None}}})
+    assert "model" not in resp.json()["llm_node_settings"]["writer"]
+
+
+@pytest.mark.asyncio(loop_scope="function")
+async def test_update_effort_keeps_model_override(authed_client, seeded_settings):
+    await authed_client.put("/settings", json={"llm_node_settings": {"writer": {"model": "a/opus"}}})
+    resp = await authed_client.put("/settings", json={"llm_node_settings": {"writer": {"effort": "max"}}})
+    assert resp.json()["llm_node_settings"]["writer"] == {"effort": "max", "temperature": 0.7, "model": "a/opus"}
+
+
+@pytest.mark.asyncio(loop_scope="function")
+async def test_update_node_model_rejects_empty(authed_client, seeded_settings):
+    resp = await authed_client.put("/settings", json={"llm_node_settings": {"writer": {"model": ""}}})
+    assert resp.status_code == 422

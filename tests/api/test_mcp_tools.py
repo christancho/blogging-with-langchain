@@ -241,6 +241,24 @@ async def test_update_settings_accepts_node_overrides(session_factory, seeded_se
         assert s.llm_node_settings == {"seo": {"effort": "off", "temperature": 1.2}}
 
 
+async def test_update_settings_node_model_and_reset(session_factory, seeded_settings):
+    out = await update_settings_impl(
+        session_factory, llm_node_settings={"writer": {"model": "a/opus"}}
+    )
+    assert out["llm_node_settings"]["writer"]["model"] == "a/opus"
+    async with session_factory() as db:
+        s = (await db.execute(select(Settings))).scalar_one()
+        assert s.llm_node_settings == {"writer": {"model": "a/opus"}}
+
+    out = await update_settings_impl(
+        session_factory, llm_node_settings={"writer": {"model": None}}
+    )
+    assert "model" not in out["llm_node_settings"]["writer"]
+    async with session_factory() as db:
+        s = (await db.execute(select(Settings))).scalar_one()
+        assert s.llm_node_settings == {"writer": {}}
+
+
 from mcp import Client
 from api.mcp_server import build_mcp
 

@@ -31,7 +31,7 @@ An automated blog post generation system built with LangGraph, LangChain, and Cl
 - **Tone Presets**: Choose from built-in tone presets (`conversational`, `expert_casual`, `storyteller`, `practical`, `thought_leader`) or define your own
 - **Custom Instructions**: Provide per-article instructions to guide the content direction
 - **Session Notes**: Optional hands-on session brief that becomes the post's foundation — drives research queries and priority URLs, and the writer builds the article on it in first person
-- **Per-Step Reasoning Effort**: Each LLM step has its own reasoning effort and temperature, sent according to what the selected model supports
+- **Per-Step Model & Reasoning Effort**: Each LLM step can use its own model (default: the global model; set `model` to `null` to reset) plus its own reasoning effort and temperature, sent according to what that step's model supports
 - **SEO Optimization**: Automatically optimizes content for search engines with excerpt support
 - **Ghost CMS Integration**: Publishes directly to Ghost CMS with full metadata (title, excerpt, meta description, tags)
 - **Editor Approval Gate**: LLM-based editorial review scoring cohesiveness, hook quality, storytelling, and authentic voice
@@ -313,7 +313,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 | **New Post** | Create a new blog generation job with topic, tone, word count, custom instructions, and optional session notes (a hands-on session brief that becomes the post's foundation) |
 | **Queue** | View pending and in-progress jobs |
 | **History** | Browse completed jobs and their results |
-| **Settings** | Set model, per-step reasoning effort / temperature, default tone and word count, auto-publish to Ghost; change password |
+| **Settings** | Set default model, per-step model / reasoning effort / temperature, default tone and word count, auto-publish to Ghost; change password |
 
 ### Authentication
 
@@ -376,7 +376,7 @@ The API includes a built-in **remote MCP server** (Model Context Protocol) that 
 | `get_job_logs` | Captured pipeline logs for a job |
 | `publish_blog` | Publish a completed job to Ghost CMS |
 | `retry_blog` | Re-queue a failed job |
-| `get_settings` / `update_settings` | Read/update default tone, word count, model, per-step reasoning effort / temperature, auto-publish |
+| `get_settings` / `update_settings` | Read/update default tone, word count, default model, per-step model (`null` resets) / reasoning effort / temperature, auto-publish |
 
 Because generation takes minutes, `generate_blog` is **fire-and-poll**: it queues the job and returns a `job_id`; Claude polls `get_job` and shows you the finished article so you can review it before calling `publish_blog`.
 
