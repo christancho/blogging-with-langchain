@@ -27,6 +27,8 @@ export default function ModelCombobox({
 }: ModelComboboxProps) {
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
+  // True once the user types; until then the full list is shown.
+  const [typing, setTyping] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -55,7 +57,7 @@ export default function ModelCombobox({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const query = search.toLowerCase();
+  const query = typing ? search.toLowerCase() : '';
   const filtered = models.filter(m =>
     m.name.toLowerCase().includes(query) || m.id.toLowerCase().includes(query)
   );
@@ -64,6 +66,7 @@ export default function ModelCombobox({
     onChange(next);
     setSearch(displayFor(next));
     setOpen(false);
+    setTyping(false);
   }
 
   return (
@@ -74,8 +77,10 @@ export default function ModelCombobox({
         ref={inputRef}
         type="text"
         value={search}
-        onChange={e => { setSearch(e.target.value); setOpen(true); }}
-        onFocus={() => setOpen(true)}
+        onChange={e => { setSearch(e.target.value); setTyping(true); setOpen(true); }}
+        onFocus={e => { e.target.select(); setTyping(false); setOpen(true); }}
+        onBlur={() => { setOpen(false); setTyping(false); }}
+        onKeyDown={e => { if (e.key === 'Escape') { setOpen(false); setTyping(false); } }}
         placeholder={loading ? 'Loading models…' : 'Search models…'}
         disabled={loading}
         className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
@@ -88,6 +93,7 @@ export default function ModelCombobox({
           {defaultLabel && (
             <button
               type="button"
+              onMouseDown={e => e.preventDefault()}
               onClick={() => select(null)}
               className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 ${value === null ? 'bg-blue-50 font-medium' : ''}`}
             >
@@ -101,6 +107,7 @@ export default function ModelCombobox({
               <button
                 key={m.id}
                 type="button"
+                onMouseDown={e => e.preventDefault()}
                 onClick={() => select(m.id)}
                 className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 ${m.id === value ? 'bg-blue-50 font-medium' : ''}`}
               >
