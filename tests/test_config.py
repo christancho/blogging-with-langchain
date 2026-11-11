@@ -103,17 +103,21 @@ class TestConfig:
         assert "could not fetch OpenRouter model capabilities" in capsys.readouterr().out
 
     def test_merge_node_llm_settings_model(self):
+        """A node 'model' override is merged alongside existing settings."""
         merged = Config.merge_node_llm_settings({"writer": {"effort": "high"}}, {"writer": {"model": "a/opus"}})
         assert merged == {"writer": {"effort": "high", "model": "a/opus"}}
 
     def test_merge_node_llm_settings_model_null_removes(self):
+        """A null 'model' removes an existing override and keeps other settings."""
         merged = Config.merge_node_llm_settings({"writer": {"model": "a/opus", "effort": "high"}}, {"writer": {"model": None}})
         assert merged == {"writer": {"effort": "high"}}
 
-    def test_merge_node_llm_settings_model_null_without_override_is_noop(self):
+    def test_merge_node_llm_settings_model_null_without_override_stores_empty(self):
+        """A null 'model' with no prior override stores an empty node entry."""
         assert Config.merge_node_llm_settings({}, {"seo": {"model": None}}) == {"seo": {}}
 
     def test_get_llm_uses_node_model(self):
+        """get_llm() uses the node's model override, else the default model, for model and capability lookup."""
         with patch("langchain_openrouter.ChatOpenRouter") as mock_chat, \
                 patch.object(Config, "OPENROUTER_MODEL", "a/default"), \
                 patch.object(Config, "NODE_LLM_SETTINGS", {"writer": {"model": "a/opus"}}), \
@@ -126,11 +130,13 @@ class TestConfig:
             caps.assert_called_with("a/default")
 
     def test_get_node_llm_settings_model_only_when_overridden(self):
+        """Resolved node settings include 'model' only for nodes that override it."""
         merged = Config.get_node_llm_settings({"writer": {"model": "a/opus"}})
         assert merged["writer"]["model"] == "a/opus"
         assert "model" not in merged["seo"]
 
     def test_get_llm_info_lists_node_models(self):
+        """get_llm_info() reports per-node model overrides only."""
         with patch.object(Config, "OPENROUTER_MODEL", "a/default"), \
                 patch.object(Config, "NODE_LLM_SETTINGS", {"writer": {"model": "a/opus"}, "seo": {"effort": "off"}}):
             info = Config.get_llm_info()
