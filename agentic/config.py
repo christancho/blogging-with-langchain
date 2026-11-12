@@ -210,11 +210,15 @@ class Config:
             ):
                 raise ValueError(f"auto pool entries for '{node}' need a non-empty 'model' and 'criteria'")
             ids.append(entry["model"])
+        if "auto" in ids:
+            raise ValueError(f"auto pool for '{node}' cannot contain the model 'auto'")
         if len(set(ids)) != len(ids):
             raise ValueError(f"auto pool for '{node}' has duplicate models")
         fallback = auto.get("fallback")
         if not isinstance(fallback, str) or not fallback.strip():
             raise ValueError(f"auto fallback for '{node}' must be a non-empty model id")
+        if fallback == "auto":
+            raise ValueError(f"auto fallback for '{node}' cannot be 'auto'")
         if "min_confidence" in auto:
             c = auto["min_confidence"]
             if isinstance(c, bool) or not isinstance(c, (int, float)) or not (0.0 <= c <= 1.0):
@@ -226,9 +230,13 @@ class Config:
         Validate partial per-node LLM updates and merge them into stored overrides.
 
         Args:
-            stored: Existing overrides, {node: {"effort"?: str, "temperature"?: float, "model"?: str}}
+            stored: Existing overrides, {node: {"effort"?: str, "temperature"?: float, "model"?: str,
+                "auto"?: dict}}
             updates: New partial overrides in the same shape; "model": None removes
-                an override
+                an override. "auto" is required with "model": "auto" and has the shape
+                {"pool": [{"model": str, "criteria": str}, ...] (2 to 5 entries),
+                "fallback": str, "min_confidence"?: float in [0.0, 1.0]}; neither the
+                pool models nor the fallback may be "auto"
 
         Returns:
             A new dict with updates merged over stored, per node and per key

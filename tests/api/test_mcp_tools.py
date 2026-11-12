@@ -5,6 +5,7 @@ import pytest_asyncio
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy import select
 
+from agentic.config import Config
 from api.models import Job, Settings
 from api.auth import hash_password
 from api.mcp_server import (
@@ -217,6 +218,7 @@ async def test_get_settings(session_factory, seeded_settings):
     assert out["default_tone"] == "informative and insightful"
     assert out["default_word_count"] == 3500
     assert "password_hash" not in out
+    assert out["jev_available"] is Config.jev_available()
 
 
 async def test_update_settings_partial(session_factory, seeded_settings):

@@ -134,3 +134,19 @@ def test_build_state_skips_none_and_stringifies():
 
 def test_node_jobs_cover_every_node():
     assert set(NODE_JOBS) == set(Config.NODE_LLM_DEFAULTS)
+
+
+def test_route_missing_probability_prints_na(classifier_cls, capsys):
+    classifier_cls.return_value.invoke.return_value = _response("m2", {"m1": 0.9}, 0.7)
+    d = route("writer", AUTO, {})
+    out = capsys.readouterr().out
+    assert d.model == "a/big"
+    assert "p=n/a" in out
+    assert "p=0.00" not in out
+
+
+def test_route_malformed_pool_entry_falls_back(classifier_cls):
+    bad = {**AUTO, "pool": [{"model": "a/small", "criteria": "Simple"}, {"model": "a/big"}]}
+    d = route("writer", bad, {})
+    assert d.model == "a/small"
+    assert d.fallback_reason.startswith("error: ")

@@ -289,6 +289,8 @@ class TestMergeAuto:
         {"model": "auto", "auto": {**AUTO, "min_confidence": 1.5}},
         {"model": "auto", "auto": {**AUTO, "min_confidence": True}},
         {"model": "auto", "auto": {**AUTO, "extra": 1}},
+        {"model": "auto", "auto": {**AUTO, "pool": [POOL[0], {"model": "auto", "criteria": "x"}]}},
+        {"model": "auto", "auto": {**AUTO, "fallback": "auto"}},
     ])
     def test_merge_auto_rejects_invalid(self, update):
         with pytest.raises(ValueError):

@@ -125,17 +125,18 @@ def route(node: str, auto_cfg: dict, context: dict) -> RouteDecision:
     Returns:
         RouteDecision. Never raises: any classifier failure, unknown label, or
         confidence below the threshold yields the fallback model with a reason.
+        A malformed pool also falls back; only a missing "fallback" key raises
+        (validated config always has it).
     """
     fallback = auto_cfg["fallback"]
     if not Config.jev_available():
         return _fallback(node, fallback, "error: TYPESAFE_API_KEY not set", {}, None)
 
-    pool = auto_cfg["pool"]
-    min_conf = auto_cfg.get("min_confidence", DEFAULT_MIN_CONFIDENCE)
-    labels = {f"m{i}": p["model"] for i, p in enumerate(pool, 1)}
-    criteria = {f"m{i}": _option_text(p["model"], p["criteria"]) for i, p in enumerate(pool, 1)}
-
     try:
+        pool = auto_cfg["pool"]
+        min_conf = auto_cfg.get("min_confidence", DEFAULT_MIN_CONFIDENCE)
+        labels = {f"m{i}": p["model"] for i, p in enumerate(pool, 1)}
+        criteria = {f"m{i}": _option_text(p["model"], p["criteria"]) for i, p in enumerate(pool, 1)}
         classifier = TypeSafeClassifier(api_key=Config.TYPESAFE_API_KEY)
         response = classifier.invoke({
             "state": build_state(node, context),
@@ -155,6 +156,7 @@ def route(node: str, auto_cfg: dict, context: dict) -> RouteDecision:
     if confidence < min_conf:
         return _fallback(node, fallback, f"low confidence {confidence:.2f} < {min_conf}", probs, confidence)
 
-    print(f"[{node}] JEV routing → {chosen} (p={probs.get(chosen, 0.0):.2f}, confidence {confidence:.2f})")
+    p_text = f"{probs[chosen]:.2f}" if chosen in probs else "n/a"
+    print(f"[{node}] JEV routing → {chosen} (p={p_text}, confidence {confidence:.2f})")
     _print_probs(probs)
     return RouteDecision(chosen, probs, confidence, None)

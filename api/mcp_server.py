@@ -247,7 +247,7 @@ def _settings_dict(s: Settings) -> dict:
 
     Returns:
         A dict with all public Settings fields (default_tone, default_word_count,
-        llm_model, llm_node_settings, auto_publish_to_ghost), excluding
+        llm_model, llm_node_settings, auto_publish_to_ghost, jev_available), excluding
         password_hash and other sensitive data.
     """
     return {
@@ -256,6 +256,7 @@ def _settings_dict(s: Settings) -> dict:
         "llm_model": s.llm_model,
         "llm_node_settings": Config.get_node_llm_settings(s.llm_node_settings),
         "auto_publish_to_ghost": s.auto_publish_to_ghost,
+        "jev_available": Config.jev_available(),
     }
 
 
