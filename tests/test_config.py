@@ -212,3 +212,60 @@ class TestConfig:
         """jev_available is true iff TYPESAFE_API_KEY is non-empty."""
         monkeypatch.setattr(Config, "TYPESAFE_API_KEY", key)
         assert Config.jev_available() is expected
+
+
+POOL = [{"model": "a/small", "criteria": "Simple"}, {"model": "a/big", "criteria": "Hard"}]
+AUTO = {"pool": POOL, "fallback": "a/small"}
+
+
+class TestMergeAuto:
+    """Tests for the per-step Auto (JEV) block in merge_node_llm_settings"""
+
+    @pytest.fixture(autouse=True)
+    def jev_key(self, monkeypatch):
+        """Make JEV available unless a test overrides the key."""
+        monkeypatch.setattr(Config, "TYPESAFE_API_KEY", "k")
+
+    def test_merge_auto_accepts_valid_block(self):
+        merged = Config.merge_node_llm_settings({}, {"writer": {"model": "auto", "auto": AUTO}})
+        assert merged["writer"] == {"model": "auto", "auto": AUTO}
+
+    def test_merge_auto_keeps_stored_block_when_only_model_sent(self):
+        stored = {"writer": {"model": "auto", "auto": AUTO}}
+        assert Config.merge_node_llm_settings(stored, {"writer": {"effort": "low"}})["writer"]["auto"] == AUTO
+
+    def test_merge_auto_fixed_model_drops_auto(self):
+        stored = {"writer": {"model": "auto", "auto": AUTO}}
+        assert "auto" not in Config.merge_node_llm_settings(stored, {"writer": {"model": "a/big"}})["writer"]
+
+    def test_merge_auto_null_drops_auto(self):
+        stored = {"writer": {"model": "auto", "auto": AUTO}}
+        assert Config.merge_node_llm_settings(stored, {"writer": {"model": None}})["writer"] == {}
+
+    @pytest.mark.parametrize("update", [
+        {"model": "auto"},
+        {"model": "a/big", "auto": AUTO},
+        {"model": "auto", "auto": {**AUTO, "pool": POOL[:1]}},
+        {"model": "auto", "auto": {**AUTO, "pool": POOL * 3}},
+        {"model": "auto", "auto": {**AUTO, "pool": [POOL[0], POOL[0]]}},
+        {"model": "auto", "auto": {**AUTO, "pool": [POOL[0], {"model": "a/big", "criteria": " "}]}},
+        {"model": "auto", "auto": {"pool": POOL}},
+        {"model": "auto", "auto": {**AUTO, "min_confidence": 1.5}},
+        {"model": "auto", "auto": {**AUTO, "min_confidence": True}},
+        {"model": "auto", "auto": {**AUTO, "extra": 1}},
+    ])
+    def test_merge_auto_rejects_invalid(self, update):
+        with pytest.raises(ValueError):
+            Config.merge_node_llm_settings({}, {"writer": update})
+
+    def test_merge_auto_rejected_without_key(self, monkeypatch):
+        monkeypatch.setattr(Config, "TYPESAFE_API_KEY", None)
+        with pytest.raises(ValueError, match="TYPESAFE_API_KEY"):
+            Config.merge_node_llm_settings({}, {"writer": {"model": "auto", "auto": AUTO}})
+
+    def test_merge_stored_auto_editable_without_key(self, monkeypatch):
+        """Key removed after configuring: unrelated edits and switching away still save."""
+        monkeypatch.setattr(Config, "TYPESAFE_API_KEY", None)
+        stored = {"writer": {"model": "auto", "auto": AUTO}}
+        assert Config.merge_node_llm_settings(stored, {"writer": {"effort": "low"}})["writer"]["auto"] == AUTO
+        assert Config.merge_node_llm_settings(stored, {"writer": {"model": "a/big"}})["writer"] == {"model": "a/big"}

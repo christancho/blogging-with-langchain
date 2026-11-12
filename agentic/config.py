@@ -39,6 +39,8 @@ class Config:
         "formatter": {"effort": "low", "temperature": 0.7},
     }
     # Partial overrides of NODE_LLM_DEFAULTS, e.g. {"writer": {"effort": "xhigh"}}.
+    # A node with "model": "auto" also carries an "auto" block (Auto (JEV) routing):
+    # {"pool": [{"model", "criteria"}, ...], "fallback": str, "min_confidence"?: float}.
     # Set by the API worker from the Settings row before each job.
     NODE_LLM_SETTINGS: dict = {}
     # OpenRouter supported_parameters per model id (None = model not listed),
@@ -179,6 +181,45 @@ class Config:
                 "Configuration validation failed:\n" + "\n".join(f"  - {err}" for err in errors)
             )
 
+    @staticmethod
+    def _validate_auto_block(node: str, auto: object) -> None:
+        """
+        Validate the shape of a node's Auto (JEV) routing block.
+
+        Args:
+            node: Node name, used in error messages
+            auto: The supplied "auto" block
+
+        Raises:
+            ValueError: If the pool, fallback, or min_confidence is malformed
+        """
+        if not isinstance(auto, dict):
+            raise ValueError(f"auto for '{node}' must be an object")
+        unknown = set(auto) - {"pool", "fallback", "min_confidence"}
+        if unknown:
+            raise ValueError(f"Unknown auto setting(s) for node '{node}': {', '.join(sorted(unknown))}")
+        pool = auto.get("pool")
+        if not isinstance(pool, list) or not (2 <= len(pool) <= 5):
+            raise ValueError(f"auto pool for '{node}' must list 2 to 5 models")
+        ids = []
+        for entry in pool:
+            if (
+                not isinstance(entry, dict)
+                or set(entry) != {"model", "criteria"}
+                or not all(isinstance(entry[k], str) and entry[k].strip() for k in entry)
+            ):
+                raise ValueError(f"auto pool entries for '{node}' need a non-empty 'model' and 'criteria'")
+            ids.append(entry["model"])
+        if len(set(ids)) != len(ids):
+            raise ValueError(f"auto pool for '{node}' has duplicate models")
+        fallback = auto.get("fallback")
+        if not isinstance(fallback, str) or not fallback.strip():
+            raise ValueError(f"auto fallback for '{node}' must be a non-empty model id")
+        if "min_confidence" in auto:
+            c = auto["min_confidence"]
+            if isinstance(c, bool) or not isinstance(c, (int, float)) or not (0.0 <= c <= 1.0):
+                raise ValueError(f"auto min_confidence for '{node}' must be between 0.0 and 1.0")
+
     @classmethod
     def merge_node_llm_settings(cls, stored: dict, updates: dict) -> dict:
         """
@@ -193,14 +234,15 @@ class Config:
             A new dict with updates merged over stored, per node and per key
 
         Raises:
-            ValueError: On an unknown node, unknown key, or out-of-range value
+            ValueError: On an unknown node, unknown key, out-of-range value, malformed
+                auto block, or Auto routing requested without TYPESAFE_API_KEY
         """
         for node, values in updates.items():
             if node not in cls.NODE_LLM_DEFAULTS:
                 raise ValueError(f"Unknown LLM node '{node}'. Valid nodes: {', '.join(cls.NODE_LLM_DEFAULTS)}")
             if not isinstance(values, dict):
                 raise ValueError(f"Settings for node '{node}' must be an object")
-            unknown = set(values) - {"effort", "temperature", "model"}
+            unknown = set(values) - {"effort", "temperature", "model", "auto"}
             if unknown:
                 raise ValueError(f"Unknown setting(s) for node '{node}': {', '.join(sorted(unknown))}")
             if "effort" in values and values["effort"] not in cls.REASONING_EFFORTS:
@@ -213,11 +255,21 @@ class Config:
                 m = values["model"]
                 if m is not None and (not isinstance(m, str) or not m.strip()):
                     raise ValueError(f"model for '{node}' must be a non-empty OpenRouter model id or null")
+            if ("auto" in values or values.get("model") == "auto") and not cls.jev_available():
+                raise ValueError(f"Auto (JEV) routing needs TYPESAFE_API_KEY on the server (node '{node}')")
+            if "auto" in values:
+                cls._validate_auto_block(node, values["auto"])
         merged = {node: dict(values) for node, values in stored.items()}
         for node, values in updates.items():
             merged[node] = {**merged.get(node, {}), **values}
             if merged[node].get("model", "") is None:
                 del merged[node]["model"]
+            if merged[node].get("model") != "auto":
+                if "auto" in values:
+                    raise ValueError(f"auto for '{node}' requires model 'auto'")
+                merged[node].pop("auto", None)
+            elif "auto" not in merged[node]:
+                raise ValueError(f"model 'auto' for '{node}' requires an auto block")
         return merged
 
     @classmethod
