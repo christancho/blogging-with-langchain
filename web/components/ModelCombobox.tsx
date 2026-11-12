@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useRef } from 'react';
 import type { OpenRouterModel } from '@/lib/api';
+import { AUTO_MODEL } from '@/lib/modelCaps';
+
+const AUTO_LABEL = '⚡ Auto (JEV)';
 
 interface ModelComboboxProps {
   id: string;
@@ -11,19 +14,22 @@ interface ModelComboboxProps {
   models: OpenRouterModel[];
   loading: boolean;
   defaultLabel?: string;
+  allowAuto?: boolean;
 }
 
 /**
  * Searchable OpenRouter model picker.
  *
  * When `defaultLabel` is set, the first option is that label and maps to
- * `null`; a `null` value displays `defaultLabel`.
+ * `null`; a `null` value displays `defaultLabel`. When `allowAuto` is set, an
+ * "Auto (JEV)" option follows it and maps to `'auto'`; an `'auto'` value always
+ * displays that label.
  *
  * @param props - See ModelComboboxProps.
  * @returns The combobox element.
  */
 export default function ModelCombobox({
-  id, ariaLabel, value, onChange, models, loading, defaultLabel,
+  id, ariaLabel, value, onChange, models, loading, defaultLabel, allowAuto,
 }: ModelComboboxProps) {
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
@@ -34,6 +40,7 @@ export default function ModelCombobox({
 
   const displayFor = (v: string | null): string => {
     if (v === null) return defaultLabel ?? '';
+    if (v === AUTO_MODEL) return AUTO_LABEL;
     return models.find(m => m.id === v)?.name ?? v;
   };
 
@@ -98,6 +105,16 @@ export default function ModelCombobox({
               className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 ${value === null ? 'bg-blue-50 font-medium' : ''}`}
             >
               <span className="block text-gray-900">{defaultLabel}</span>
+            </button>
+          )}
+          {allowAuto && (
+            <button
+              type="button"
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => select(AUTO_MODEL)}
+              className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 ${value === AUTO_MODEL ? 'bg-blue-50 font-medium' : ''}`}
+            >
+              <span className="block text-gray-900">{AUTO_LABEL}</span>
             </button>
           )}
           {filtered.length === 0 ? (
