@@ -60,7 +60,13 @@ def fact_checker_node(state: BlogState, config: RunnableConfig) -> Dict[str, Any
             "fact_check_feedback": "",
         }
 
-    llm = Config.get_llm("fact_checker")
+    llm = Config.get_llm(
+        "fact_checker",
+        routing_context={
+            "topic": state.get("topic", ""),
+            "draft word count": len(article_content.split()),
+        },
+    )
     search_tool = BraveSearchTool()
     url_fetcher = URLFetcherTool()
 

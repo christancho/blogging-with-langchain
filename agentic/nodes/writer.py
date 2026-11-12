@@ -57,7 +57,17 @@ def writer_node(state: BlogState) -> Dict[str, Any]:
     ]
 
     # Initialize LLM
-    llm = Config.get_llm("writer")
+    llm = Config.get_llm(
+        "writer",
+        routing_context={
+            "topic": topic,
+            "instructions": instructions,
+            "research length": len(research_summary),
+            "revision count": revision_count,
+            "latest editor feedback": approval_feedback or None,
+            "latest fact-check feedback": fact_check_feedback or None,
+        },
+    )
 
     # Combine feedback sources — fact-check corrections take priority
     combined_feedback = ""

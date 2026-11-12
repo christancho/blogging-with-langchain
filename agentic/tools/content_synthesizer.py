@@ -35,7 +35,14 @@ class ContentSynthesisTool:
                 "sources_by_priority": ["url1", "url2"]
             }
         """
-        llm = Config.get_llm("content_synthesizer")
+        llm = Config.get_llm(
+            "content_synthesizer",
+            routing_context={
+                "topic": topic,
+                "source count": len(fetched_contents),
+                "total source chars": sum(len(c.get("content", "")) for c in fetched_contents),
+            },
+        )
 
         # Build content section for prompt
         content_sections = []

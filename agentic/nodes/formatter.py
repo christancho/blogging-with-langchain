@@ -205,7 +205,13 @@ def formatter_node(state: BlogState) -> Dict[str, Any]:
     print(f"Formatting article for Ghost CMS")
 
     # Initialize LLM
-    llm = Config.get_llm("formatter")
+    llm = Config.get_llm(
+        "formatter",
+        routing_context={
+            "topic": state.get("topic", ""),
+            "article word count": len(article_content.split()),
+        },
+    )
 
     # Escape curly braces in article content and metadata to prevent ChatPromptTemplate
     # from interpreting them as template variables

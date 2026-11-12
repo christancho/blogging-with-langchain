@@ -36,7 +36,13 @@ def seo_node(state: BlogState) -> Dict[str, Any]:
     print(f"Instructions: {instructions[:80]}..." if len(instructions) > 80 else f"Instructions: {instructions}")
 
     # Initialize LLM
-    llm = Config.get_llm("seo")
+    llm = Config.get_llm(
+        "seo",
+        routing_context={
+            "topic": state.get("topic", ""),
+            "article word count": len(article_content.split()),
+        },
+    )
 
     # Escape curly braces in article content to prevent ChatPromptTemplate from
     # interpreting them as template variables
