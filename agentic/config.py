@@ -290,13 +290,15 @@ class Config:
         }
 
     @classmethod
-    def get_llm(cls, node: str):
+    def get_llm(cls, node: str, routing_context: Optional[dict] = None):
         """
         Get LLM via OpenRouter, configured for a pipeline node.
 
         Args:
             node: Key of NODE_LLM_DEFAULTS whose model/effort/temperature to use;
                 the model is the node's override, else OPENROUTER_MODEL
+            routing_context: Inputs for the JEV router when the node is set to
+                Auto (e.g. topic, draft); ignored for fixed models
 
         Returns:
             ChatOpenRouter instance
@@ -304,7 +306,11 @@ class Config:
         from langchain_openrouter import ChatOpenRouter
 
         settings = cls.get_node_llm_settings()[node]
-        model = settings.get("model") or cls.OPENROUTER_MODEL
+        if settings.get("model") == "auto":
+            from agentic.tools import model_router
+            model = model_router.route(node, settings["auto"], routing_context or {}).model
+        else:
+            model = settings.get("model") or cls.OPENROUTER_MODEL
         params = cls.get_model_supported_params(model)
 
         def supports(param: str) -> bool:
