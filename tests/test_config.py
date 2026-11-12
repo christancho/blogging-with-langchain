@@ -190,3 +190,25 @@ class TestConfig:
         """Invalid nodes, keys, and values raise ValueError."""
         with pytest.raises(ValueError):
             Config.merge_node_llm_settings({}, updates)
+
+    def test_get_model_pricing_per_million(self):
+        """Pricing is USD per million tokens; one fetch fills both caches."""
+        fake = MagicMock()
+        fake.json.return_value = {"data": [
+            {"id": "a/m", "supported_parameters": [], "pricing": {"prompt": "0.000003", "completion": "0.000015"}},
+            {"id": "a/free", "supported_parameters": []},
+        ]}
+        with patch("requests.get", return_value=fake) as mock_get, \
+                patch.object(Config, "_SUPPORTED_PARAMS_CACHE", {}), \
+                patch.object(Config, "_PRICING_CACHE", {}):
+            assert Config.get_model_pricing("a/m") == pytest.approx((3.0, 15.0))
+            assert Config.get_model_pricing("a/free") is None
+            assert Config.get_model_pricing("a/missing") is None
+            Config.get_model_supported_params("a/m")
+            assert mock_get.call_count == 1  # one fetch fills both caches
+
+    @pytest.mark.parametrize("key, expected", [(None, False), ("", False), ("k", True)])
+    def test_jev_available_follows_key(self, monkeypatch, key, expected):
+        """jev_available is true iff TYPESAFE_API_KEY is non-empty."""
+        monkeypatch.setattr(Config, "TYPESAFE_API_KEY", key)
+        assert Config.jev_available() is expected

@@ -17,6 +17,8 @@ class Config:
     # ============================================================================
 
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+    # Optional: enables Auto (JEV) per-node model routing via langchain-typesafe
+    TYPESAFE_API_KEY = os.getenv("TYPESAFE_API_KEY")
     OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "anthropic/claude-sonnet-5.5")
     OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
@@ -42,6 +44,9 @@ class Config:
     # OpenRouter supported_parameters per model id (None = model not listed),
     # filled once per process by get_model_supported_params().
     _SUPPORTED_PARAMS_CACHE: dict = {}
+    # OpenRouter (input, output) USD-per-million-token pricing per model id
+    # (None = unlisted or no usable pricing), filled alongside the cache above.
+    _PRICING_CACHE: dict = {}
 
     # ============================================================================
     # LangSmith Configuration (Optional - for tracing and debugging)
@@ -282,7 +287,48 @@ class Config:
         """
         if model in cls._SUPPORTED_PARAMS_CACHE:
             return cls._SUPPORTED_PARAMS_CACHE[model]
+        if not cls._fetch_openrouter_models():
+            return None
+        if model not in cls._SUPPORTED_PARAMS_CACHE:
+            print(f"Warning: model '{model}' not in OpenRouter's model list; "
+                  f"sending effort/temperature as configured")
+            cls._SUPPORTED_PARAMS_CACHE[model] = None
+        return cls._SUPPORTED_PARAMS_CACHE[model]
 
+    @classmethod
+    def get_model_pricing(cls, model: str) -> Optional[tuple]:
+        """
+        Get OpenRouter's pricing for a model.
+
+        Shares the one-per-process model list fetch with get_model_supported_params.
+
+        Args:
+            model: OpenRouter model id (e.g. "anthropic/claude-sonnet-5.5")
+
+        Returns:
+            (input, output) USD per million tokens, or None if the list can't
+            be fetched, the model isn't listed, or it has no usable pricing
+        """
+        if model in cls._PRICING_CACHE:
+            return cls._PRICING_CACHE[model]
+        # A non-empty cache means the list was already fetched, so this model is unlisted
+        if not cls._PRICING_CACHE and not cls._fetch_openrouter_models():
+            return None
+        if model not in cls._PRICING_CACHE:
+            print(f"Warning: model '{model}' not in OpenRouter's model list; no pricing available")
+            cls._PRICING_CACHE[model] = None
+        return cls._PRICING_CACHE[model]
+
+    @classmethod
+    def _fetch_openrouter_models(cls) -> bool:
+        """
+        Fetch OpenRouter's public model list and fill the supported-params and
+        pricing caches.
+
+        Returns:
+            True if the list was fetched and cached, False on fetch failure
+            (nothing is cached, so the next call retries)
+        """
         import requests
 
         try:
@@ -290,18 +336,49 @@ class Config:
             resp.raise_for_status()
             data = resp.json()["data"]
         except (requests.RequestException, ValueError, KeyError) as e:
-            # Not cached, so the next get_llm() call retries
             print(f"Warning: could not fetch OpenRouter model capabilities ({e}); "
-                  f"sending effort/temperature as configured")
-            return None
+                  f"sending effort/temperature as configured, pricing unavailable")
+            return False
 
         for m in data:
             cls._SUPPORTED_PARAMS_CACHE[m["id"]] = set(m.get("supported_parameters", []))
-        if model not in cls._SUPPORTED_PARAMS_CACHE:
-            print(f"Warning: model '{model}' not in OpenRouter's model list; "
-                  f"sending effort/temperature as configured")
-            cls._SUPPORTED_PARAMS_CACHE[model] = None
-        return cls._SUPPORTED_PARAMS_CACHE[model]
+            cls._PRICING_CACHE[m["id"]] = cls._parse_pricing(m["id"], m.get("pricing"))
+        return True
+
+    @staticmethod
+    def _parse_pricing(model: str, pricing: Optional[dict]) -> Optional[tuple]:
+        """
+        Convert an OpenRouter pricing entry to USD per million tokens.
+
+        Args:
+            model: Model id (for warning messages)
+            pricing: The model's "pricing" dict (USD-per-token strings), or None
+
+        Returns:
+            (input, output) per million tokens, or None if absent, unparseable,
+            or negative (OpenRouter uses "-1" for variable-price routers)
+        """
+        if not pricing:
+            return None
+        try:
+            prompt = float(pricing["prompt"]) * 1_000_000
+            completion = float(pricing["completion"]) * 1_000_000
+        except (KeyError, TypeError, ValueError) as e:
+            print(f"Warning: unparseable OpenRouter pricing for '{model}' ({e!r}): {pricing}")
+            return None
+        if prompt < 0 or completion < 0:
+            return None
+        return (prompt, completion)
+
+    @classmethod
+    def jev_available(cls) -> bool:
+        """
+        Whether Auto (JEV) routing can be used.
+
+        Returns:
+            True iff TYPESAFE_API_KEY is set and non-empty
+        """
+        return bool(cls.TYPESAFE_API_KEY)
 
     @classmethod
     def get_llm_info(cls) -> dict:
