@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   candidate:
-    uses: christancho/github-workflows/.github/workflows/docker-candidate.yml@v1.2.0
+    uses: christancho/github-workflows/.github/workflows/docker-candidate.yml@v1.3.0
     with:
       images: >-
         [{"name":"api","context":".","dockerfile":"api/Dockerfile"},
