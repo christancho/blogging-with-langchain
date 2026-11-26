@@ -17,6 +17,8 @@ class Config:
     # ============================================================================
 
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+    # Optional: enables Auto (JEV) per-node model routing via langchain-typesafe
+    TYPESAFE_API_KEY = os.getenv("TYPESAFE_API_KEY")
     OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "anthropic/claude-sonnet-5.5")
     OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
@@ -37,11 +39,16 @@ class Config:
         "formatter": {"effort": "low", "temperature": 0.7},
     }
     # Partial overrides of NODE_LLM_DEFAULTS, e.g. {"writer": {"effort": "xhigh"}}.
+    # A node with "model": "auto" also carries an "auto" block (Auto (JEV) routing):
+    # {"pool": [model_id, ...], "fallback": str, "min_confidence"?: float}.
     # Set by the API worker from the Settings row before each job.
     NODE_LLM_SETTINGS: dict = {}
     # OpenRouter supported_parameters per model id (None = model not listed),
     # filled once per process by get_model_supported_params().
     _SUPPORTED_PARAMS_CACHE: dict = {}
+    # OpenRouter (input, output) USD-per-million-token pricing per model id
+    # (None = unlisted or no usable pricing), filled alongside the cache above.
+    _PRICING_CACHE: dict = {}
 
     # ============================================================================
     # LangSmith Configuration (Optional - for tracing and debugging)
@@ -174,27 +181,70 @@ class Config:
                 "Configuration validation failed:\n" + "\n".join(f"  - {err}" for err in errors)
             )
 
+    @staticmethod
+    def _validate_auto_block(node: str, auto: object) -> None:
+        """
+        Validate the shape of a node's Auto (JEV) routing block.
+
+        Args:
+            node: Node name, used in error messages
+            auto: The supplied "auto" block
+
+        Raises:
+            ValueError: If the pool, fallback, or min_confidence is malformed
+        """
+        if not isinstance(auto, dict):
+            raise ValueError(f"auto for '{node}' must be an object")
+        unknown = set(auto) - {"pool", "fallback", "min_confidence"}
+        if unknown:
+            raise ValueError(f"Unknown auto setting(s) for node '{node}': {', '.join(sorted(unknown))}")
+        pool = auto.get("pool")
+        if not isinstance(pool, list) or not (2 <= len(pool) <= 5):
+            raise ValueError(f"auto pool for '{node}' must list 2 to 5 models")
+        if not all(isinstance(m, str) and m.strip() for m in pool):
+            raise ValueError(f"auto pool for '{node}' must list non-empty model ids")
+        ids = pool
+        if "auto" in ids:
+            raise ValueError(f"auto pool for '{node}' cannot contain the model 'auto'")
+        if len(set(ids)) != len(ids):
+            raise ValueError(f"auto pool for '{node}' has duplicate models")
+        fallback = auto.get("fallback")
+        if not isinstance(fallback, str) or not fallback.strip():
+            raise ValueError(f"auto fallback for '{node}' must be a non-empty model id")
+        if fallback == "auto":
+            raise ValueError(f"auto fallback for '{node}' cannot be 'auto'")
+        if "min_confidence" in auto:
+            c = auto["min_confidence"]
+            if isinstance(c, bool) or not isinstance(c, (int, float)) or not (0.0 <= c <= 1.0):
+                raise ValueError(f"auto min_confidence for '{node}' must be between 0.0 and 1.0")
+
     @classmethod
     def merge_node_llm_settings(cls, stored: dict, updates: dict) -> dict:
         """
         Validate partial per-node LLM updates and merge them into stored overrides.
 
         Args:
-            stored: Existing overrides, {node: {"effort"?: str, "temperature"?: float}}
-            updates: New partial overrides in the same shape
+            stored: Existing overrides, {node: {"effort"?: str, "temperature"?: float, "model"?: str,
+                "auto"?: dict}}
+            updates: New partial overrides in the same shape; "model": None removes
+                an override. "auto" is required with "model": "auto" and has the shape
+                {"pool": [model_id, ...] (2 to 5 distinct ids),
+                "fallback": str, "min_confidence"?: float in [0.0, 1.0]}; neither the
+                pool models nor the fallback may be "auto"
 
         Returns:
             A new dict with updates merged over stored, per node and per key
 
         Raises:
-            ValueError: On an unknown node, unknown key, or out-of-range value
+            ValueError: On an unknown node, unknown key, out-of-range value, malformed
+                auto block, or Auto routing requested without TYPESAFE_API_KEY
         """
         for node, values in updates.items():
             if node not in cls.NODE_LLM_DEFAULTS:
                 raise ValueError(f"Unknown LLM node '{node}'. Valid nodes: {', '.join(cls.NODE_LLM_DEFAULTS)}")
             if not isinstance(values, dict):
                 raise ValueError(f"Settings for node '{node}' must be an object")
-            unknown = set(values) - {"effort", "temperature"}
+            unknown = set(values) - {"effort", "temperature", "model", "auto"}
             if unknown:
                 raise ValueError(f"Unknown setting(s) for node '{node}': {', '.join(sorted(unknown))}")
             if "effort" in values and values["effort"] not in cls.REASONING_EFFORTS:
@@ -203,9 +253,25 @@ class Config:
                 t = values["temperature"]
                 if isinstance(t, bool) or not isinstance(t, (int, float)) or not (0.0 <= t <= 2.0):
                     raise ValueError(f"temperature for '{node}' must be between 0.0 and 2.0")
+            if "model" in values:
+                m = values["model"]
+                if m is not None and (not isinstance(m, str) or not m.strip()):
+                    raise ValueError(f"model for '{node}' must be a non-empty OpenRouter model id or null")
+            if ("auto" in values or values.get("model") == "auto") and not cls.jev_available():
+                raise ValueError(f"Auto (JEV) routing needs TYPESAFE_API_KEY on the server (node '{node}')")
+            if "auto" in values:
+                cls._validate_auto_block(node, values["auto"])
         merged = {node: dict(values) for node, values in stored.items()}
         for node, values in updates.items():
             merged[node] = {**merged.get(node, {}), **values}
+            if merged[node].get("model", "") is None:
+                del merged[node]["model"]
+            if merged[node].get("model") != "auto":
+                if "auto" in values:
+                    raise ValueError(f"auto for '{node}' requires model 'auto'")
+                merged[node].pop("auto", None)
+            elif "auto" not in merged[node]:
+                raise ValueError(f"model 'auto' for '{node}' requires an auto block")
         return merged
 
     @classmethod
@@ -226,12 +292,15 @@ class Config:
         }
 
     @classmethod
-    def get_llm(cls, node: str):
+    def get_llm(cls, node: str, routing_context: Optional[dict] = None):
         """
         Get LLM via OpenRouter, configured for a pipeline node.
 
         Args:
-            node: Key of NODE_LLM_DEFAULTS whose effort/temperature to use
+            node: Key of NODE_LLM_DEFAULTS whose model/effort/temperature to use;
+                the model is the node's override, else OPENROUTER_MODEL
+            routing_context: Inputs for the JEV router when the node is set to
+                Auto (e.g. topic, draft); ignored for fixed models
 
         Returns:
             ChatOpenRouter instance
@@ -239,48 +308,47 @@ class Config:
         from langchain_openrouter import ChatOpenRouter
 
         settings = cls.get_node_llm_settings()[node]
-        params = cls.get_model_supported_params()
+        if settings.get("model") == "auto":
+            from agentic.tools import model_router
+            model = model_router.route(node, settings["auto"], routing_context or {}).model
+        else:
+            model = settings.get("model") or cls.OPENROUTER_MODEL
+        params = cls.get_model_supported_params(model)
 
         def supports(param: str) -> bool:
             # Unknown capabilities: send whatever the node is configured for
             return params is None or param in params
 
-        kwargs = {"model": cls.OPENROUTER_MODEL}
+        kwargs = {"model": model}
         if settings["effort"] != "off" and supports("reasoning"):
             kwargs["reasoning"] = {"effort": settings["effort"]}
+            sent = f"effort: {settings['effort']}"
         elif supports("temperature"):
             kwargs["temperature"] = settings["temperature"]
+            sent = f"temperature: {settings['temperature']}"
+        else:
+            sent = "model defaults"
+        print(f"[{node}] model: {model} ({sent})")
         return ChatOpenRouter(**kwargs)
 
     @classmethod
-    def get_model_supported_params(cls) -> Optional[set]:
+    def get_model_supported_params(cls, model: str) -> Optional[set]:
         """
-        Get OpenRouter's supported_parameters for OPENROUTER_MODEL.
+        Get OpenRouter's supported_parameters for a model.
 
         Fetches the public model list once per process and caches it.
+
+        Args:
+            model: OpenRouter model id (e.g. "anthropic/claude-sonnet-5.5")
 
         Returns:
             Set of parameter names (e.g. {"reasoning", "temperature"}), or None
             if the list can't be fetched or the model isn't in it
         """
-        model = cls.OPENROUTER_MODEL
         if model in cls._SUPPORTED_PARAMS_CACHE:
             return cls._SUPPORTED_PARAMS_CACHE[model]
-
-        import requests
-
-        try:
-            resp = requests.get(f"{cls.OPENROUTER_BASE_URL}/models", timeout=15)
-            resp.raise_for_status()
-            data = resp.json()["data"]
-        except (requests.RequestException, ValueError, KeyError) as e:
-            # Not cached, so the next get_llm() call retries
-            print(f"Warning: could not fetch OpenRouter model capabilities ({e}); "
-                  f"sending effort/temperature as configured")
+        if not cls._fetch_openrouter_models():
             return None
-
-        for m in data:
-            cls._SUPPORTED_PARAMS_CACHE[m["id"]] = set(m.get("supported_parameters", []))
         if model not in cls._SUPPORTED_PARAMS_CACHE:
             print(f"Warning: model '{model}' not in OpenRouter's model list; "
                   f"sending effort/temperature as configured")
@@ -288,18 +356,108 @@ class Config:
         return cls._SUPPORTED_PARAMS_CACHE[model]
 
     @classmethod
+    def get_model_pricing(cls, model: str) -> Optional[tuple]:
+        """
+        Get OpenRouter's pricing for a model.
+
+        Shares the one-per-process model list fetch with get_model_supported_params.
+
+        Args:
+            model: OpenRouter model id (e.g. "anthropic/claude-sonnet-5.5")
+
+        Returns:
+            (input, output) USD per million tokens, or None if the list can't
+            be fetched, the model isn't listed, or it has no usable pricing
+        """
+        if model in cls._PRICING_CACHE:
+            return cls._PRICING_CACHE[model]
+        # A non-empty cache means the list was already fetched, so this model is unlisted
+        if not cls._PRICING_CACHE and not cls._fetch_openrouter_models():
+            return None
+        if model not in cls._PRICING_CACHE:
+            print(f"Warning: model '{model}' not in OpenRouter's model list; no pricing available")
+            cls._PRICING_CACHE[model] = None
+        return cls._PRICING_CACHE[model]
+
+    @classmethod
+    def _fetch_openrouter_models(cls) -> bool:
+        """
+        Fetch OpenRouter's public model list and fill the supported-params and
+        pricing caches.
+
+        Returns:
+            True if the list was fetched and cached, False on fetch failure
+            (nothing is cached, so the next call retries)
+        """
+        import requests
+
+        try:
+            resp = requests.get(f"{cls.OPENROUTER_BASE_URL}/models", timeout=15)
+            resp.raise_for_status()
+            data = resp.json()["data"]
+        except (requests.RequestException, ValueError, KeyError) as e:
+            print(f"Warning: could not fetch OpenRouter model capabilities ({e}); "
+                  f"sending effort/temperature as configured, pricing unavailable")
+            return False
+
+        for m in data:
+            cls._SUPPORTED_PARAMS_CACHE[m["id"]] = set(m.get("supported_parameters", []))
+            cls._PRICING_CACHE[m["id"]] = cls._parse_pricing(m["id"], m.get("pricing"))
+        return True
+
+    @staticmethod
+    def _parse_pricing(model: str, pricing: Optional[dict]) -> Optional[tuple]:
+        """
+        Convert an OpenRouter pricing entry to USD per million tokens.
+
+        Args:
+            model: Model id (for warning messages)
+            pricing: The model's "pricing" dict (USD-per-token strings), or None
+
+        Returns:
+            (input, output) per million tokens, or None if absent, unparseable,
+            or negative (OpenRouter uses "-1" for variable-price routers)
+        """
+        if not pricing:
+            return None
+        try:
+            prompt = float(pricing["prompt"]) * 1_000_000
+            completion = float(pricing["completion"]) * 1_000_000
+        except (KeyError, TypeError, ValueError) as e:
+            print(f"Warning: unparseable OpenRouter pricing for '{model}' ({e!r}): {pricing}")
+            return None
+        if prompt < 0 or completion < 0:
+            return None
+        return (prompt, completion)
+
+    @classmethod
+    def jev_available(cls) -> bool:
+        """
+        Whether Auto (JEV) routing can be used.
+
+        Returns:
+            True iff TYPESAFE_API_KEY is set and non-empty
+        """
+        return bool(cls.TYPESAFE_API_KEY)
+
+    @classmethod
     def get_llm_info(cls) -> dict:
         """
         Get information about the configured LLM for display purposes.
 
         Returns:
-            Dict with provider info
+            Dict with provider info and "node_models" (node -> model id, only
+            for nodes with a model override; empty if none)
         """
+        settings = cls.get_node_llm_settings()
         return {
             "primary": {
                 "provider": "OpenRouter",
                 "model": cls.OPENROUTER_MODEL,
-            }
+            },
+            "node_models": {
+                node: s["model"] for node, s in settings.items() if "model" in s
+            },
         }
 
     @classmethod

@@ -32,6 +32,7 @@ def _row_to_dict(s: Settings) -> dict:
         "llm_model": s.llm_model,
         "llm_node_settings": Config.get_node_llm_settings(s.llm_node_settings),
         "auto_publish_to_ghost": s.auto_publish_to_ghost,
+        "jev_available": Config.jev_available(),
     }
 
 

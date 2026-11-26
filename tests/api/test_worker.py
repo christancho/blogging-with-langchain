@@ -200,3 +200,22 @@ async def test_run_job_absent_session_notes_become_empty(db, seeded_settings):
 
     initial_state = mock_graph.stream.call_args[0][0]
     assert initial_state["session_notes"] == ""
+
+
+async def test_run_job_prints_per_step_models(db, seeded_settings, capsys):
+    """Worker banner lists per-step model overrides from Config.get_llm_info()."""
+    job = Job(topic="T", tone="informative", word_count=3500, status="pending")
+    db.add(job)
+    await db.flush()
+
+    mock_graph = MagicMock()
+    mock_graph.stream.return_value = iter([{"writer": {"article_content": "done"}}])
+    info = {"primary": {"provider": "openrouter", "model": "a/default"}, "node_models": {"writer": "a/opus"}}
+
+    with patch("api.worker.create_blog_graph", return_value=mock_graph), \
+            patch("api.worker.Config.get_llm_info", return_value=info):
+        from api.worker import _run_job
+        await _run_job(job.id, make_session_factory(db))
+
+    out = capsys.readouterr().out
+    assert "Per-step models:\n  writer: a/opus" in out

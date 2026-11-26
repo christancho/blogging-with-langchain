@@ -247,7 +247,7 @@ def _settings_dict(s: Settings) -> dict:
 
     Returns:
         A dict with all public Settings fields (default_tone, default_word_count,
-        llm_model, llm_node_settings, auto_publish_to_ghost), excluding
+        llm_model, llm_node_settings, auto_publish_to_ghost, jev_available), excluding
         password_hash and other sensitive data.
     """
     return {
@@ -256,6 +256,7 @@ def _settings_dict(s: Settings) -> dict:
         "llm_model": s.llm_model,
         "llm_node_settings": Config.get_node_llm_settings(s.llm_node_settings),
         "auto_publish_to_ghost": s.auto_publish_to_ghost,
+        "jev_available": Config.jev_available(),
     }
 
 
@@ -294,7 +295,16 @@ async def update_settings_impl(
         default_word_count: Optional new default target word count.
         llm_model: Optional new LLM model name.
         llm_node_settings: Optional partial per-node overrides, merged into
-            the stored ones ({node: {"effort"?: str, "temperature"?: float}}).
+            the stored ones ({node: {"effort"?: str, "temperature"?: float,
+            "model"?: str | None}}). "model" is an OpenRouter model id for that
+            node, e.g. {"writer": {"model": "anthropic/claude-opus-5.5"}};
+            {"writer": {"model": None}} resets it. Nodes without a model
+            override use llm_model. "model": "auto" routes the step through
+            JEV (needs TYPESAFE_API_KEY on the server) and requires an "auto"
+            block, e.g. {"writer": {"model": "auto", "auto": {"pool":
+            ["a/big", "a/small"], "fallback": "a/big", "min_confidence":
+            0.6}}}; pool lists 2-5 model ids. A fixed model or
+            None drops the stored auto block.
         auto_publish_to_ghost: Optional new auto-publish setting.
 
     Returns:
@@ -423,6 +433,13 @@ def build_mcp(session_factory) -> "MCPServer":
         fact_checker, editor, seo, formatter. effort: off, low, medium, high,
         xhigh, max ("off" sends temperature instead; only older models honor it).
         temperature: 0.0-2.0.
+        model: an OpenRouter model id for that node, e.g.
+        {"writer": {"model": "anthropic/claude-opus-5.5"}}; pass
+        {"writer": {"model": null}} to reset it. Steps without a model use llm_model.
+        "auto": {"writer": {"model": "auto", "auto": {"pool": ["a/big", "a/small"],
+        "fallback": "a/big", "min_confidence": 0.6}}} routes that step through JEV
+        (2-5 pool models; needs TYPESAFE_API_KEY on the server). Setting a fixed
+        model or null drops the auto block.
         """
         return await update_settings_impl(
             session_factory,
