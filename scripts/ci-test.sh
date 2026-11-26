@@ -21,12 +21,14 @@ docker network create "$net" >/dev/null
 docker run -d --name "$db" --network "$net" --network-alias db \
   -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=blogforge_test postgres:16-alpine >/dev/null
 
+# Check over TCP: on first boot the image runs a temporary socket-only server
+# for init, then restarts; only the real server listens on TCP.
 echo "waiting for postgres..."
-for _ in $(seq 1 30); do
-  docker exec "$db" pg_isready -U postgres -d blogforge_test >/dev/null 2>&1 && break
+for _ in $(seq 1 60); do
+  docker exec "$db" pg_isready -h 127.0.0.1 -U postgres -d blogforge_test >/dev/null 2>&1 && break
   sleep 1
 done
-docker exec "$db" pg_isready -U postgres -d blogforge_test
+docker exec "$db" pg_isready -h 127.0.0.1 -U postgres -d blogforge_test
 
 echo "::group::api: pytest"
 docker run --rm --network "$net" \
