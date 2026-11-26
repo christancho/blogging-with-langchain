@@ -1,0 +1,19 @@
+# Overlay for scripts/smoke-test.sh: run docker-compose.yml from prebuilt
+# images with throwaway values. Nothing here is a real secret.
+services:
+  db:
+    environment:
+      POSTGRES_PASSWORD: smoke
+  api:
+    image: ${IMAGE_API}
+    pull_policy: missing
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:smoke@db:5432/blogforge
+      JWT_SECRET: smoke-test-secret-that-is-32-bytes!!
+      UI_PASSWORD: smoke
+      WEB_URL: http://localhost:3000
+      CF_ACCESS_TEAM_DOMAIN: smoke.cloudflareaccess.com
+      CF_ACCESS_AUD: smoke-audience
+  web:
+    image: ${IMAGE_WEB}
+    pull_policy: missing

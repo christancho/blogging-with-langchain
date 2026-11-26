@@ -1,0 +1,27 @@
+name: ci
+
+# Pull requests into main and pushes to main: lint, build both images, run the
+# tests and the smoke test against those images. Shared logic lives in
+# christancho/github-workflows; this file only says what to build.
+# Runs on GitHub-hosted runners only (public repo: fork PRs must not reach the homelab).
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  docker:
+    uses: christancho/github-workflows/.github/workflows/docker-ci.yml@main
+    with:
+      images: >-
+        [{"name":"api","context":".","dockerfile":"api/Dockerfile"},
+         {"name":"web","context":"web","dockerfile":"Dockerfile"}]
+      compose-files: docker-compose.yml
