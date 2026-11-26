@@ -40,7 +40,7 @@ class Config:
     }
     # Partial overrides of NODE_LLM_DEFAULTS, e.g. {"writer": {"effort": "xhigh"}}.
     # A node with "model": "auto" also carries an "auto" block (Auto (JEV) routing):
-    # {"pool": [{"model", "criteria"}, ...], "fallback": str, "min_confidence"?: float}.
+    # {"pool": [model_id, ...], "fallback": str, "min_confidence"?: float}.
     # Set by the API worker from the Settings row before each job.
     NODE_LLM_SETTINGS: dict = {}
     # OpenRouter supported_parameters per model id (None = model not listed),
@@ -201,15 +201,9 @@ class Config:
         pool = auto.get("pool")
         if not isinstance(pool, list) or not (2 <= len(pool) <= 5):
             raise ValueError(f"auto pool for '{node}' must list 2 to 5 models")
-        ids = []
-        for entry in pool:
-            if (
-                not isinstance(entry, dict)
-                or set(entry) != {"model", "criteria"}
-                or not all(isinstance(entry[k], str) and entry[k].strip() for k in entry)
-            ):
-                raise ValueError(f"auto pool entries for '{node}' need a non-empty 'model' and 'criteria'")
-            ids.append(entry["model"])
+        if not all(isinstance(m, str) and m.strip() for m in pool):
+            raise ValueError(f"auto pool for '{node}' must list non-empty model ids")
+        ids = pool
         if "auto" in ids:
             raise ValueError(f"auto pool for '{node}' cannot contain the model 'auto'")
         if len(set(ids)) != len(ids):
@@ -234,7 +228,7 @@ class Config:
                 "auto"?: dict}}
             updates: New partial overrides in the same shape; "model": None removes
                 an override. "auto" is required with "model": "auto" and has the shape
-                {"pool": [{"model": str, "criteria": str}, ...] (2 to 5 entries),
+                {"pool": [model_id, ...] (2 to 5 distinct ids),
                 "fallback": str, "min_confidence"?: float in [0.0, 1.0]}; neither the
                 pool models nor the fallback may be "auto"
 

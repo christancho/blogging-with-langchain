@@ -302,9 +302,8 @@ async def update_settings_impl(
             override use llm_model. "model": "auto" routes the step through
             JEV (needs TYPESAFE_API_KEY on the server) and requires an "auto"
             block, e.g. {"writer": {"model": "auto", "auto": {"pool":
-            [{"model": "a/big", "criteria": "complex topics"}, {"model":
-            "a/small", "criteria": "simple topics"}], "fallback": "a/big",
-            "min_confidence": 0.6}}}; pool has 2-5 entries. A fixed model or
+            ["a/big", "a/small"], "fallback": "a/big", "min_confidence":
+            0.6}}}; pool lists 2-5 model ids. A fixed model or
             None drops the stored auto block.
         auto_publish_to_ghost: Optional new auto-publish setting.
 
@@ -437,8 +436,7 @@ def build_mcp(session_factory) -> "MCPServer":
         model: an OpenRouter model id for that node, e.g.
         {"writer": {"model": "anthropic/claude-opus-5.5"}}; pass
         {"writer": {"model": null}} to reset it. Steps without a model use llm_model.
-        "auto": {"writer": {"model": "auto", "auto": {"pool": [{"model": "a/big",
-        "criteria": "complex topics"}, {"model": "a/small", "criteria": "simple topics"}],
+        "auto": {"writer": {"model": "auto", "auto": {"pool": ["a/big", "a/small"],
         "fallback": "a/big", "min_confidence": 0.6}}} routes that step through JEV
         (2-5 pool models; needs TYPESAFE_API_KEY on the server). Setting a fixed
         model or null drops the auto block.

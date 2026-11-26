@@ -61,18 +61,17 @@ def build_state(node: str, context: dict) -> str:
     return NODE_JOBS[node] + "\n\n" + "\n".join(lines)
 
 
-def _option_text(model: str, criteria: str) -> str:
+def _option_text(model: str) -> str:
     """
     Build the option description sent to JEV for one pool model.
 
     Args:
         model: Model id.
-        criteria: User-written description of when to pick it.
 
     Returns:
-        "{model}: {criteria}" plus a price suffix when pricing is known.
+        The model id plus a price suffix when pricing is known.
     """
-    text = f"{model}: {criteria}"
+    text = model
     pricing = Config.get_model_pricing(model)
     if pricing:
         text += f" (price: ${pricing[0]:.2f}/M input, ${pricing[1]:.2f}/M output tokens)"
@@ -118,7 +117,7 @@ def route(node: str, auto_cfg: dict, context: dict) -> RouteDecision:
 
     Args:
         node: Node name (key of NODE_JOBS).
-        auto_cfg: Stored auto block: {"pool": [{"model", "criteria"}, ...],
+        auto_cfg: Stored auto block: {"pool": [model_id, ...],
             "fallback": str, "min_confidence"?: float}.
         context: Input facts describing this run, passed to build_state.
 
@@ -135,12 +134,12 @@ def route(node: str, auto_cfg: dict, context: dict) -> RouteDecision:
     try:
         pool = auto_cfg["pool"]
         min_conf = auto_cfg.get("min_confidence", DEFAULT_MIN_CONFIDENCE)
-        labels = {f"m{i}": p["model"] for i, p in enumerate(pool, 1)}
-        criteria = {f"m{i}": _option_text(p["model"], p["criteria"]) for i, p in enumerate(pool, 1)}
+        labels = {f"m{i}": model for i, model in enumerate(pool, 1)}
+        options = {label: _option_text(model) for label, model in labels.items()}
         classifier = TypeSafeClassifier(api_key=Config.TYPESAFE_API_KEY)
         response = classifier.invoke({
             "state": build_state(node, context),
-            "questions": {"model": Choice(instructions=INSTRUCTIONS, criteria=criteria)},
+            "questions": {"model": Choice(instructions=INSTRUCTIONS, criteria=options)},
         })
         answer = response.choices["model"]
         if answer.choice not in labels:

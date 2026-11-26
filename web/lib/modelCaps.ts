@@ -76,8 +76,8 @@ export function rowCaps(models: OpenRouterModel[], s: NodeLLMSettings, defaultMo
   if (pool.length === 0) return null;
   let reasoning = true;
   let temperature = true;
-  for (const entry of pool) {
-    const c = capsFor(models, entry.model);
+  for (const model of pool) {
+    const c = capsFor(models, model);
     if (!c) return null;
     reasoning = reasoning && c.reasoning;
     temperature = temperature && c.temperature;
@@ -96,9 +96,8 @@ export function autoConfigErrors(auto: AutoConfig | undefined): string[] {
   if (!auto) return ['Pick 2–5 models'];
   const errors: string[] = [];
   const pool = auto.pool;
-  if (pool.length < 2 || pool.length > 5 || pool.some(e => !e.model)) errors.push('Pick 2–5 models');
-  if (new Set(pool.map(e => e.model)).size !== pool.length) errors.push('Models must be different');
-  if (pool.some(e => !e.criteria.trim())) errors.push('Each model needs criteria');
+  if (pool.length < 2 || pool.length > 5 || pool.some(m => !m)) errors.push('Pick 2–5 models');
+  if (new Set(pool).size !== pool.length) errors.push('Models must be different');
   if (!auto.fallback) errors.push('Pick a fallback model');
   const mc = auto.min_confidence;
   if (mc !== undefined && !(mc >= 0 && mc <= 1)) errors.push('Min confidence must be between 0 and 1');

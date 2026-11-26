@@ -368,10 +368,10 @@ DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/blogforge
 
 ### Auto (JEV) routing
 
-Each LLM step can pick its model per job instead of using a fixed one. In Settings, choose "Auto (JEV)" in a step's Model column and define a pool of 2-5 models, each with criteria describing when it fits. JEV (typesafe) scores the pool against the job and the step runs on the best match.
+Each LLM step can pick its model per job instead of using a fixed one. In Settings, choose "Auto (JEV)" in a step's Model column and pick a pool of 2-5 models. JEV (typesafe) scores the pool, using each model's id and OpenRouter price, against the job and the step runs on the best match.
 
 - **Optional:** set `TYPESAFE_API_KEY` on the API/worker. Without it the Auto option is hidden, new Auto saves are rejected, and any step already stored as Auto runs on its fallback model.
-- **Settings per step:** `pool` (model + criteria, 2-5 distinct models), `fallback` (model used when routing fails or confidence is low), and `min_confidence` (0-1, default 0.6). The same block is accepted by `PUT /settings` and the MCP `update_settings` tool: `{"writer": {"model": "auto", "auto": {"pool": [...], "fallback": "...", "min_confidence": 0.6}}}`. Setting a fixed model or `null` drops it.
+- **Settings per step:** `pool` (2-5 distinct model ids), `fallback` (model used when routing fails or confidence is low), and `min_confidence` (0-1, default 0.6). The same block is accepted by `PUT /settings` and the MCP `update_settings` tool: `{"writer": {"model": "auto", "auto": {"pool": ["a/big", "a/small"], "fallback": "...", "min_confidence": 0.6}}}`. Setting a fixed model or `null` drops it.
 - **Job logs:** a routed step prints
   `[writer] JEV routing → <model> (p=0.82, confidence 0.71)` followed by a probabilities line (`         big 0.82 · small 0.18`).
   When it falls back it prints `[writer] JEV routing fell back to <model> (low confidence 0.41 < 0.6)` plus the probabilities line, or `[writer] JEV routing failed, using <model> (error: ...)` when the call itself failed.

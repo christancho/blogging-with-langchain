@@ -14,10 +14,7 @@ from agentic.tools.model_router import (
 )
 
 AUTO = {
-    "pool": [
-        {"model": "a/small", "criteria": "Simple"},
-        {"model": "a/big", "criteria": "Hard"},
-    ],
+    "pool": ["a/small", "a/big"],
     "fallback": "a/small",
     "min_confidence": 0.6,
 }
@@ -116,8 +113,8 @@ def test_route_option_text_includes_price(classifier_cls):
     request = classifier_cls.return_value.invoke.call_args.args[0]
     choice = request["questions"]["model"]
     assert choice.criteria == {
-        "m1": "a/small: Simple",
-        "m2": "a/big: Hard (price: $3.00/M input, $15.00/M output tokens)",
+        "m1": "a/small",
+        "m2": "a/big (price: $3.00/M input, $15.00/M output tokens)",
     }
     assert choice.instructions == INSTRUCTIONS
     assert request["state"].startswith(NODE_JOBS["writer"])
@@ -145,8 +142,8 @@ def test_route_missing_probability_prints_na(classifier_cls, capsys):
     assert "p=0.00" not in out
 
 
-def test_route_malformed_pool_entry_falls_back(classifier_cls):
-    bad = {**AUTO, "pool": [{"model": "a/small", "criteria": "Simple"}, {"model": "a/big"}]}
+def test_route_malformed_pool_falls_back(classifier_cls):
+    bad = {**AUTO, "pool": None}
     d = route("writer", bad, {})
     assert d.model == "a/small"
     assert d.fallback_reason.startswith("error: ")

@@ -215,10 +215,7 @@ async def test_update_node_model_rejects_empty(authed_client, seeded_settings):
 _AUTO_WRITER = {
     "model": "auto",
     "auto": {
-        "pool": [
-            {"model": "a/big", "criteria": "complex topics"},
-            {"model": "a/small", "criteria": "simple topics"},
-        ],
+        "pool": ["a/big", "a/small"],
         "fallback": "a/big",
         "min_confidence": 0.6,
     },
@@ -241,7 +238,7 @@ async def test_auto_routing_round_trip(authed_client, seeded_settings, monkeypat
     assert writer["model"] == "a/big"
     assert "auto" not in writer
 
-    bad = {"model": "auto", "auto": {"pool": [{"model": "a/big", "criteria": "x"}], "fallback": "a/big"}}
+    bad = {"model": "auto", "auto": {"pool": ["a/big"], "fallback": "a/big"}}
     resp = await authed_client.put("/settings", json={"llm_node_settings": {"writer": bad}})
     assert resp.status_code == 422
 

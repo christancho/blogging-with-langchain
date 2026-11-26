@@ -25,7 +25,7 @@ test('rowControls with unknown caps follows effort', () => {
 });
 
 const auto = (pool: string[]) => ({ effort: 'high', temperature: 0.7, model: 'auto',
-  auto: { pool: pool.map(m => ({ model: m, criteria: 'c' })), fallback: pool[0] } }) as NodeLLMSettings;
+  auto: { pool, fallback: pool[0] } }) as NodeLLMSettings;
 
 test('rowCaps intersects pool capabilities', () =>
   expect(rowCaps(models, auto(['a/think', 'a/plain']), 'a/think')).toEqual({ reasoning: false, temperature: true }));
@@ -37,8 +37,7 @@ test('autoConfigErrors', () => {
   expect(autoConfigErrors(auto(['a/think', 'a/plain']).auto)).toEqual([]);
   expect(autoConfigErrors(auto(['a/think']).auto)).toContain('Pick 2–5 models');
   expect(autoConfigErrors(auto(['a/think', 'a/think']).auto)).toContain('Models must be different');
-  expect(autoConfigErrors({ pool: [{ model: 'a/think', criteria: ' ' }, { model: 'a/plain', criteria: 'c' }], fallback: 'a/think' }))
-    .toContain('Each model needs criteria');
+  expect(autoConfigErrors(auto(['a/think', '']).auto)).toContain('Pick 2–5 models');
   expect(autoConfigErrors({ ...auto(['a/think', 'a/plain']).auto!, fallback: '' })).toContain('Pick a fallback model');
   expect(autoConfigErrors({ ...auto(['a/think', 'a/plain']).auto!, min_confidence: 2 })).toContain('Min confidence must be between 0 and 1');
 });

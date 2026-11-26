@@ -14,40 +14,33 @@ interface AutoPoolEditorProps {
 }
 
 /**
- * Editor for a step's Auto (JEV) config: the candidate model pool with
- * per-model criteria, the fallback model, and the minimum confidence.
+ * Editor for a step's Auto (JEV) config: the candidate model pool, the
+ * fallback model, and the minimum confidence.
  *
  * @param props - See AutoPoolEditorProps.
  * @returns A full-width table row; render it inside the settings table body.
  */
 export default function AutoPoolEditor({ node, value, onChange, models, loading }: AutoPoolEditorProps) {
-  const setEntry = (i: number, patch: Partial<AutoConfig['pool'][number]>) =>
-    onChange({ ...value, pool: value.pool.map((e, j) => (j === i ? { ...e, ...patch } : e)) });
+  /** Replace the pool model at index i. */
+  const setModel = (i: number, model: string) =>
+    onChange({ ...value, pool: value.pool.map((m, j) => (j === i ? model : m)) });
 
   return (
     <tr>
       <td colSpan={4} className="pb-3">
         <div className="ml-2 pl-3 border-l-2 border-blue-200 space-y-3">
           <p className="text-xs text-gray-500">
-            Pick 2–5 models and describe when each one fits; JEV chooses per job from the criteria.
+            Pick 2–5 models; JEV chooses one per job, weighing the job against each model and its price.
           </p>
-          {value.pool.map((entry, i) => (
-            <div key={i} className="grid grid-cols-[1fr_2fr_auto] gap-2 items-start">
+          {value.pool.map((model, i) => (
+            <div key={i} className="grid grid-cols-[1fr_auto] gap-2 items-start">
               <ModelCombobox
                 id={`auto-${node}-model-${i}`}
                 ariaLabel={`${node} pool model ${i + 1}`}
-                value={entry.model || null}
-                onChange={m => setEntry(i, { model: m ?? '' })}
+                value={model || null}
+                onChange={m => setModel(i, m ?? '')}
                 models={models}
                 loading={loading}
-              />
-              <textarea
-                aria-label={`${node} pool criteria ${i + 1}`}
-                value={entry.criteria}
-                onChange={e => setEntry(i, { criteria: e.target.value })}
-                placeholder="When should this model be used?"
-                rows={2}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <button
                 type="button"
@@ -61,7 +54,7 @@ export default function AutoPoolEditor({ node, value, onChange, models, loading 
           <button
             type="button"
             disabled={value.pool.length >= MAX_POOL}
-            onClick={() => onChange({ ...value, pool: [...value.pool, { model: '', criteria: '' }] })}
+            onClick={() => onChange({ ...value, pool: [...value.pool, ''] })}
             className="text-xs text-blue-600 hover:text-blue-800 disabled:text-gray-300"
           >
             + Add model

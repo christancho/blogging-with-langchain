@@ -34,8 +34,7 @@ export interface JobCreate {
 
 export type ReasoningEffort = 'off' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
-export interface AutoPoolEntry { model: string; criteria: string }
-export interface AutoConfig { pool: AutoPoolEntry[]; fallback: string; min_confidence?: number }
+export interface AutoConfig { pool: string[]; fallback: string; min_confidence?: number }
 
 export interface NodeLLMSettings {
   effort: ReasoningEffort;

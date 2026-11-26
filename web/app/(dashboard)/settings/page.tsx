@@ -115,7 +115,7 @@ export default function SettingsPage() {
       const current = s.model && s.model !== AUTO_MODEL ? s.model : llmModel;
       updateNode(node, {
         model: AUTO_MODEL,
-        auto: s.auto ?? { pool: [{ model: current, criteria: '' }], fallback: current, min_confidence: 0.6 },
+        auto: s.auto ?? { pool: [current], fallback: current, min_confidence: 0.6 },
       });
     } else {
       updateNode(node, { model: m ?? undefined, auto: undefined });

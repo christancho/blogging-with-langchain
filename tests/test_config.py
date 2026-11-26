@@ -250,7 +250,7 @@ class TestConfig:
         assert Config.jev_available() is expected
 
 
-POOL = [{"model": "a/small", "criteria": "Simple"}, {"model": "a/big", "criteria": "Hard"}]
+POOL = ["a/small", "a/big"]
 AUTO = {"pool": POOL, "fallback": "a/small"}
 
 
@@ -284,12 +284,13 @@ class TestMergeAuto:
         {"model": "auto", "auto": {**AUTO, "pool": POOL[:1]}},
         {"model": "auto", "auto": {**AUTO, "pool": POOL * 3}},
         {"model": "auto", "auto": {**AUTO, "pool": [POOL[0], POOL[0]]}},
-        {"model": "auto", "auto": {**AUTO, "pool": [POOL[0], {"model": "a/big", "criteria": " "}]}},
+        {"model": "auto", "auto": {**AUTO, "pool": [POOL[0], " "]}},
+        {"model": "auto", "auto": {**AUTO, "pool": [POOL[0], {"model": "a/big"}]}},
         {"model": "auto", "auto": {"pool": POOL}},
         {"model": "auto", "auto": {**AUTO, "min_confidence": 1.5}},
         {"model": "auto", "auto": {**AUTO, "min_confidence": True}},
         {"model": "auto", "auto": {**AUTO, "extra": 1}},
-        {"model": "auto", "auto": {**AUTO, "pool": [POOL[0], {"model": "auto", "criteria": "x"}]}},
+        {"model": "auto", "auto": {**AUTO, "pool": [POOL[0], "auto"]}},
         {"model": "auto", "auto": {**AUTO, "fallback": "auto"}},
     ])
     def test_merge_auto_rejects_invalid(self, update):
