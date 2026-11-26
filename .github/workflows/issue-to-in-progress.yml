@@ -1,9 +1,9 @@
 name: Move issue to In Progress on feature branch creation
 
+# `create` doesn't support a branches filter (GitHub ignores it); the
+# feature/<n> match below is what limits this to feature branches.
 on:
   create:
-    branches:
-      - 'feature/*'
 
 jobs:
   move-to-in-progress:
