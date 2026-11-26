@@ -82,7 +82,14 @@ def editor_node(state: BlogState) -> Dict[str, Any]:
     ])
 
     try:
-        llm = Config.get_llm("editor")
+        llm = Config.get_llm(
+            "editor",
+            routing_context={
+                "topic": state.get("topic", ""),
+                "draft word count": analysis["word_count"],
+                "revision count": revision_count,
+            },
+        )
         chain = prompt | llm | StrOutputParser()
 
         print(f"\n🤖 Requesting LLM editorial review...")

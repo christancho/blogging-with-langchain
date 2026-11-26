@@ -31,7 +31,7 @@ An automated blog post generation system built with LangGraph, LangChain, and Cl
 - **Tone Presets**: Choose from built-in tone presets (`conversational`, `expert_casual`, `storyteller`, `practical`, `thought_leader`) or define your own
 - **Custom Instructions**: Provide per-article instructions to guide the content direction
 - **Session Notes**: Optional hands-on session brief that becomes the post's foundation — drives research queries and priority URLs, and the writer builds the article on it in first person
-- **Per-Step Reasoning Effort**: Each LLM step has its own reasoning effort and temperature, sent according to what the selected model supports
+- **Per-Step Model & Reasoning Effort**: Each LLM step can use its own model (default: the global model; set `model` to `null` to reset) plus its own reasoning effort and temperature, sent according to what that step's model supports
 - **SEO Optimization**: Automatically optimizes content for search engines with excerpt support
 - **Ghost CMS Integration**: Publishes directly to Ghost CMS with full metadata (title, excerpt, meta description, tags)
 - **Editor Approval Gate**: LLM-based editorial review scoring cohesiveness, hook quality, storytelling, and authentic voice
@@ -117,6 +117,9 @@ Create a `.env` file in the project root:
 # LLM Configuration (OpenRouter)
 OPENROUTER_API_KEY=your_openrouter_api_key
 
+# Optional: enables "Auto (JEV)" model routing per step
+# TYPESAFE_API_KEY=your_typesafe_api_key
+
 # Brave Search API
 BRAVE_SEARCH_API_KEY=your_brave_search_api_key
 
@@ -156,6 +159,7 @@ Required variables:
 | `UI_PASSWORD` | Password to log into the web UI |
 | `WEB_URL` | Public URL of the web frontend (e.g. `http://localhost:3000`) — used by the API for CORS |
 | `OPENROUTER_API_KEY` | Your OpenRouter API key |
+| `TYPESAFE_API_KEY` | Optional. Enables Auto (JEV) model routing per step ([details](#auto-jev-routing)) |
 | `BRAVE_SEARCH_API_KEY` | Brave Search API key |
 | `GHOST_API_KEY` | Ghost Admin API key |
 | `GHOST_API_URL` | Your Ghost instance URL (e.g. `https://yoursite.com`) |
@@ -313,7 +317,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 | **New Post** | Create a new blog generation job with topic, tone, word count, custom instructions, and optional session notes (a hands-on session brief that becomes the post's foundation) |
 | **Queue** | View pending and in-progress jobs |
 | **History** | Browse completed jobs and their results |
-| **Settings** | Set model, per-step reasoning effort / temperature, default tone and word count, auto-publish to Ghost; change password |
+| **Settings** | Set default model, per-step model / reasoning effort / temperature, default tone and word count, auto-publish to Ghost; change password |
 
 ### Authentication
 
@@ -362,6 +366,16 @@ Set `DATABASE_URL` in your `.env`:
 DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/blogforge
 ```
 
+### Auto (JEV) routing
+
+Each LLM step can pick its model per job instead of using a fixed one. In Settings, choose "Auto (JEV)" in a step's Model column and pick a pool of 2-5 models. JEV (typesafe) scores the pool, using each model's id and OpenRouter price, against the job and the step runs on the best match.
+
+- **Optional:** set `TYPESAFE_API_KEY` on the API/worker. Without it the Auto option is hidden, new Auto saves are rejected, and any step already stored as Auto runs on its fallback model.
+- **Settings per step:** `pool` (2-5 distinct model ids), `fallback` (model used when routing fails or confidence is low), and `min_confidence` (0-1, default 0.6). The same block is accepted by `PUT /settings` and the MCP `update_settings` tool: `{"writer": {"model": "auto", "auto": {"pool": ["a/big", "a/small"], "fallback": "...", "min_confidence": 0.6}}}`. Setting a fixed model or `null` drops it.
+- **Job logs:** a routed step prints
+  `[writer] JEV routing → <model> (p=0.82, confidence 0.71)` followed by a probabilities line (`         big 0.82 · small 0.18`).
+  When it falls back it prints `[writer] JEV routing fell back to <model> (low confidence 0.41 < 0.6)` plus the probabilities line, or `[writer] JEV routing failed, using <model> (error: ...)` when the call itself failed.
+
 ## MCP Server (Claude Desktop)
 
 The API includes a built-in **remote MCP server** (Model Context Protocol) that lets you generate, review, and publish blog posts directly from **Claude Desktop** — no CLI or web UI needed. It mounts into the same FastAPI app (sharing the process, database, and background worker) and exposes the pipeline as MCP tools at `/mcp` over streamable HTTP.
@@ -376,7 +390,7 @@ The API includes a built-in **remote MCP server** (Model Context Protocol) that 
 | `get_job_logs` | Captured pipeline logs for a job |
 | `publish_blog` | Publish a completed job to Ghost CMS |
 | `retry_blog` | Re-queue a failed job |
-| `get_settings` / `update_settings` | Read/update default tone, word count, model, per-step reasoning effort / temperature, auto-publish |
+| `get_settings` / `update_settings` | Read/update default tone, word count, default model, per-step model (`null` resets) / reasoning effort / temperature, auto-publish |
 
 Because generation takes minutes, `generate_blog` is **fire-and-poll**: it queues the job and returns a `job_id`; Claude polls `get_job` and shows you the finished article so you can review it before calling `publish_blog`.
 

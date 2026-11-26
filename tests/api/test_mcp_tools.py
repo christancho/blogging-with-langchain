@@ -5,6 +5,7 @@ import pytest_asyncio
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy import select
 
+from agentic.config import Config
 from api.models import Job, Settings
 from api.auth import hash_password
 from api.mcp_server import (
@@ -217,6 +218,7 @@ async def test_get_settings(session_factory, seeded_settings):
     assert out["default_tone"] == "informative and insightful"
     assert out["default_word_count"] == 3500
     assert "password_hash" not in out
+    assert out["jev_available"] is Config.jev_available()
 
 
 async def test_update_settings_partial(session_factory, seeded_settings):
@@ -239,6 +241,24 @@ async def test_update_settings_accepts_node_overrides(session_factory, seeded_se
     async with session_factory() as db:
         s = (await db.execute(select(Settings))).scalar_one()
         assert s.llm_node_settings == {"seo": {"effort": "off", "temperature": 1.2}}
+
+
+async def test_update_settings_node_model_and_reset(session_factory, seeded_settings):
+    out = await update_settings_impl(
+        session_factory, llm_node_settings={"writer": {"model": "a/opus"}}
+    )
+    assert out["llm_node_settings"]["writer"]["model"] == "a/opus"
+    async with session_factory() as db:
+        s = (await db.execute(select(Settings))).scalar_one()
+        assert s.llm_node_settings == {"writer": {"model": "a/opus"}}
+
+    out = await update_settings_impl(
+        session_factory, llm_node_settings={"writer": {"model": None}}
+    )
+    assert "model" not in out["llm_node_settings"]["writer"]
+    async with session_factory() as db:
+        s = (await db.execute(select(Settings))).scalar_one()
+        assert s.llm_node_settings == {"writer": {}}
 
 
 from mcp import Client
