@@ -1,0 +1,24 @@
+name: release-candidate
+
+# A vX.Y.Z-rc.N tag on main -> multi-arch images on GHCR
+# (ghcr.io/christancho/blogging-with-langchain/{api,web}:vX.Y.Z-rc.N), smoke-tested
+# on amd64 and arm64, scanned, then a GitHub prerelease with images.json.
+# Cut one with:  git tag v1.0.0-rc.1 origin/main && git push origin v1.0.0-rc.1
+# Runs on GitHub-hosted runners only.
+on:
+  push:
+    tags: ["v*-rc.*"]
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+  attestations: write
+
+jobs:
+  candidate:
+    uses: christancho/github-workflows/.github/workflows/docker-candidate.yml@main
+    with:
+      images: >-
+        [{"name":"api","context":".","dockerfile":"api/Dockerfile"},
+         {"name":"web","context":"web","dockerfile":"Dockerfile"}]
