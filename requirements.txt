@@ -2,17 +2,21 @@
 # note below). Regenerate with `pip freeze` after intentional upgrades.
 
 # LangChain Core
-langchain==1.4.7
-langchain-core==1.7.3
+langchain==1.5.0
+langchain-core==1.8.0
 langchain-community==0.4.2
 
 # LLM Providers
 # langchain-openrouter requires langchain-core>=1.4.7, which in turn requires
 # the langgraph 1.2.x / checkpoint 4.x generation pinned below.
 langchain-openrouter==0.2.9
+# langchain-typesafe (Auto/JEV model routing) requires langchain-core>=1.8.0
+# and httpx2>=2.0.0.
+langchain-typesafe==0.1.0
+httpx2==2.16.0
 
 # LangGraph
-langgraph==1.2.19
+langgraph==1.2.20
 langgraph-checkpoint==4.3.1
 langgraph-prebuilt==1.1.1
 

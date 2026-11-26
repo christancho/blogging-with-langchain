@@ -49,6 +49,7 @@ async def test_job_model_insert(db):
 
 import pytest_asyncio
 from api.auth import hash_password
+from agentic.config import Config
 from api.models import Settings
 
 
@@ -209,3 +210,43 @@ async def test_update_effort_keeps_model_override(authed_client, seeded_settings
 async def test_update_node_model_rejects_empty(authed_client, seeded_settings):
     resp = await authed_client.put("/settings", json={"llm_node_settings": {"writer": {"model": ""}}})
     assert resp.status_code == 422
+
+
+_AUTO_WRITER = {
+    "model": "auto",
+    "auto": {
+        "pool": ["a/big", "a/small"],
+        "fallback": "a/big",
+        "min_confidence": 0.6,
+    },
+}
+
+
+@pytest.mark.asyncio(loop_scope="function")
+async def test_auto_routing_round_trip(authed_client, seeded_settings, monkeypatch):
+    monkeypatch.setattr(Config, "TYPESAFE_API_KEY", "k")
+    assert (await authed_client.get("/settings")).json()["jev_available"] is True
+
+    resp = await authed_client.put("/settings", json={"llm_node_settings": {"writer": _AUTO_WRITER}})
+    assert resp.status_code == 200
+    writer = (await authed_client.get("/settings")).json()["llm_node_settings"]["writer"]
+    assert writer["model"] == "auto"
+    assert writer["auto"] == _AUTO_WRITER["auto"]
+
+    resp = await authed_client.put("/settings", json={"llm_node_settings": {"writer": {"model": "a/big"}}})
+    writer = resp.json()["llm_node_settings"]["writer"]
+    assert writer["model"] == "a/big"
+    assert "auto" not in writer
+
+    bad = {"model": "auto", "auto": {"pool": ["a/big"], "fallback": "a/big"}}
+    resp = await authed_client.put("/settings", json={"llm_node_settings": {"writer": bad}})
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio(loop_scope="function")
+async def test_auto_routing_rejected_without_key(authed_client, seeded_settings, monkeypatch):
+    monkeypatch.setattr(Config, "TYPESAFE_API_KEY", None)
+    assert (await authed_client.get("/settings")).json()["jev_available"] is False
+    resp = await authed_client.put("/settings", json={"llm_node_settings": {"writer": _AUTO_WRITER}})
+    assert resp.status_code == 422
+    assert "TYPESAFE_API_KEY" in resp.json()["detail"]

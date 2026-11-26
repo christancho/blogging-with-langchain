@@ -34,10 +34,13 @@ export interface JobCreate {
 
 export type ReasoningEffort = 'off' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
+export interface AutoConfig { pool: string[]; fallback: string; min_confidence?: number }
+
 export interface NodeLLMSettings {
   effort: ReasoningEffort;
   temperature: number;
   model?: string;
+  auto?: AutoConfig;
 }
 
 export interface Settings {
@@ -46,6 +49,7 @@ export interface Settings {
   llm_model: string;
   llm_node_settings: Record<string, NodeLLMSettings>;
   auto_publish_to_ghost: boolean;
+  jev_available: boolean;
 }
 
 export interface SettingsUpdate {

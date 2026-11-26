@@ -117,6 +117,9 @@ Create a `.env` file in the project root:
 # LLM Configuration (OpenRouter)
 OPENROUTER_API_KEY=your_openrouter_api_key
 
+# Optional: enables "Auto (JEV)" model routing per step
+# TYPESAFE_API_KEY=your_typesafe_api_key
+
 # Brave Search API
 BRAVE_SEARCH_API_KEY=your_brave_search_api_key
 
@@ -156,6 +159,7 @@ Required variables:
 | `UI_PASSWORD` | Password to log into the web UI |
 | `WEB_URL` | Public URL of the web frontend (e.g. `http://localhost:3000`) — used by the API for CORS |
 | `OPENROUTER_API_KEY` | Your OpenRouter API key |
+| `TYPESAFE_API_KEY` | Optional. Enables Auto (JEV) model routing per step ([details](#auto-jev-routing)) |
 | `BRAVE_SEARCH_API_KEY` | Brave Search API key |
 | `GHOST_API_KEY` | Ghost Admin API key |
 | `GHOST_API_URL` | Your Ghost instance URL (e.g. `https://yoursite.com`) |
@@ -361,6 +365,16 @@ Set `DATABASE_URL` in your `.env`:
 ```env
 DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/blogforge
 ```
+
+### Auto (JEV) routing
+
+Each LLM step can pick its model per job instead of using a fixed one. In Settings, choose "Auto (JEV)" in a step's Model column and pick a pool of 2-5 models. JEV (typesafe) scores the pool, using each model's id and OpenRouter price, against the job and the step runs on the best match.
+
+- **Optional:** set `TYPESAFE_API_KEY` on the API/worker. Without it the Auto option is hidden, new Auto saves are rejected, and any step already stored as Auto runs on its fallback model.
+- **Settings per step:** `pool` (2-5 distinct model ids), `fallback` (model used when routing fails or confidence is low), and `min_confidence` (0-1, default 0.6). The same block is accepted by `PUT /settings` and the MCP `update_settings` tool: `{"writer": {"model": "auto", "auto": {"pool": ["a/big", "a/small"], "fallback": "...", "min_confidence": 0.6}}}`. Setting a fixed model or `null` drops it.
+- **Job logs:** a routed step prints
+  `[writer] JEV routing → <model> (p=0.82, confidence 0.71)` followed by a probabilities line (`         big 0.82 · small 0.18`).
+  When it falls back it prints `[writer] JEV routing fell back to <model> (low confidence 0.41 < 0.6)` plus the probabilities line, or `[writer] JEV routing failed, using <model> (error: ...)` when the call itself failed.
 
 ## MCP Server (Claude Desktop)
 

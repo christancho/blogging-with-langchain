@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useRef, FormEvent } from 'react';
+import { Fragment, useState, useEffect, useRef, FormEvent } from 'react';
 import { settings, OpenRouterModel, NodeLLMSettings, ReasoningEffort } from '@/lib/api';
-import { capsFor, effectiveModel, rowControls, modelLabel } from '@/lib/modelCaps';
+import { capsFor, rowCaps, rowControls, modelLabel, autoConfigErrors, AUTO_MODEL } from '@/lib/modelCaps';
 import ModelCombobox from '@/components/ModelCombobox';
+import AutoPoolEditor from '@/components/AutoPoolEditor';
 
 const TONE_PRESETS = [
   { name: 'Conversational', value: 'friendly, conversational, and approachable — like a knowledgeable friend explaining something they care about, while remaining authoritative and well-researched' },
@@ -32,6 +33,7 @@ export default function SettingsPage() {
   const [wordCount, setWordCount] = useState(3500);
   const [nodeSettings, setNodeSettings] = useState<Record<string, NodeLLMSettings>>({});
   const [llmModel, setLlmModel] = useState('');
+  const [jevAvailable, setJevAvailable] = useState(false);
   const [autoPublish, setAutoPublish] = useState(true);
   const [models, setModels] = useState<OpenRouterModel[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
@@ -60,6 +62,7 @@ export default function SettingsPage() {
       setWordCount(s.default_word_count);
       setNodeSettings(s.llm_node_settings);
       setLlmModel(s.llm_model);
+      setJevAvailable(s.jev_available);
       setAutoPublish(s.auto_publish_to_ghost);
     }).catch((err) => {
       console.error('Failed to load settings:', err);
@@ -102,6 +105,23 @@ export default function SettingsPage() {
     setNodeSettings(prev => ({ ...prev, [node]: { ...prev[node], ...patch } }));
   }
 
+  /**
+   * Handle a step's model pick. Auto seeds a one-model pool (the row's
+   * effective model) unless the row already has an auto block; any other
+   * pick drops the local auto block.
+   */
+  function changeNodeModel(node: string, s: NodeLLMSettings, m: string | null) {
+    if (m === AUTO_MODEL) {
+      const current = s.model && s.model !== AUTO_MODEL ? s.model : llmModel;
+      updateNode(node, {
+        model: AUTO_MODEL,
+        auto: s.auto ?? { pool: [current], fallback: current, min_confidence: 0.6 },
+      });
+    } else {
+      updateNode(node, { model: m ?? undefined, auto: undefined });
+    }
+  }
+
   async function handleSaveSettings(e: FormEvent) {
     e.preventDefault();
     setSettingsError('');
@@ -110,6 +130,14 @@ export default function SettingsPage() {
       setSettingsError('Please select a model before saving.');
       return;
     }
+    for (const [node, s] of Object.entries(nodeSettings)) {
+      if (s.model !== AUTO_MODEL || !jevAvailable) continue;
+      const errors = autoConfigErrors(s.auto);
+      if (errors.length > 0) {
+        setSettingsError(`${NODE_LABELS[node] ?? node}: ${errors[0]}`);
+        return;
+      }
+    }
     setSavingSettings(true);
     try {
       await settings.update({
@@ -117,10 +145,15 @@ export default function SettingsPage() {
         default_word_count: wordCount,
         llm_model: llmModel,
         llm_node_settings: Object.fromEntries(
-          Object.entries(nodeSettings).map(([node, s]) => [
-            node,
-            resetModelNodes.has(node) ? { ...s, model: null } : s,
-          ])
+          Object.entries(nodeSettings).map(([node, s]) => {
+            if (resetModelNodes.has(node)) return [node, { ...s, model: null }];
+            // The server rejects Auto saves without the key; leave a stored Auto step untouched.
+            if (s.model === AUTO_MODEL && !jevAvailable) {
+              const { model: _model, auto: _auto, ...rest } = s;
+              return [node, rest];
+            }
+            return [node, s];
+          })
         ),
         auto_publish_to_ghost: autoPublish,
       });
@@ -215,20 +248,22 @@ export default function SettingsPage() {
               <tbody>
                 {Object.entries(nodeSettings).map(([node, s]) => {
                   const { effortEnabled, temperatureEnabled } = rowControls(
-                    capsFor(models, effectiveModel(s, llmModel)), s,
+                    rowCaps(models, s, llmModel), s,
                   );
                   return (
-                  <tr key={node}>
+                  <Fragment key={node}>
+                  <tr>
                     <td className="py-1 pr-2 text-gray-700">{NODE_LABELS[node] ?? node}</td>
                     <td className="py-1 pr-2">
                       <ModelCombobox
                         id={`model-${node}`}
                         ariaLabel={`${NODE_LABELS[node] ?? node} model`}
                         value={s.model ?? null}
-                        onChange={m => updateNode(node, { model: m ?? undefined })}
+                        onChange={m => changeNodeModel(node, s, m)}
                         models={models}
                         loading={modelsLoading}
                         defaultLabel={`Default (${modelLabel(models, llmModel)})`}
+                        allowAuto={jevAvailable}
                       />
                     </td>
                     <td className="py-1 pr-2">
@@ -258,6 +293,23 @@ export default function SettingsPage() {
                       />
                     </td>
                   </tr>
+                  {s.model === AUTO_MODEL && !jevAvailable && (
+                    <tr>
+                      <td colSpan={4} className="pb-2 text-xs text-amber-700">
+                        JEV unavailable — running on fallback {modelLabel(models, s.auto?.fallback ?? llmModel)}
+                      </td>
+                    </tr>
+                  )}
+                  {s.model === AUTO_MODEL && jevAvailable && s.auto && (
+                    <AutoPoolEditor
+                      node={node}
+                      value={s.auto}
+                      onChange={a => updateNode(node, { auto: a })}
+                      models={models}
+                      loading={modelsLoading}
+                    />
+                  )}
+                  </Fragment>
                   );
                 })}
               </tbody>

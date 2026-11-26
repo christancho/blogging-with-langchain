@@ -1,4 +1,4 @@
-import { capsFor, effectiveModel, rowControls, modelLabel } from '../modelCaps';
+import { capsFor, effectiveModel, rowControls, modelLabel, rowCaps, autoConfigErrors } from '../modelCaps';
 import type { OpenRouterModel, NodeLLMSettings } from '../api';
 
 const models = [
@@ -22,4 +22,22 @@ test('rowControls disables effort for a non-reasoning override', () => {
 });
 test('rowControls with unknown caps follows effort', () => {
   expect(rowControls(null, { effort: 'off', temperature: 0.7 })).toEqual({ effortEnabled: true, temperatureEnabled: true });
+});
+
+const auto = (pool: string[]) => ({ effort: 'high', temperature: 0.7, model: 'auto',
+  auto: { pool, fallback: pool[0] } }) as NodeLLMSettings;
+
+test('rowCaps intersects pool capabilities', () =>
+  expect(rowCaps(models, auto(['a/think', 'a/plain']), 'a/think')).toEqual({ reasoning: false, temperature: true }));
+test('rowCaps unknown pool model is null', () =>
+  expect(rowCaps(models, auto(['a/think', 'a/gone']), 'a/think')).toBeNull());
+test('rowCaps fixed row uses effective model', () =>
+  expect(rowCaps(models, { effort: 'high', temperature: 0.7 }, 'a/plain')).toEqual({ reasoning: false, temperature: true }));
+test('autoConfigErrors', () => {
+  expect(autoConfigErrors(auto(['a/think', 'a/plain']).auto)).toEqual([]);
+  expect(autoConfigErrors(auto(['a/think']).auto)).toContain('Pick 2–5 models');
+  expect(autoConfigErrors(auto(['a/think', 'a/think']).auto)).toContain('Models must be different');
+  expect(autoConfigErrors(auto(['a/think', '']).auto)).toContain('Pick 2–5 models');
+  expect(autoConfigErrors({ ...auto(['a/think', 'a/plain']).auto!, fallback: '' })).toContain('Pick a fallback model');
+  expect(autoConfigErrors({ ...auto(['a/think', 'a/plain']).auto!, min_confidence: 2 })).toContain('Min confidence must be between 0 and 1');
 });
