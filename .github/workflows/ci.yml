@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   docker:
-    uses: christancho/github-workflows/.github/workflows/docker-ci.yml@v1.0.0
+    uses: christancho/github-workflows/.github/workflows/docker-ci.yml@v1.1.0
     with:
       images: >-
         [{"name":"api","context":".","dockerfile":"api/Dockerfile"},
