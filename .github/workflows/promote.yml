@@ -1,17 +1,15 @@
 name: promote
 
-# Promote a validated release candidate to stable WITHOUT rebuilding:
-# the RC's exact image digests get vX.Y.Z (+ latest), plus the stable GitHub release.
-# Refuses RCs without a prerelease (failed/unfinished), moved tags, unverified
-# provenance or an already-released version.
-# Run: Actions -> promote -> Run workflow (main), or
-#      gh workflow run promote.yml -f candidate=v1.0.0-rc.1
+# Button: Actions -> "promote" -> Run workflow.
+# Makes the release candidate you tested on stg the stable release: the same images get
+# vX.Y.Z + stable + latest (nothing rebuilt), plus a GitHub release. Leave the candidate
+# empty to promote exactly what stg runs now. Refuses RCs that didn't pass their checks.
 on:
   workflow_dispatch:
     inputs:
       candidate:
-        description: "RC to promote, e.g. v1.0.0-rc.1"
-        required: true
+        description: "Release candidate (empty = what stg runs now)"
+        required: false
         type: string
       dry-run:
         description: "Only run the checks"
@@ -25,7 +23,7 @@ permissions:
 
 jobs:
   promote:
-    uses: christancho/github-workflows/.github/workflows/docker-promote.yml@v1.3.0
+    uses: christancho/github-workflows/.github/workflows/docker-promote.yml@v1.4.0
     with:
       candidate: ${{ inputs.candidate }}
       dry-run: ${{ inputs.dry-run }}

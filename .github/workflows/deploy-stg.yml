@@ -1,0 +1,25 @@
+name: deploy stg
+
+# Button: Actions -> "deploy stg" -> Run workflow.
+# Points the image tag `stg` at a release; Chris's Portainer stack (blogforge-stg) follows
+# that tag and redeploys within ~2 minutes. Leave the version empty for the newest release
+# candidate; type an older version (e.g. v1.0.0) to roll back. Nothing is rebuilt.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version (empty = newest release candidate)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+  attestations: read
+
+jobs:
+  deploy:
+    uses: christancho/github-workflows/.github/workflows/docker-channel.yml@v1.4.0
+    with:
+      version: ${{ inputs.version }}
+      channel: stg

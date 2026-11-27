@@ -1,11 +1,18 @@
-name: release-candidate
+name: new release candidate
 
-# A vX.Y.Z-rc.N tag on main -> multi-arch images on GHCR
-# (ghcr.io/christancho/blogging-with-langchain/{api,web}:vX.Y.Z-rc.N), smoke-tested
-# on amd64 and arm64, scanned, then a GitHub prerelease with images.json.
-# Cut one with:  git tag v1.0.0-rc.1 origin/main && git push origin v1.0.0-rc.1
-# Runs on GitHub-hosted runners only.
+# Button: Actions -> "new release candidate" -> pick patch / minor / major -> Run workflow.
+# The next version is computed for you (v1.0.0 + patch -> v1.0.1-rc.1, or rc.2, rc.3... if
+# that line already has RCs), tagged on main, built for amd64 + arm64, smoke-tested on both,
+# scanned, and published as a GitHub prerelease. It does NOT deploy: use "deploy stg".
+# (Pushing a vX.Y.Z-rc.N tag by hand still works the same way.)
 on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Which part of the version goes up"
+        type: choice
+        options: [patch, minor, major]
+        default: patch
   push:
     tags: ["v*-rc.*"]
 
@@ -17,8 +24,9 @@ permissions:
 
 jobs:
   candidate:
-    uses: christancho/github-workflows/.github/workflows/docker-candidate.yml@v1.3.0
+    uses: christancho/github-workflows/.github/workflows/docker-candidate.yml@v1.4.0
     with:
       images: >-
         [{"name":"api","context":".","dockerfile":"api/Dockerfile"},
          {"name":"web","context":"web","dockerfile":"Dockerfile"}]
+      bump: ${{ inputs.bump }}
